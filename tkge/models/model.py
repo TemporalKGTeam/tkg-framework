@@ -11,7 +11,7 @@ from typing import Mapping, Dict
 from tkge.common.registry import Registrable
 from tkge.common.config import Config
 from tkge.common.error import ConfigurationError
-from tkge.dataset.dataset import Dataset
+from tkge.data.dataset import Dataset
 
 
 class BaseModel(nn.Module, Registrable):
@@ -258,7 +258,7 @@ class ATiSEModel(BaseModel):
 
         device = self.device
 
-        self.embedding: Dict[str, nn.Module] = defaultdict(dict)
+        self.embedding: Dict[str, nn.Module] = defaultdict(None)
 
         self.embedding.update({'emb_E': nn.Embedding(num_ent, self.emb_dim, padding_idx=0).to(device)})
         self.embedding.update({'emb_E_var': nn.Embedding(num_ent, self.emb_dim, padding_idx=0).to(device)})
@@ -298,7 +298,8 @@ class ATiSEModel(BaseModel):
         self.embedding['emb_TE'].weight.data.renorm_(p=2, dim=0, maxnorm=1)
         self.embedding['emb_TR'].weight.data.renorm_(p=2, dim=0, maxnorm=1)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
+        # TODO(gengyuan) type conversion when feeding the data instead of running the models
         h_i, t_i, r_i, d_i = x[:, 0].long(), x[:, 1].long(), x[:, 2].long(), x[:, 3]
 
         pi = 3.14159265358979323846
@@ -333,5 +334,79 @@ class ATiSEModel(BaseModel):
         return scores, None
 
 
+# reference: https://github.com/bsantraigi/TA_TransE/blob/master/model.py
+@BaseModel.register(name="ta_transe")
+class TATransEModel(BaseModel):
+    def __init__(self, config: Config, dataset: Dataset, device: str = 'cpu'):
+        super().__init__(config, dataset, device)
+
+        self.emb_dim = self.config.get("model.embedding_dim")
+        self.l1_flag = self.config.get("model.l1_flag")
+
+    def prepare_embedding(self):
+        num_ent = self.dataset.num_entities()
+        num_rel = self.dataset.num_relations()
+        num_tem = self.dataset.num_timestamps()
+
+        self.embedding: Dict[str, torch.nn.Embedding] = defaultdict(None)
+        self.embedding['ent'] = torch.nn.Embedding(num_ent, self.emb_dim)
+        self.embedding['rel'] = torch.nn.Embedding(num_rel, self.emb_dim)
+        self.embedding['tem'] = torch.nn.Embedding(num_tem, self.emb_dim)
+
+        for _, emb in self.embedding.items():
+            torch.nn.init.xavier_uniform_(emb)
+            emb.weight.data.renorm(p=2, dim=1)
+
+    def forward(self, x: torch.Tensor):
+        h, r, t, t = x[:, 0].long(), x[:, 1].long(), x[:, 2].long(), x[:, 3].long()
+
+        h_e = self.embedding['ent'][h]
+        t_e = self.embedding['ent'][t]
+        r_e = self.embedding['rel'][h]
+        tem_e = self.embedding['tem'][h]
+
+        if self.f1_flag:
+            scores = torch.sum(torch.abs(h_e + r_e + tem_e - t_e), 1)
+        else:
+            scores = torch.sum((h_e + r_e + tem_e - t_e) ** 2, 1)
+
+        return scores, None
 
 
+# reference: https://github.com/bsantraigi/TA_TransE/blob/master/model.py
+@BaseModel.register(name="ta_transe")
+class TATransEModel(BaseModel):
+    def __init__(self, config: Config, dataset: Dataset, device: str = 'cpu'):
+        super().__init__(config, dataset, device)
+
+        self.emb_dim = self.config.get("model.embedding_dim")
+        self.l1_flag = self.config.get("model.l1_flag")
+
+    def prepare_embedding(self):
+        num_ent = self.dataset.num_entities()
+        num_rel = self.dataset.num_relations()
+        num_tem = self.dataset.num_timestamps()
+
+        self.embedding: Dict[str, torch.nn.Embedding] = defaultdict(None)
+        self.embedding['ent'] = torch.nn.Embedding(num_ent, self.emb_dim)
+        self.embedding['rel'] = torch.nn.Embedding(num_rel, self.emb_dim)
+        self.embedding['tem'] = torch.nn.Embedding(num_tem, self.emb_dim)
+
+        for _, emb in self.embedding.items():
+            torch.nn.init.xavier_uniform_(emb)
+            emb.weight.data.renorm(p=2, dim=1)
+
+    def forward(self, x: torch.Tensor):
+        h, r, t, t = x[:, 0].long(), x[:, 1].long(), x[:, 2].long(), x[:, 3].long()
+
+        h_e = self.embedding['ent'][h]
+        t_e = self.embedding['ent'][t]
+        r_e = self.embedding['rel'][h]
+        tem_e = self.embedding['tem'][h]
+
+        if self.f1_flag:
+            scores = torch.sum(torch.abs(h_e + r_e + tem_e - t_e), 1)
+        else:
+            scores = torch.sum((h_e + r_e + tem_e - t_e) ** 2, 1)
+
+        return scores, None

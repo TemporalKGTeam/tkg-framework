@@ -5,7 +5,7 @@ from tkge.common.configurable import Configurable
 from tkge.common.registry import Registrable
 from tkge.common.config import Config
 from tkge.common.error import ConfigurationError
-from tkge.dataset.dataset import Dataset
+from tkge.data.dataset import Dataset
 from tkge.indexing import where_in
 
 import torch
@@ -130,7 +130,7 @@ class DepNegativeSampler(Registrable):
             self.filter_positives[slot] = self.get_option(f"filtering.{slot_str}")
             self.vocabulary_size[slot] = (
                 dataset.num_relations() if slot == P else dataset.num_timestamps() if slot == T else dataset.num_entities()
-                # TODO edit tkge dataset
+                # TODO edit tkge data
             )
             # create indices for filtering here already if needed and not existing
             # otherwise every worker would create every index again and again

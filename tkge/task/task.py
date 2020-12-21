@@ -2,7 +2,7 @@ from typing import Optional
 
 from tkge.common.configurable import Configurable
 from tkge.common.config import Config
-from tkge.dataset.dataset import Dataset
+from tkge.data.dataset import Dataset
 
 class Task:
     @staticmethod

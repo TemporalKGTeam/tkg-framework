@@ -73,18 +73,18 @@ dataset:
   # relation_ids file (see below).
   num_relations: -1
 
-    # A list of files associated with this data, each associated with a key.
-    # Each entry must contain at least the filename and the type fields.
+  # A list of files associated with this data, each associated with a key.
+  # Each entry must contain at least the filename and the type fields.
 
 
     # Files that store human-readble string representations of each
     # entity/relation. These files are optional.
     #
     # Type can be map (field 0 is internal index) or idmap (field 0 is external
-  # id).
+    # id).
 
 
-  # Additional files can be added as needed
+    # Additional files can be added as needed
   +++: +++
 
   # Whether to store processed data files and indexes as binary files in the
@@ -103,11 +103,10 @@ dataset:
 # "transe", or "conve". For available models, see the project homepage and/or
 # configuration files under kge/model.
 model:
-  name: 'atise'
+  name: 'tatranse'
   embedding_dim: 128
-  gamma: ~
-  cmin: ~
-  cmax: ~
+  l1_flag: True
+  args: ~
 
 
 negative_sampling:
@@ -209,16 +208,13 @@ train:
         +++: +++
 
   regularizer:
-    name: ["reg1", "reg2"]
-    reg1:
-      type: "inplace_renorm_reg"
-      p: 2
-      dim: 0
-      maxnorm: 1
-    reg2:
-      type: "inplace_clamp_reg"
-      min: ~
-      max: ~
+    name: ["lambda3_regularize", "n3_regularize"]
+    lambda3_regularize:
+      type: "lambda3_regularize"
+      weight: ~
+    n3_regularize:
+      type: "n3_regularize"
+      weight: ~
 
     args: ~
 

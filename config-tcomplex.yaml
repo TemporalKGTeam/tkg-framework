@@ -60,8 +60,8 @@ dataset:
 
 
 
-  # Specify a dataset here. There must be a folder of that name under "data/".
-  # If this folder contains a dataset.yaml file, it overrides the defaults
+  # Specify a data here. There must be a folder of that name under "data/".
+  # If this folder contains a data.yaml file, it overrides the defaults
   # specified below.
   name: 'icews14'
 
@@ -73,7 +73,7 @@ dataset:
   # relation_ids file (see below).
   num_relations: -1
 
-  # A list of files associated with this dataset, each associated with a key.
+  # A list of files associated with this data, each associated with a key.
   # Each entry must contain at least the filename and the type fields.
 
 
@@ -87,14 +87,14 @@ dataset:
     # Additional files can be added as needed
   +++: +++
 
-  # Whether to store processed dataset files and indexes as binary files in the
-  # dataset directory. This enables faster loading at the cost of storage space.
+  # Whether to store processed data files and indexes as binary files in the
+  # data directory. This enables faster loading at the cost of storage space.
   # LibKGE will ensure that pickled files are only used when not outdated. Note
-  # that the value specified here may be overwritten by dataset-specific choices
-  # (in dataset.yaml).
+  # that the value specified here may be overwritten by data-specific choices
+  # (in data.yaml).
   pickle: True
 
-  # Additional dataset specific keys can be added as needed
+  # Additional data specific keys can be added as needed
 
 
 ## MODEL #######################################################################
@@ -121,7 +121,7 @@ negative_sampling:
 
 # Options of training jobs (job.type=="train")
 train:
-  # Split used for training (specified under 'dataset.files').
+  # Split used for training (specified under 'data.files').
   split: train
 
   # Type of training job.
@@ -377,7 +377,7 @@ KvsAll:
 # validation when training (unless overridden, see below). Right now, evaluation
 # jobs compute a fixed set of metrics: MRR, HITS@k.
 eval:
-  # Split used for evaluation (specified under 'dataset.files').
+  # Split used for evaluation (specified under 'data.files').
   split: valid
 
   # Type of evaluation (entity_ranking, training_loss)

@@ -3,7 +3,7 @@ import torch
 import time
 import os
 
-from tkge.dataset.dataset import Dataset
+from tkge.data.dataset import Dataset
 from tkge.train.sampling import NegativeSampler
 from tkge.task.task import Task
 from tkge.common.config import Config
@@ -17,7 +17,7 @@ class TrainTask(Task):
 
         self.config = config
 
-        self.dataset = self.config.get("dataset.name")
+        self.dataset = self.config.get("data.name")
         # self.train_loader = None
         # self.valid_loader = None
         # self.test_loader = None
@@ -37,10 +37,10 @@ class TrainTask(Task):
         # TODO optimizer should be added into modules
 
     def _prepare(self):
-        self.config.log(f"Preparing datasets {self.dataset} in folder {self.config.get('dataset.folder')}...")
+        self.config.log(f"Preparing datasets {self.dataset} in folder {self.config.get('data.folder')}...")
         self.dataset = Dataset.create(config=self.config)
 
-        self.config.log(f"Loading training split dataset for loading")
+        self.config.log(f"Loading training split data for loading")
         self.train_loader = torch.utils.data.DataLoader(
             self.dataset.get_train(),
             shuffle=True,
@@ -50,7 +50,7 @@ class TrainTask(Task):
         )
 
         # self.valid_loader = torch.utils.data.DataLoader(
-        #     self.dataset.get_valid(),
+        #     self.data.get_valid(),
         #     shuffle=False,
         #     batch_size=self.batch_size,
         #     num_workers=self.config.get()
@@ -107,7 +107,7 @@ class TrainTask(Task):
 
     def save_ckpt(self, epoch):
         model = self.config.get("model.name")
-        dataset = self.config.get("dataset.name")
+        dataset = self.config.get("data.name")
         folder = self.config.get("train.checkpoint.folder")
         filename = f"epoch:{epoch}_model:{model}_dataset:{dataset}.ckpt"
 

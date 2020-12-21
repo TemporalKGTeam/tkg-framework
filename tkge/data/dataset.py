@@ -16,6 +16,282 @@ from tkge.common.error import ConfigurationError
 from tkge.indexing import create_default_index_functions  # TODO
 from tkge.common.misc import tkge_base_dir
 
+import enum
+
+SPOT = enum.Enum('spot', ('s', 'p', 'o', 't'))
+
+
+class DatasetProcessor(Registrable):
+    def __init__(self, config: Config):
+        super().__init__(config)
+
+        self.folder = self.config.get("data.folder")
+        # self.filter_method = self.config.get("data.filter")
+
+        self.train_raw = None
+        self.valid_raw = None
+        self.test_raw = None
+
+        self.ent2id = defaultdict(None)
+        self.rel2id = defaultdict(None)
+        self.ts2id = defaultdict(None)
+
+        self.train_set = defaultdict(list)
+        self.valid_set = defaultdict(list)
+        self.test_set = defaultdict(list)
+
+        self.all_triples = None
+        self.all_quadruples = None
+
+        self.load()
+        self.process()
+        self.filter()
+
+    @staticmethod
+    def create(config: Config):
+        """Factory method for data creation"""
+
+        ds_type = config.get("data.name")
+
+        if ds_type in Dataset.list_available():
+            kwargs = config.get("data.args")  # TODO: 需要改成key的格式
+            return Dataset.by_name(ds_type)(config)
+        else:
+            raise ConfigurationError(
+                f"{ds_type} specified in configuration file is not supported"
+                f"implement your data class with `DatasetProcessor.register(name)"
+            )
+
+    def process(self):
+        raise NotImplementedError
+
+    def index_entities(self, ent):
+        if ent not in self.ent2id:
+            self.ent2id.update({ent: self.num_entities()})
+
+        return self.ent2id[ent]
+
+    def index_relations(self, rel):
+        if rel not in self.rel2id:
+            self.rel2id.update({rel: self.num_relations()})
+
+        return self.rel2id[rel]
+
+    def index_timestamps(self, ts):
+        if ts not in self.ts2id:
+            self.ts2id.update({ts: self.num_timestamps()})
+
+        return self.ts2id[ts]
+
+    def load(self):
+        train_file = self.folder + "/train.txt"
+        valid_file = self.folder + "/valid.txt"
+        test_file = self.folder + "/test.txt"
+
+        with open(train_file, "r") as f:
+            self.train_raw = f.readlines()
+
+        with open(valid_file, "r") as f:
+            self.valid_raw = f.readlines()
+
+        with open(test_file, "r") as f:
+            self.test_raw = f.readlines()
+
+    def process_time(self, origin: str):
+        raise NotImplementedError
+
+    def get(self, data: Tuple[str], split: str = "train"):
+        # TODO(gengyuan)
+        return {"train": self.train_set, "valid": self.valid_set, "test": self.test_set}[split][data]
+
+    def num_entities(self):
+        return len(self.ent2id)
+
+    def num_relations(self):
+        return len(self.rel2id)
+
+    def num_timestamps(self):
+        return len(self.ts2id)
+
+    def filter(self, type="static", target="o") -> Dict[str, List]:
+        assert type in ["static",
+                        "time-aware"], f"{type} filtering is not implemented; use static or time-aware filtering."
+        assert target in ["s", "p", "o"], "Only support s(ubject)/p(redicate)/o(bject) prediction task"
+
+        filtered_data = defaultdict(list)
+
+        all_tuples = self.all_triples if type == "static" else self.all_quadruples
+
+        for tup in all_tuples:
+            query = tup.copy()
+
+            missing = query[SPOT[target].value]
+            query[SPOT[target].value] = None
+            query_k = str(query)
+
+            filtered_data[query_k].append(missing)
+
+        return filtered_data
+
+
+@DatasetProcessor.register(name="gdelt")
+class GDELTDataset(DatasetProcessor):
+    def process(self):
+        for rd in self.train_raw:
+            head, rel, tail, ts = rd.strip().split('\t')
+            head = int(head)
+            rel = int(rel)
+            tail = int(tail)
+            ts = self.process_time(ts)
+
+            self.train_set['triple'].append([head, rel, tail])
+            self.train_set['timestamp_id'].append([self.index_timestamps(ts)])
+            self.train_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+
+        for rd in self.train_raw:
+            head, rel, tail, ts = rd.strip().split('\t')
+            head = int(head)
+            rel = int(rel)
+            tail = int(tail)
+            ts = self.process_time(ts)
+
+            self.valid_set['triple'].append([head, rel, tail])
+            self.valid_set['timestamp_id'].append([self.index_timestamps(ts)])
+            self.valid_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+
+        for rd in self.train_raw:
+            head, rel, tail, ts = rd.strip().split('\t')
+            head = int(head)
+            rel = int(rel)
+            tail = int(tail)
+            ts = self.process_time(ts)
+
+            self.test_set['triple'].append([head, rel, tail])
+            self.test_set['timestamp_id'].append([self.index_timestamps(ts)])
+            self.test_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+
+    def process_time(self, origin: str, granularity: str = 'day'):
+        level = ['year', 'month', 'day', 'hour', 'minute', 'second']
+        assert granularity in level, f"Time granularity should be {level}"
+
+        ts = origin.split('-') + ['00', '00', '00']
+        ts = ts[:level.index(granularity) + 1]
+        ts = '-'.join(ts)
+
+        return ts
+
+
+@DatasetProcessor.register(name="icews14")
+class ICEWS14Dataset(DatasetProcessor):
+    def process(self):
+        for rd in self.train_raw:
+            head, rel, tail, ts = rd.strip().split('\t')
+            head = self.index_entities(head)
+            rel = self.index_relations(rel)
+            tail = self.index_entities(tail)
+            ts = self.process_time(ts)
+
+            self.train_set['triple'].append([head, rel, tail])
+            self.train_set['timestamp_id'].append([self.index_timestamps(ts)])
+            self.train_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+
+        for rd in self.train_raw:
+            head, rel, tail, ts = rd.strip().split('\t')
+            head = self.index_entities(head)
+            rel = self.index_relations(rel)
+            tail = self.index_entities(tail)
+            ts = self.process_time(ts)
+
+            self.valid_set['triple'].append([head, rel, tail])
+            self.valid_set['timestamp_id'].append([self.index_timestamps(ts)])
+            self.valid_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+
+        for rd in self.train_raw:
+            head, rel, tail, ts = rd.strip().split('\t')
+            head = self.index_entities(head)
+            rel = self.index_relations(rel)
+            tail = self.index_entities(tail)
+            ts = self.process_time(ts)
+
+            self.test_set['triple'].append([head, rel, tail])
+            self.test_set['timestamp_id'].append([self.index_timestamps(ts)])
+            self.test_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+
+    def process_time(self, origin: str, granularity: str = 'day'):
+        level = ['year', 'month', 'day', 'hour', 'minute', 'second']
+        assert granularity in level, f"Time granularity should be {level}"
+
+        ts = origin.split('-') + ['00', '00', '00']
+        ts = ts[:level.index(granularity) + 1]
+        ts = '-'.join(ts)
+
+        return ts
+
+
+@DatasetProcessor.register(name="icews05-15")
+class ICEWS0515Dataset(DatasetProcessor):
+    def process(self):
+        for rd in self.train_raw:
+            head, rel, tail, ts = rd.strip().split('\t')
+            head = self.index_entities(head)
+            rel = self.index_relations(rel)
+            tail = self.index_entities(tail)
+            ts = self.process_time(ts)
+
+            self.train_set['triple'].append([head, rel, tail])
+            self.train_set['timestamp_id'].append([self.index_timestamps(ts)])
+            self.train_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+
+        for rd in self.train_raw:
+            head, rel, tail, ts = rd.strip().split('\t')
+            head = self.index_entities(head)
+            rel = self.index_relations(rel)
+            tail = self.index_entities(tail)
+            ts = self.process_time(ts)
+
+            self.valid_set['triple'].append([head, rel, tail])
+            self.valid_set['timestamp_id'].append([self.index_timestamps(ts)])
+            self.valid_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+
+        for rd in self.train_raw:
+            head, rel, tail, ts = rd.strip().split('\t')
+            head = self.index_entities(head)
+            rel = self.index_relations(rel)
+            tail = self.index_entities(tail)
+            ts = self.process_time(ts)
+
+            self.test_set['triple'].append([head, rel, tail])
+            self.test_set['timestamp_id'].append([self.index_timestamps(ts)])
+            self.test_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+
+    def process_time(self, origin: str, granularity: str = 'day'):
+        level = ['year', 'month', 'day', 'hour', 'minute', 'second']
+        assert granularity in level, f"Time granularity should be {level}"
+
+        ts = origin.split('-') + ['00', '00', '00']
+        ts = ts[:level.index(granularity) + 1]
+        ts = '-'.join(ts)
+
+        return ts
+
+
+@DatasetProcessor.register(name="wiki")
+class WIKIDataset(DatasetProcessor):
+    def process(self):
+        pass
+
+    def process_time(self, origin: str):
+        pass
+
+
+@DatasetProcessor.register(name="yago")
+class YAGODataset(DatasetProcessor):
+    def process(self):
+        pass
+
+    def process_time(self, origin: str):
+        pass
+
 
 class Dataset(Registrable):
     def __init__(self, config: Config, require_tsid: bool = True):
@@ -23,7 +299,7 @@ class Dataset(Registrable):
 
         self.require_tsid = require_tsid  # TODO 需要吗
 
-        self.folder = config.get("dataset.folder")
+        self.folder = config.get("data.folder")
 
         self.ent2id = defaultdict(dict)
         self.rel2id = defaultdict(dict)
@@ -41,22 +317,22 @@ class Dataset(Registrable):
 
     @staticmethod
     def create(config: Config):
-        """Factory method for dataset creation"""
+        """Factory method for data creation"""
 
-        ds_type = config.get("dataset.name")
+        ds_type = config.get("data.name")
 
         if ds_type in Dataset.list_available():
-            kwargs = config.get("dataset.args")  # TODO: 需要改成key的格式
+            kwargs = config.get("data.args")  # TODO: 需要改成key的格式
             return Dataset.by_name(ds_type)(config)
         else:
             raise ConfigurationError(
                 f"{ds_type} specified in configuration file is not supported"
-                f"implement your dataset class with `Dataset.register(name)"
+                f"implement your data class with `Dataset.register(name)"
             )
 
     def _prepare_dataset(self, config: Config):
 
-        if_mapping = config.get("dataset.mapping")
+        if_mapping = config.get("data.mapping")
 
         # TODO do mapping
         # if if_mapping:
@@ -212,26 +488,26 @@ class SplitDataset(PTDataset):
 
 # class Dataset(Configurable):
 #     def __init__(self, config: Config, folder: str):
-#         super().__init__(self, config, configuration_key="dataset")
+#         super().__init__(self, config, configuration_key="data")
 #
 #         self.folder = folder
 #
 #         try:
-#             self._num_entities: int = config.get("dataset.num_entities")
+#             self._num_entities: int = config.get("data.num_entities")
 #             if self._num_entities < 0:
 #                 self._num_entities = None
 #         except ConfigurationError:
 #             self._num_entities: int = None
 #
 #         try:
-#             self._num_relations: int = config.get("dataset.num_relations")
+#             self._num_relations: int = config.get("data.num_relations")
 #             if self._num_relations < 0:
 #                 self._num_relations = None
 #         except ConfigurationError:
 #             self._num_relations: int = None
 #
 #         try:
-#             self._num_timestamps: int = config.get("dataset.num_timestamps")
+#             self._num_timestamps: int = config.get("data.num_timestamps")
 #             if self._num_timestamps < 0:
 #                 self._num_timestamps = None
 #         except ConfigurationError:
@@ -241,13 +517,13 @@ class SplitDataset(PTDataset):
 #         self._triples: Dict[str, Tensor] = {}
 #         # self._quadruples: Dict[str, Tensor] = {}
 #
-#         #: meta data that is part if this dataset. Indexed by key.
+#         #: meta data that is part if this data. Indexed by key.
 #         self._meta: Dict[str, Any] = {}
 #
 #         #: data derived automatically from the splits or meta data. Indexed by key.
 #         self._indexes: Dict[str, Any] = {}
 #
-#         #: functions that compute and add indexes as needed; arguments are dataset and
+#         #: functions that compute and add indexes as needed; arguments are data and
 #         # key. : Indexed by key (same key as in self._indexes)
 #         self.index_functions: Dict[str, Callable] = {}
 #         create_default_index_functions(self)
@@ -255,26 +531,26 @@ class SplitDataset(PTDataset):
 #     # Load
 #     @staticmethod
 #     def load(config: Config, preload_data=True):
-#         """Loads a dataset.
+#         """Loads a data.
 #
 #         If preload_data is set, loads entity and relation maps as well as all splits.
 #         Otherwise, this data is lazy loaded on first use.
 #
 #         """
-#         name = config.get("dataset.name")
+#         name = config.get("data.name")
 #         folder = os.path.join(tkge_base_dir(), "data", name)
-#         if os.path.isfile(os.path.join(folder, "dataset.yaml")):
-#             config.log("Loading configuration of dataset " + name + "...")
-#             config.load(os.path.join(folder, "dataset.yaml"))
+#         if os.path.isfile(os.path.join(folder, "data.yaml")):
+#             config.log("Loading configuration of data " + name + "...")
+#             config.load(os.path.join(folder, "data.yaml"))
 #
-#         dataset = Dataset(config, folder)
+#         data = Dataset(config, folder)
 #         if preload_data:
-#             dataset.entity_ids()
-#             dataset.relation_ids()
-#             dataset.timestamp_ids()
+#             data.entity_ids()
+#             data.relation_ids()
+#             data.timestamp_ids()
 #             for split in ["train", "valid", "test"]:
-#                 dataset.split(split)
-#         return dataset
+#                 data.split(split)
+#         return data
 #
 #     @staticmethod
 #     def _load_triples(filename: str, delimiter="\t") -> Tensor:
@@ -289,8 +565,8 @@ class SplitDataset(PTDataset):
 #     def get(self, key: str) -> Tensor:
 #         "Load or return the triples or quadruples with the specified key."
 #         if key not in self._triples:
-#             filename = self.config.get(f"dataset.files.{key}.filename")
-#             filetype = self.config.get(f"dataset.files.{key}.type")
+#             filename = self.config.get(f"data.files.{key}.filename")
+#             filetype = self.config.get(f"data.files.{key}.type")
 #             if filetype == "triples":
 #                 triples = Dataset._load_triples(os.path.join(self.folder, filename))
 #
@@ -299,7 +575,7 @@ class SplitDataset(PTDataset):
 #             else:
 #                 raise ValueError(
 #                     "Unexpected file type: "
-#                     f"dataset.files.{key}.type='{filetype}', expected 'triples'"
+#                     f"data.files.{key}.type='{filetype}', expected 'triples'"
 #                 )
 #             self.config.log(f"Loaded {len(triples)} {key} triples")
 #             self._triples[key] = triples
@@ -362,8 +638,8 @@ class SplitDataset(PTDataset):
 #
 #         """
 #         if key not in self._meta:
-#             filename = self.config.get(f"dataset.files.{key}.filename")
-#             filetype = self.config.get(f"dataset.files.{key}.type")
+#             filename = self.config.get(f"data.files.{key}.filename")
+#             filetype = self.config.get(f"data.files.{key}.type")
 #             if (maptype and filetype != maptype) or (
 #                     not maptype and filetype not in ["map", "idmap"]
 #             ):
@@ -371,7 +647,7 @@ class SplitDataset(PTDataset):
 #                     maptype = "map' or 'idmap"
 #                 raise ConfigurationError(
 #                     "Unexpected file type: "
-#                     f"dataset.files.{key}.type='{filetype}', expected {maptype}"
+#                     f"data.files.{key}.type='{filetype}', expected {maptype}"
 #                 )
 #             if filetype == "idmap" and as_list and ids_key:
 #                 map_, duplicates = Dataset._load_map(
@@ -405,9 +681,9 @@ class SplitDataset(PTDataset):
 #         return self._meta[key]
 #
 #     def shallow_copy(self):
-#         """Returns a dataset that shares the underlying splits and indexes.
+#         """Returns a data that shares the underlying splits and indexes.
 #
-#         Changes to splits and indexes are also reflected on this and the copied dataset.
+#         Changes to splits and indexes are also reflected on this and the copied data.
 #         """
 #         copy = Dataset(self.config, self.folder)
 #         copy._num_entities = self.num_entities()
@@ -528,7 +804,7 @@ class SplitDataset(PTDataset):
 #     def index(self, key: str) -> Any:
 #         """Return the index stored under the specified key.
 #
-#         Index means any data structure that is derived from the dataset, including
+#         Index means any data structure that is derived from the data, including
 #         statistics and indexes.
 #
 #         If the index has not yet been computed, computes it by calling the function
@@ -559,7 +835,7 @@ class SplitDataset(PTDataset):
 #             self, indexes: Optional[Union[int, Tensor]], key: str) -> Union[Any, List[Any], np.ndarray]:
 #         """Maps indexes to values using the specified map.
 #
-#         `key` refers to the key of a map file of the dataset, which associates a value
+#         `key` refers to the key of a map file of the data, which associates a value
 #         with each numerical index. The map file is loaded automatically.
 #
 #         If `indexes` is `None`, return all values. If `indexes` is an integer, return

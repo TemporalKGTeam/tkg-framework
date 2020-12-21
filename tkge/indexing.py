@@ -104,7 +104,7 @@ def index_KvsAll(dataset: "Dataset", split: str, key: str):
 
     The index maps from `tuple' to `torch.LongTensor`.
 
-    The index is cached in the provided dataset under name `{split}_sp_to_o` or
+    The index is cached in the provided data under name `{split}_sp_to_o` or
     `{split}_po_to_s`, or `{split}_so_to_p`. If this index is already present, does not
     recompute it.
 
