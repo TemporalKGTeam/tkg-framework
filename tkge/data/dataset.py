@@ -4,17 +4,12 @@ from torch import Tensor
 from torch.utils.data.dataset import Dataset as PTDataset
 import numpy as np
 
-from typing import Type, Optional, Any, Dict, Callable, Union, List, Tuple
-import os
+from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 
-from tkge.common.configurable import Configurable
 from tkge.common.registry import Registrable
 from tkge.common.config import Config
 from tkge.common.error import ConfigurationError
-
-from tkge.indexing import create_default_index_functions  # TODO
-from tkge.common.misc import tkge_base_dir
 
 import enum
 
@@ -25,7 +20,10 @@ class DatasetProcessor(Registrable):
     def __init__(self, config: Config):
         super().__init__(config)
 
-        self.folder = self.config.get("data.folder")
+        self.folder = self.config.get("dataset.folder")
+        self.level = self.config.get("dataset.temporal.level")
+        self.index = self.config.get("dataset.temporal.index")
+        self.float = self.config.get("dataset.temporal.float")
         # self.filter_method = self.config.get("data.filter")
 
         self.train_raw = None
@@ -53,9 +51,9 @@ class DatasetProcessor(Registrable):
 
         ds_type = config.get("data.name")
 
-        if ds_type in Dataset.list_available():
+        if ds_type in DatasetProcessor.list_available():
             kwargs = config.get("data.args")  # TODO: 需要改成key的格式
-            return Dataset.by_name(ds_type)(config)
+            return DatasetProcessor.by_name(ds_type)(config)
         else:
             raise ConfigurationError(
                 f"{ds_type} specified in configuration file is not supported"
@@ -100,9 +98,9 @@ class DatasetProcessor(Registrable):
     def process_time(self, origin: str):
         raise NotImplementedError
 
-    def get(self, data: Tuple[str], split: str = "train"):
+    def get(self, split: str = "train"):
         # TODO(gengyuan)
-        return {"train": self.train_set, "valid": self.valid_set, "test": self.test_set}[split][data]
+        return {"train": self.train_set, "valid": self.valid_set, "test": self.test_set}[split]
 
     def num_entities(self):
         return len(self.ent2id)
@@ -135,7 +133,7 @@ class DatasetProcessor(Registrable):
 
 
 @DatasetProcessor.register(name="gdelt")
-class GDELTDataset(DatasetProcessor):
+class GDELTDatasetProcessor(DatasetProcessor):
     def process(self):
         for rd in self.train_raw:
             head, rel, tail, ts = rd.strip().split('\t')
@@ -182,7 +180,7 @@ class GDELTDataset(DatasetProcessor):
 
 
 @DatasetProcessor.register(name="icews14")
-class ICEWS14Dataset(DatasetProcessor):
+class ICEWS14DatasetProcessor(DatasetProcessor):
     def process(self):
         for rd in self.train_raw:
             head, rel, tail, ts = rd.strip().split('\t')
@@ -217,19 +215,19 @@ class ICEWS14Dataset(DatasetProcessor):
             self.test_set['timestamp_id'].append([self.index_timestamps(ts)])
             self.test_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
 
-    def process_time(self, origin: str, granularity: str = 'day'):
+    def process_time(self, origin: str):
         level = ['year', 'month', 'day', 'hour', 'minute', 'second']
-        assert granularity in level, f"Time granularity should be {level}"
+        assert self.level in level, f"Time granularity should be {level}"
 
         ts = origin.split('-') + ['00', '00', '00']
-        ts = ts[:level.index(granularity) + 1]
+        ts = ts[:level.index(self.level) + 1]
         ts = '-'.join(ts)
 
         return ts
 
 
 @DatasetProcessor.register(name="icews05-15")
-class ICEWS0515Dataset(DatasetProcessor):
+class ICEWS0515DatasetProcessor(DatasetProcessor):
     def process(self):
         for rd in self.train_raw:
             head, rel, tail, ts = rd.strip().split('\t')
@@ -264,19 +262,19 @@ class ICEWS0515Dataset(DatasetProcessor):
             self.test_set['timestamp_id'].append([self.index_timestamps(ts)])
             self.test_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
 
-    def process_time(self, origin: str, granularity: str = 'day'):
+    def process_time(self, origin: str):
         level = ['year', 'month', 'day', 'hour', 'minute', 'second']
-        assert granularity in level, f"Time granularity should be {level}"
+        assert self.level in level, f"Time granularity should be {level}"
 
         ts = origin.split('-') + ['00', '00', '00']
-        ts = ts[:level.index(granularity) + 1]
+        ts = ts[:level.index(self.level) + 1]
         ts = '-'.join(ts)
 
         return ts
 
 
 @DatasetProcessor.register(name="wiki")
-class WIKIDataset(DatasetProcessor):
+class WIKIDatasetProcessor(DatasetProcessor):
     def process(self):
         pass
 
@@ -285,7 +283,7 @@ class WIKIDataset(DatasetProcessor):
 
 
 @DatasetProcessor.register(name="yago")
-class YAGODataset(DatasetProcessor):
+class YAGODatasetProcessor(DatasetProcessor):
     def process(self):
         pass
 
@@ -293,196 +291,208 @@ class YAGODataset(DatasetProcessor):
         pass
 
 
-class Dataset(Registrable):
-    def __init__(self, config: Config, require_tsid: bool = True):
-        super().__init__(config)
-
-        self.require_tsid = require_tsid  # TODO 需要吗
-
-        self.folder = config.get("data.folder")
-
-        self.ent2id = defaultdict(dict)
-        self.rel2id = defaultdict(dict)
-        self.ts2id = defaultdict(dict)
-
-        self.train_quadruples = []
-        self.valid_quadruples = []
-        self.test_quadruples = []
-
-        self.train_timestamps = []
-        self.valid_timestamps = []
-        self.test_timestamps = []
-
-        self._prepare_dataset(config)
-
-    @staticmethod
-    def create(config: Config):
-        """Factory method for data creation"""
-
-        ds_type = config.get("data.name")
-
-        if ds_type in Dataset.list_available():
-            kwargs = config.get("data.args")  # TODO: 需要改成key的格式
-            return Dataset.by_name(ds_type)(config)
-        else:
-            raise ConfigurationError(
-                f"{ds_type} specified in configuration file is not supported"
-                f"implement your data class with `Dataset.register(name)"
-            )
-
-    def _prepare_dataset(self, config: Config):
-
-        if_mapping = config.get("data.mapping")
-
-        # TODO do mapping
-        # if if_mapping:
-        #     raise NotImplementedError
-        #     # self._load_map()
-        # else:
-        #     self._create_map()
-
-        self._load_data()
-
-    def _load_data(self):
-        train_file = self.folder + "/train.txt"
-        valid_file = self.folder + "/valid.txt"
-        test_file = self.folder + "/test.txt"
-
-        with open(train_file, "r") as f:
-            train_data = f.readlines()
-
-        with open(valid_file, "r") as f:
-            valid_data = f.readlines()
-
-        with open(test_file, "r") as f:
-            test_data = f.readlines()
-
-        train_id_tuple = []
-        valid_id_tuple = []
-        test_id_tuple = []
-
-        train_str_ts = []
-        valid_str_ts = []
-        test_str_ts = []
-
-        for data in train_data:
-            h, r, t, ts = data.strip().split("\t")
-
-            ts = self.process_timestamp(ts)
-            y, m, d = list(map(lambda x: int(x), ts.split('-')))
-
-            quatruple = [self.index_entities(h), self.index_relations(r), self.index_entities(t)]
-
-            # self.index_timestamps(ts)]
-
-            train_id_tuple.append(quatruple)
-            train_str_ts.append([y, m, d])
-
-        for data in valid_data:
-            h, r, t, ts = data.strip().split("\t")
-
-            quatruple = [self.index_entities(h), self.index_relations(r), self.index_entities(t)]
-
-            # self.index_timestamps(ts)]
-
-            valid_id_tuple.append(quatruple)
-            valid_str_ts.append([y, m, d])
-
-        for data in test_data:
-            h, r, t, ts = data.strip().split("\t")
-
-            quatruple = [self.index_entities(h), self.index_relations(r), self.index_entities(t)]
-
-            # self.index_timestamps(ts)]
-
-            test_id_tuple.append(quatruple)
-            test_str_ts.append([y, m, d])
-
-        self.train_quadruples = train_id_tuple
-        self.valid_quadruples = valid_id_tuple
-        self.test_quadruples = test_id_tuple
-
-        self.train_timestamps = train_str_ts
-        self.valid_timestamps = valid_str_ts
-        self.test_timestamps = test_str_ts
-
-    def _get_train(self):
-        return np.array(self.train_quadruples), np.array(self.train_timestamps)
-
-    def get_train(self):
-        return SplitDataset(self._get_train())
-
-    def _get_valid(self):
-        return np.array(self.valid_quadruples), np.array(self.valid_timestamps)
-
-    def get_valid(self):
-        return SplitDataset(self._get_valid())
-
-    def _get_test(self):
-        return np.array(self.test_quadruples), np.array(self.test_timestamps)
-
-    def get_test(self):
-        return SplitDataset(self._get_test())
-
-    def process_timestamp(self, ts, granularity: str = "yyyy-mm-dd"):
-        form_list = ["yyyy-mm-dd", "yyyy-mm", "yyyy", "yyyy-span"]
-
-        if granularity not in form_list:
-            raise ConfigurationError(f"timestamp granularity should be in form {form_list}")
-
-        # TODO re
-
-        return ts
-
-    def index_entities(self, ent):
-        if ent not in self.ent2id:
-            self.ent2id.update({ent: self.num_entities()})
-
-        return self.ent2id[ent]
-
-    def index_relations(self, rel):
-        if rel not in self.rel2id:
-            self.rel2id.update({rel: self.num_relations()})
-
-        return self.rel2id[rel]
-
-    def index_timestamps(self, ts):
-        if ts not in self.ts2id:
-            self.ts2id.update({ts: self.num_timestamps()})
-
-        return self.ts2id[ts]
-
-    def _load_map(self):
-        raise NotImplementedError
-
-    def num_entities(self):
-        return len(self.ent2id)
-
-    def num_relations(self):
-        return len(self.rel2id)
-
-    def num_timestamps(self):
-        return len(self.ts2id)
-
-
-@Dataset.register(name="icews14")
-class Icews14Dataset(Dataset):
-    def __init__(self, config: Config):
-        super().__init__(config=config)
+# class Dataset(Registrable):
+#     def __init__(self, config: Config, require_tsid: bool = True):
+#         super().__init__(config)
+#
+#         self.require_tsid = require_tsid  # TODO 需要吗
+#
+#         self.folder = config.get("data.folder")
+#
+#         self.ent2id = defaultdict(dict)
+#         self.rel2id = defaultdict(dict)
+#         self.ts2id = defaultdict(dict)
+#
+#         self.train_quadruples = []
+#         self.valid_quadruples = []
+#         self.test_quadruples = []
+#
+#         self.train_timestamps = []
+#         self.valid_timestamps = []
+#         self.test_timestamps = []
+#
+#         self._prepare_dataset(config)
+#
+#     @staticmethod
+#     def create(config: Config):
+#         """Factory method for data creation"""
+#
+#         ds_type = config.get("data.name")
+#
+#         if ds_type in Dataset.list_available():
+#             kwargs = config.get("data.args")  # TODO: 需要改成key的格式
+#             return Dataset.by_name(ds_type)(config)
+#         else:
+#             raise ConfigurationError(
+#                 f"{ds_type} specified in configuration file is not supported"
+#                 f"implement your data class with `Dataset.register(name)"
+#             )
+#
+#     def _prepare_dataset(self, config: Config):
+#
+#         if_mapping = config.get("data.mapping")
+#
+#         # TODO do mapping
+#         # if if_mapping:
+#         #     raise NotImplementedError
+#         #     # self._load_map()
+#         # else:
+#         #     self._create_map()
+#
+#         self._load_data()
+#
+#     def _load_data(self):
+#         train_file = self.folder + "/train.txt"
+#         valid_file = self.folder + "/valid.txt"
+#         test_file = self.folder + "/test.txt"
+#
+#         with open(train_file, "r") as f:
+#             train_data = f.readlines()
+#
+#         with open(valid_file, "r") as f:
+#             valid_data = f.readlines()
+#
+#         with open(test_file, "r") as f:
+#             test_data = f.readlines()
+#
+#         train_id_tuple = []
+#         valid_id_tuple = []
+#         test_id_tuple = []
+#
+#         train_str_ts = []
+#         valid_str_ts = []
+#         test_str_ts = []
+#
+#         for data in train_data:
+#             h, r, t, ts = data.strip().split("\t")
+#
+#             ts = self.process_timestamp(ts)
+#             y, m, d = list(map(lambda x: int(x), ts.split('-')))
+#
+#             quatruple = [self.index_entities(h), self.index_relations(r), self.index_entities(t)]
+#
+#             # self.index_timestamps(ts)]
+#
+#             train_id_tuple.append(quatruple)
+#             train_str_ts.append([y, m, d])
+#
+#         for data in valid_data:
+#             h, r, t, ts = data.strip().split("\t")
+#
+#             quatruple = [self.index_entities(h), self.index_relations(r), self.index_entities(t)]
+#
+#             # self.index_timestamps(ts)]
+#
+#             valid_id_tuple.append(quatruple)
+#             valid_str_ts.append([y, m, d])
+#
+#         for data in test_data:
+#             h, r, t, ts = data.strip().split("\t")
+#
+#             quatruple = [self.index_entities(h), self.index_relations(r), self.index_entities(t)]
+#
+#             # self.index_timestamps(ts)]
+#
+#             test_id_tuple.append(quatruple)
+#             test_str_ts.append([y, m, d])
+#
+#         self.train_quadruples = train_id_tuple
+#         self.valid_quadruples = valid_id_tuple
+#         self.test_quadruples = test_id_tuple
+#
+#         self.train_timestamps = train_str_ts
+#         self.valid_timestamps = valid_str_ts
+#         self.test_timestamps = test_str_ts
+#
+#     def _get_train(self):
+#         return np.array(self.train_quadruples), np.array(self.train_timestamps)
+#
+#     def get_train(self):
+#         return SplitDataset(self._get_train())
+#
+#     def _get_valid(self):
+#         return np.array(self.valid_quadruples), np.array(self.valid_timestamps)
+#
+#     def get_valid(self):
+#         return SplitDataset(self._get_valid())
+#
+#     def _get_test(self):
+#         return np.array(self.test_quadruples), np.array(self.test_timestamps)
+#
+#     def get_test(self):
+#         return SplitDataset(self._get_test())
+#
+#     def process_timestamp(self, ts, granularity: str = "yyyy-mm-dd"):
+#         form_list = ["yyyy-mm-dd", "yyyy-mm", "yyyy", "yyyy-span"]
+#
+#         if granularity not in form_list:
+#             raise ConfigurationError(f"timestamp granularity should be in form {form_list}")
+#
+#         # TODO re
+#
+#         return ts
+#
+#     def index_entities(self, ent):
+#         if ent not in self.ent2id:
+#             self.ent2id.update({ent: self.num_entities()})
+#
+#         return self.ent2id[ent]
+#
+#     def index_relations(self, rel):
+#         if rel not in self.rel2id:
+#             self.rel2id.update({rel: self.num_relations()})
+#
+#         return self.rel2id[rel]
+#
+#     def index_timestamps(self, ts):
+#         if ts not in self.ts2id:
+#             self.ts2id.update({ts: self.num_timestamps()})
+#
+#         return self.ts2id[ts]
+#
+#     def _load_map(self):
+#         raise NotImplementedError
+#
+#     def num_entities(self):
+#         return len(self.ent2id)
+#
+#     def num_relations(self):
+#         return len(self.rel2id)
+#
+#     def num_timestamps(self):
+#         return len(self.ts2id)
 
 
-class SplitDataset(PTDataset):
-    def __init__(self, data: Tuple):
-        self.data = data
+# @Dataset.register(name="icews14")
+# class Icews14Dataset(Dataset):
+#     def __init__(self, config: Config):
+#         super().__init__(config=config)
+#
+#
+class SplitDataset(torch.utils.data.Dataset):
+    def __init__(self, dataset: Dict[str, List], datatype: Optional[List[str]] = None):
+        super().__init__()
+
+        self.dataset = dataset
+        self.datatype = datatype
+
+        # TODO(gengyuan) assert the lengths of all lists in self.dataset
+        # assert all( for i in dataset.items())
 
     def __len__(self):
-        # TODO add assert
-        return len(self.data[0])
+        # TODO(gengyuan) calculate the length
+        return len(self.dataset['triple'])
 
     def __getitem__(self, index):
-        sample = torch.cat([torch.LongTensor(d[index]) for d in self.data], dim=0)
-        # sample1 = torch.LongTensor(self.data[0][index])
-        # sample2 = torch.Tensor(self.data[1][index])
+        sample = torch.Tensor(self.dataset['triple'][index])
+
+        if 'timestamp_id' in self.datatype:
+            timestamp_id = torch.Tensor(self.dataset['timestamp_id'][index])
+            sample = torch.cat([sample, timestamp_id], dim=0)
+
+        if 'timestamp_float' in self.datatype:
+            timestamp_float = torch.Tensor(self.dataset['timestamp_float'][index])
+            sample = torch.cat([sample, timestamp_id], dim=0)
 
         return sample
 

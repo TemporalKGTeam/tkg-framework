@@ -3,12 +3,13 @@ import torch
 import time
 import os
 
-from tkge.data.dataset import Dataset
-from tkge.train.sampling import NegativeSampler
 from tkge.task.task import Task
+from tkge.data.dataset import DatasetProcessor, SplitDataset
+from tkge.train.sampling import NegativeSampler, NonNegativeSampler
 from tkge.common.config import Config
 from tkge.models.model import BaseModel
 from tkge.models.loss import Loss
+from tkge.eval.metrics import Evaluation
 
 
 class TrainTask(Task):
@@ -18,16 +19,21 @@ class TrainTask(Task):
         self.config = config
 
         self.dataset = self.config.get("data.name")
-        # self.train_loader = None
-        # self.valid_loader = None
+        self.train_loader = None
+        self.valid_loader = None
         # self.test_loader = None
         self.sampler = None
         self.model = None
         self.loss = None
         self.optimizer = None
+        self.evaluation = None
 
-        self.batch_size = self.config.get("train.batch_size")
+        self.train_bs = self.config.get("train.batch_size")
+        self.valid_bs = self.config.get("train.valid.batch_size")
+        self.datatype = (['timestamp_id'] if self.config.get("dataset.temporal.index") else None) + (
+            ['timestamp_float'] if self.config.get("dataset.temporal.float") else None)
 
+        # TODO(gengyuan): passed to all modules
         self.device = self.config.get("task.device")
 
         self._prepare()
@@ -38,26 +44,33 @@ class TrainTask(Task):
 
     def _prepare(self):
         self.config.log(f"Preparing datasets {self.dataset} in folder {self.config.get('data.folder')}...")
-        self.dataset = Dataset.create(config=self.config)
+        self.dataset = DatasetProcessor.create(config=self.config)
 
         self.config.log(f"Loading training split data for loading")
+        # TODO(gengyuan) load params
         self.train_loader = torch.utils.data.DataLoader(
-            self.dataset.get_train(),
+            SplitDataset(self.dataset.get("train"), self.datatype),
             shuffle=True,
-            batch_size=self.batch_size,
-            num_workers=self.config.get("train.num_workers"),
-            pin_memory=self.config.get("train.pin_memory"),
+            batch_size=self.train_bs,
+            num_workers=self.config.get("train.loader.num_workers"),
+            pin_memory=self.config.get("train.loader.pin_memory"),
+            drop_last=self.config.get("train.loader.drop_last"),
+            timeout=self.config.get("train.loader.timeout")
         )
 
-        # self.valid_loader = torch.utils.data.DataLoader(
-        #     self.data.get_valid(),
-        #     shuffle=False,
-        #     batch_size=self.batch_size,
-        #     num_workers=self.config.get()
-        # )
+        self.valid_loader = torch.utils.data.DataLoader(
+            SplitDataset(self.dataset.get("valid"), self.datatype),
+            shuffle=False,
+            batch_size=self.valid_bs,
+            num_workers=self.config.get("train.loader.num_workers"),
+            pin_memory=self.config.get("train.loader.pin_memory"),
+            drop_last=self.config.get("train.loader.drop_last"),
+            timeout=self.config.get("train.loader.timeout")
+        )
 
         self.config.log(f"Initializing negative sampling")
         self.sampler = NegativeSampler.create(config=self.config, dataset=self.dataset)
+        self.onevsall_sampler = NonNegativeSampler(config=self.config, dataset=self.dataset)
 
         self.config.log(f"Creating model {self.config.get('model.name')}")
         self.model = BaseModel.create(config=self.config, dataset=self.dataset, device=self.device)
@@ -73,11 +86,20 @@ class TrainTask(Task):
             weight_decay=self.config.get("train.optimizer.reg_lambda")
         )
 
+        self.config.log(f"Initializing evaluation")
+        self.evaluation = Evaluation(config=self.config, dataset=self.dataset)
+
     def train(self):
         self.config.log("BEGIN TRANING")
-        self.model.train()
+
+        save_freq = self.config.get("train.checkpoint.every")
+        eval_freq = self.config.get("train.validation.every")
+
+        regularizer = self.config.get("train.regularizer.list")
 
         for epoch in range(1, self.config.get("train.max_epochs") + 1):
+            self.model.train()
+
             # TODO early stopping conditions
             # 1. metrics 变化小
             # 2. epoch
@@ -88,17 +110,28 @@ class TrainTask(Task):
             for pos_batch in self.train_loader:
                 samples, labels = self.sampler.sample(pos_batch)
 
-                scores = self.model(samples)
+                scores, factors = self.model(samples)
+                regs = None
+                print(regularizer)
 
+                # TODO(gengyuan) add regularizer
                 loss = self.loss(scores, labels)
                 loss.backward()
                 self.optimizer.step()
+
+                # TODO(gengyuan) inplace regularize
                 total_loss += loss.cpu().item()
 
             self.config.log(f"Loss in iteration {epoch} : {total_loss} ")
 
-            if epoch % self.config.get("train.checkpoint.every") == 0:
+            if epoch % save_freq == 0:
                 self.save_ckpt(epoch)
+
+            if epoch % eval_freq == 0:
+                self.model.eval()
+
+                for batch in self.valid_loader:
+                    samples, labels =
 
     def eval(self):
         # TODO early stopping

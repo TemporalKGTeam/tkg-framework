@@ -28,7 +28,7 @@ task:
   # the corresponding configuration keys for mode information.
   type: train
 
-  # Main device to use for this job (e.g., 'cpu', 'auto', 'cuda', 'cuda:0')
+  # Main device to use for this job (e.g., 'cpu', 'cuda', 'cuda:0')
   device: 'cpu'
 
 # The seeds of the PRNGs can be set manually for (increased) reproducibility.
@@ -78,10 +78,10 @@ dataset:
 
 
     # Files that store human-readble string representations of each
-  # entity/relation. These files are optional.
-  #
-  # Type can be map (field 0 is internal index) or idmap (field 0 is external
-  # id).
+    # entity/relation. These files are optional.
+    #
+    # Type can be map (field 0 is internal index) or idmap (field 0 is external
+    # id).
 
 
   # Additional files can be added as needed
@@ -103,19 +103,17 @@ dataset:
 # "transe", or "conve". For available models, see the project homepage and/or
 # configuration files under kge/model.
 model:
-  name: 'de_simple'
-  embedding:
-    s_emb_dim: 128
-    t_emb_dim: 128
+  name: 'tatranse'
   dropout: 0.5
+  embedding_dim: 128
+  l1_flag: True
   args: ~
 
 
 negative_sampling:
   name: 'time_agnostic'
   num_samples: 5
-  filter: False
-  as_matrix: True
+  filter: FALSE
 
 
 ## TRAINING ####################################################################
@@ -211,14 +209,15 @@ train:
         +++: +++
 
   regularizer:
-    list:
-      - name1:
-        type: ~
-        weight: 0.5
-    args: ~
+    name: ["lambda3_regularize", "n3_regularize"]
+    lambda3_regularize:
+      type: "lambda3_regularize"
+      weight: ~
+    n3_regularize:
+      type: "n3_regularize"
+      weight: ~
 
-  validation:
-    every: 5
+    args: ~
 
 
     # Specific optimizer options for parameters matched with regex expressions can be
@@ -274,13 +273,6 @@ train:
 
   # Other options
   pin_memory: False
-
-eval:
-  split: test # in [test or valid]
-  filter: static  # in [off, static, time-aware]
-  ordering: optimistic    # in [optimistic, peesimistic]
-  k: [1, 3, 10]
-
 
 
 # Options for KvsAll training (train.type=="KvsAll")
@@ -383,7 +375,7 @@ KvsAll:
 # Options used for all evaluation jobs (job.type=="eval"). Also used during
 # validation when training (unless overridden, see below). Right now, evaluation
 # jobs compute a fixed set of metrics: MRR, HITS@k.
-evaluation:
+eval:
   # Split used for evaluation (specified under 'data.files').
   split: valid
 

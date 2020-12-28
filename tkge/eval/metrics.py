@@ -10,15 +10,16 @@ from tkge.data.dataset import DatasetProcessor
 
 import enum
 
-SPOT = enum.Enum('spot', ('s', 'p', 'o', 't'))
-
 
 class Evaluation(Configurable):
+    SPOT = enum.Enum('spot', ('s', 'p', 'o', 't'))
+
     def __init__(self, config: Config, dataset: DatasetProcessor):
         super().__init__(config=config)
 
         self.dataset = dataset
 
+        self.device = self.config.get("task.device")
         self.filter = self.config.get("eval.filter")
         self.ordering = self.config.get("eval.ordering")
         self.k = self.config.get("eval.k")
@@ -27,57 +28,60 @@ class Evaluation(Configurable):
         self.filtered_data['sp_'] = self.dataset.filter(type=self.filter, target='o')
         self.filtered_data['_po'] = self.dataset.filter(type=self.filter, target='s')
 
-    def eval(self, queries, scores, miss='s'):
+    def eval(self, queries: torch.Tensor, scores: torch.Tensor, miss='o'):
         metrics = {}
 
+        filtered_list = self.filtered_data['sp_'] if miss == 'o' else self.filtered_data['_po']
+        filtered_index = self.filter_query(queries, filtered_list)
+        targets = queries[:, 2] if miss == 'o' else queries[:, 0]
 
-def ranking(scores: torch.Tensor, targets: torch.Tensor, filtered_index: torch.Tensor, ordering="optimistic"):
-    query_size = scores.size(0)
-    vocabulary_size = scores.size(1)
+        ranks = self.ranking(scores, targets, filtered_index)
 
-    target_scores = scores[range(query_size), targets].unsqueeze(1).repeat((1, vocabulary_size))
+        metrics['mean_ranking'] = self.mean_ranking(ranks)
+        metrics['mean_reciprocal_ranking'] = self.mean_reciprocal_ranking(ranks)
+        metrics['hits'] = self.hits(ranks)
 
-    scores[filtered_index[0], filtered_index[1]] = 0.0
+        return metrics
 
-    if ordering == "optimistic":
-        comp = scores.gt(target_scores)
-    else:
-        comp = scores.ge(target_scores)
+    def ranking(self, scores: torch.Tensor, targets: torch.Tensor, filtered_index: torch.Tensor):
+        query_size = scores.size(0)
+        vocabulary_size = scores.size(1)
 
-    ranks = comp.sum(1) + 1
+        target_scores = scores[range(query_size), targets].unsqueeze(1).repeat((1, vocabulary_size))
 
-    return ranks
+        scores[filtered_index[0], filtered_index[1]] = 0.0
 
+        if self.ordering == "optimistic":
+            comp = scores.gt(target_scores)
+        else:
+            comp = scores.ge(target_scores)
 
-def filter_query(queries: List[str], filtered_list: Dict[str, List], device: str = "cpu"):
-    filtered_index = [[], []]
-    for i, q in enumerate(queries):
-        for j in filtered_list[q]:
-            filtered_index[0].append(i)
-            filtered_index[1].append(j)
+        ranks = comp.sum(1) + 1
 
-    filtered_index = torch.Tensor(filtered_index).to(device)
+        return ranks
 
-    return filtered_index
+    def filter_query(self, queries: torch.Tensor, filtered_list: Dict[str, List]):
+        filtered_index = [[], []]
+        for i, q in enumerate(queries):
+            for j in filtered_list[q]:
+                filtered_index[0].append(i)
+                filtered_index[1].append(j)
 
+        filtered_index = torch.Tensor(filtered_index).to(self.device)
 
-def mean_ranking(scores: torch.Tensor, targets: torch.Tensor, ):
-    ranks = ranking(scores, targets, )
-    mr = torch.mean(ranks).item()
+        return filtered_index
 
-    return mr
+    def mean_ranking(self, ranks):
+        mr = torch.mean(ranks).item()
 
+        return mr
 
-def mean_reciprocal_ranking():
-    ranks = ranking()
-    mrr = torch.mean(1. / ranks).item()
+    def mean_reciprocal_ranking(self, ranks):
+        mrr = torch.mean(1. / ranks).item()
 
-    return mrr
+        return mrr
 
+    def hits(self, ranks):
+        hits_at = list(map(lambda x: torch.mean((ranks <= x).float()).item(), self.k))
 
-def hits(queries, at: Tuple[int] = [1, 3, 10], miss='s', optimistics=False, filter="off"):
-    # TODO(gengyuan) missing should be enum 's' 'p'
-    assert miss in ["s", "p", "o"], "Only support s(ubject)/p(redicate)/o(bject) prediction task"
-
-    ranks = mean_ranking()
-    hits_at = list(map(lambda x: torch.mean((ranks <= x).float()).item(), at))
+        return hits_at

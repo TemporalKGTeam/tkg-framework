@@ -11,11 +11,12 @@ from typing import Mapping, Dict
 from tkge.common.registry import Registrable
 from tkge.common.config import Config
 from tkge.common.error import ConfigurationError
-from tkge.data.dataset import Dataset
+from tkge.data.dataset import DatasetProcessor
+from tkge.models.layers import LSTMModel
 
 
 class BaseModel(nn.Module, Registrable):
-    def __init__(self, config: Config, dataset: Dataset, device: str):
+    def __init__(self, config: Config, dataset: DatasetProcessor, device: str):
         nn.Module.__init__(self)
         Registrable.__init__(self, config=config)
 
@@ -24,7 +25,7 @@ class BaseModel(nn.Module, Registrable):
         self.prepare_embedding()
 
     @staticmethod
-    def create(config: Config, dataset: Dataset, device: str):
+    def create(config: Config, dataset: DatasetProcessor, device: str):
         """Factory method for sampler creation"""
 
         model_type = config.get("model.name")
@@ -54,7 +55,7 @@ class BaseModel(nn.Module, Registrable):
 
 @BaseModel.register(name='de_simple')
 class DeSimplEModel(BaseModel):
-    def __init__(self, config: Config, dataset: Dataset, device: str = 'cpu'):
+    def __init__(self, config: Config, dataset: DatasetProcessor, device: str = 'cpu'):
         super().__init__(config, dataset, device)
 
         self.time_nl = torch.sin  # TODO add to configuration file
@@ -165,11 +166,11 @@ class DeSimplEModel(BaseModel):
 
 @BaseModel.register(name="tcomplex")
 class TComplExModel(BaseModel):
-    def __init__(self, config: Config, dataset: Dataset, device: str = 'cpu'):
+    def __init__(self, config: Config, dataset: DatasetProcessor, device: str = 'cpu'):
         super().__init__(config, dataset, device)
 
         self.sizes = self.config.get("model.sizes")
-        self.rank = self.config.get("model.get")
+        self.rank = self.config.get("model.rank")
         self.no_time_emb = self.config.get("model.no_time_emb")
         self.init_size = self.config.get("model.init_size")
 
@@ -238,13 +239,13 @@ class TComplExModel(BaseModel):
 
 @BaseModel.register(name="hyte")
 class HyTEModel(BaseModel):
-    def __init__(self, config: Config, dataset: Dataset, device: str = 'cpu'):
+    def __init__(self, config: Config, dataset: DatasetProcessor, device: str = 'cpu'):
         super().__init__(config, dataset, device)
 
 
 @BaseModel.register(name="atise")
 class ATiSEModel(BaseModel):
-    def __init__(self, config: Config, dataset: Dataset, device: str = 'cpu'):
+    def __init__(self, config: Config, dataset: DatasetProcessor, device: str = 'cpu'):
         super().__init__(config, dataset, device)
 
         self.gamma = self.config.get("model.gamma")
@@ -337,7 +338,7 @@ class ATiSEModel(BaseModel):
 # reference: https://github.com/bsantraigi/TA_TransE/blob/master/model.py
 @BaseModel.register(name="ta_transe")
 class TATransEModel(BaseModel):
-    def __init__(self, config: Config, dataset: Dataset, device: str = 'cpu'):
+    def __init__(self, config: Config, dataset: DatasetProcessor, device: str = 'cpu'):
         super().__init__(config, dataset, device)
 
         self.emb_dim = self.config.get("model.embedding_dim")
@@ -358,12 +359,12 @@ class TATransEModel(BaseModel):
             emb.weight.data.renorm(p=2, dim=1)
 
     def forward(self, x: torch.Tensor):
-        h, r, t, t = x[:, 0].long(), x[:, 1].long(), x[:, 2].long(), x[:, 3].long()
+        h, r, t, tem = x[:, 0].long(), x[:, 1].long(), x[:, 2].long(), x[:, 3].long()
 
         h_e = self.embedding['ent'][h]
         t_e = self.embedding['ent'][t]
-        r_e = self.embedding['rel'][h]
-        tem_e = self.embedding['tem'][h]
+        r_e = self.embedding['rel'][r]
+        tem_e = self.embedding['tem'][tem]
 
         if self.f1_flag:
             scores = torch.sum(torch.abs(h_e + r_e + tem_e - t_e), 1)
@@ -374,13 +375,18 @@ class TATransEModel(BaseModel):
 
 
 # reference: https://github.com/bsantraigi/TA_TransE/blob/master/model.py
-@BaseModel.register(name="ta_transe")
-class TATransEModel(BaseModel):
-    def __init__(self, config: Config, dataset: Dataset, device: str = 'cpu'):
+@BaseModel.register(name="ta_distmult")
+class TADistmultModel(BaseModel):
+    def __init__(self, config: Config, dataset: DatasetProcessor, device: str = 'cpu'):
         super().__init__(config, dataset, device)
 
         self.emb_dim = self.config.get("model.embedding_dim")
+        self.dropout = self.config.get("model.dopout")
         self.l1_flag = self.config.get("model.l1_flag")
+
+        self.criterion = nn.Softplus()
+        self.dropout = nn.Dropout(self.dropout)
+        self.lstm = LSTMModel()
 
     def prepare_embedding(self):
         num_ent = self.dataset.num_entities()
@@ -397,16 +403,34 @@ class TATransEModel(BaseModel):
             emb.weight.data.renorm(p=2, dim=1)
 
     def forward(self, x: torch.Tensor):
-        h, r, t, t = x[:, 0].long(), x[:, 1].long(), x[:, 2].long(), x[:, 3].long()
+        h, r, t, tem = x[:, 0].long(), x[:, 1].long(), x[:, 2].long(), x[:, 3].long()
 
         h_e = self.embedding['ent'][h]
         t_e = self.embedding['ent'][t]
-        r_e = self.embedding['rel'][h]
-        tem_e = self.embedding['tem'][h]
+        rseq_e = self.get_rseq(r, tem)
 
-        if self.f1_flag:
-            scores = torch.sum(torch.abs(h_e + r_e + tem_e - t_e), 1)
-        else:
-            scores = torch.sum((h_e + r_e + tem_e - t_e) ** 2, 1)
+        h_e = self.dropout(h_e)
+        t_e = self.dropout(t_e)
+        rseq_e = self.dropout(rseq_e)
+
+        scores = torch.sum(h_e * t_e * rseq_e, 1, False)
 
         return scores, None
+
+    def get_rseq(self, r, tem):
+        r_e = self.embedding['rel'][r]
+        r_e = r_e.unsqueeze(0).transpose(0, 1)
+
+        bs = tem.shape[0]
+        tem_len = tem.shape[1]
+        tem = tem.contiguous()
+        tem = tem.view(bs * tem_len)
+        token_e = self.tem_embeddings(tem)
+        token_e = token_e.view(bs, tem_len, self.embedding_size)
+        seq_e = torch.cat((r_e, token_e), 1)
+
+        hidden_tem = self.lstm(seq_e)
+        hidden_tem = hidden_tem[0, :, :]
+        rseq_e = hidden_tem
+
+        return rseq_e

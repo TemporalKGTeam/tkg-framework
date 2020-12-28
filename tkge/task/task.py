@@ -2,18 +2,18 @@ from typing import Optional
 
 from tkge.common.configurable import Configurable
 from tkge.common.config import Config
-from tkge.data.dataset import Dataset
+from tkge.data.dataset import DatasetProcessor
 
 class Task:
     @staticmethod
     def create(
-        config: Config, dataset: Optional[Dataset] = None, parent_job=None, model=None
+        config: Config, dataset: Optional[DatasetProcessor] = None, parent_job=None, model=None
     ):
         "Create a new job."
         from kge.job import TrainingJob, EvaluationJob, SearchJob
 
         if dataset is None:
-            dataset = Dataset.create(config)
+            dataset = DatasetProcessor.create(config)
 
         job_type = config.get("job.type")
         if job_type == "train":

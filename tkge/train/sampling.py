@@ -5,7 +5,7 @@ from tkge.common.configurable import Configurable
 from tkge.common.registry import Registrable
 from tkge.common.config import Config
 from tkge.common.error import ConfigurationError
-from tkge.data.dataset import Dataset
+from tkge.data.dataset import DatasetProcessor
 from tkge.indexing import where_in
 
 import torch
@@ -17,16 +17,17 @@ S, P, O, T = SLOTS
 
 
 class NegativeSampler(Registrable):
-    def __init__(self, config: Config, dataset: Dataset):
+    def __init__(self, config: Config, dataset: DatasetProcessor):
         super(NegativeSampler, self).__init__(config, configuration_key="negative_sampling")
 
         self.num_samples = self.config.get("negative_sampling.num_samples")
         self.filter = self.config.get("negative_sampling.filter")
+        self.as_matrix = self.config.get("negative_sampling.as_matrix")
 
         self.dataset = dataset
 
     @staticmethod
-    def create(config: Config, dataset: Dataset):
+    def create(config: Config, dataset: DatasetProcessor):
         """Factory method for loss creation"""
 
         ns_type = config.get("negative_sampling.name")
@@ -40,42 +41,81 @@ class NegativeSampler(Registrable):
                 f"implement your negative samping class with `NegativeSampler.register(name)"
             )
 
-    def _sample(self, pos_batch):
+    def _sample(self, pos_batch: torch.Tensor, as_matrix: bool, replace: str):
         raise NotImplementedError
 
-    def _label(self):
+    def _label(self, pos_batch: torch.Tensor, as_matrix: bool, replace: str):
         raise NotImplementedError
 
     def _filtered_sample(self, neg_sample):
         raise NotImplementedError
 
-    def sample(self, pos_batch: torch.Tensor):
-        batch_size = pos_batch.size(0)
+    def sample(self, pos_batch: torch.Tensor, replace: str = "both"):
+        assert replace in ["head", "tail", "both"], f"replace should be in head, tail, both"
 
-        neg_sample = self._sample(pos_batch)
+        neg_samples = self._sample(pos_batch, self.as_matrix, replace)
 
         if self.filter:
-            neg_sample = self._filtered_sample(neg_sample)
+            neg_samples = self._filtered_sample(neg_samples)
 
-        labels = self._label()
+        labels = self._label(pos_batch, self.as_matrix, replace)
 
-        return neg_sample, labels
+        return neg_samples, labels
+
+
+@NegativeSampler.register(name='no_sampling')
+class NonNegativeSampler(NegativeSampler):
+    def __init__(self, config: Config, dataset: DatasetProcessor):
+        super().__init__(config, dataset)
+
+    def _sample(self, pos_batch, as_matrix, replace):
+        batch_size = pos_batch.size(0)
+        sample_size = pos_batch.size(1)
+        vocab_size = self.dataset.num_entities()
+
+        samples = pos_batch.repeat((1, vocab_size)).view(-1, sample_size)
+
+        if replace == "tail":
+            samples[:, 2] = torch.arange(vocab_size).repeat(batch_size)
+        elif replace == "head":
+            samples[:, 0] = torch.arange(vocab_size).repeat(batch_size)
+        else:
+
+        if as_matrix:
+            samples = samples.view(3, -1)
+
+        return samples
+
+    def _label(self, pos_batch, as_matrix, replace):
+        batch_size = pos_batch.size(0)
+        vocab_size = self.dataset.num_entities()
+
+        labels = torch.zeros((batch_size, vocab_size))
+
+        if replace == "tail":
+            labels[range(batch_size), pos_batch[:, 2]] = 1.
+        else:
+            labels[range(batch_size), pos_batch[:, 0]] = 1.
+
+        if not as_matrix:
+            labels = labels.view(-1)
+
+        return labels
 
 
 @NegativeSampler.register(name='time_agnostic')
 class BasicNegativeSampler(NegativeSampler):
-    def __init__(self, config: Config, dataset: Dataset):
+    def __init__(self, config: Config, dataset: DatasetProcessor):
         super().__init__(config, dataset)
 
-    def _sample(self, pos_batch: torch.Tensor):
+    def _sample(self, pos_batch: torch.Tensor, as_matrix: bool, replace: str):
         # TODO 可不可以用generator 参考torch.RandomSampler
         """
-        pos_batch should be batch_size * [head, rel, tail, time_info]
+        pos_batch should be batch_size * [head, rel, tail, time_info(...)]
         return tensor should be batch_size * (1+num_samples) * [head, rel, tail, time_info]
         """
 
         batch_size, dim = list(pos_batch.size())
-        self.batch_size = batch_size
 
         num_pos_neg = 1 + self.num_samples
         # TODO
@@ -95,18 +135,27 @@ class BasicNegativeSampler(NegativeSampler):
         pos_neg_samples_h[:, 0] = (pos_neg_samples_h[:, 0] + rand_nums_h.squeeze()) % self.dataset.num_entities()
         pos_neg_samples_t[:, 2] = (pos_neg_samples_t[:, 2] + rand_nums_t.squeeze()) % self.dataset.num_entities()
 
-        return torch.cat((pos_neg_samples_h, pos_neg_samples_t), dim=0)
+        samples = torch.cat((pos_neg_samples_h, pos_neg_samples_t), dim=0)
 
-    def _label(self):
-        labels = torch.cat((torch.ones(self.batch_size, 1), torch.zeros(self.batch_size, self.num_samples)),
-                           dim=1).view(-1)
-        labels = labels.repeat((2, 1)).view(-1)  # TODO remove
+        if as_matrix:
+            samples = samples.view(2 * batch_size, -1)
+
+        return samples
+
+    def _label(self, pos_batch: torch.Tensor, as_matrix: bool, replace: str):
+        batch_size = pos_batch.size(0)
+
+        labels = torch.cat((torch.ones(batch_size, 1), torch.zeros(batch_size, self.num_samples)),
+                           dim=1).repeat(2)
+
+        if not as_matrix:
+            labels = labels.view(-1)
 
         return labels
 
 
 class DepNegativeSampler(Registrable):
-    def __init__(self, config: Config, configuration_key: str, dataset: Dataset):
+    def __init__(self, config: Config, configuration_key: str, dataset: DatasetProcessor):
         super().__init__(config, configuration_key)
 
         # load config
@@ -161,7 +210,7 @@ class DepNegativeSampler(Registrable):
                     self.num_samples[slot] = 0
 
     @staticmethod
-    def create(config: Config, configuration_key: str, dataset: Dataset):
+    def create(config: Config, configuration_key: str, dataset: DatasetProcessor):
         """Factory method for sampler creation"""
 
         sampling_type = config.get(configuration_key + ".sampling_type")
@@ -254,7 +303,7 @@ class BasicNegativeSampler(DepNegativeSampler):
 
 @DepNegativeSampler.register(name="uniform_sampler")
 class UniformNegativeSampler(DepNegativeSampler):
-    def __init__(self, config: Config, configuration_key: str, dataset: Dataset):
+    def __init__(self, config: Config, configuration_key: str, dataset: DatasetProcessor):
         super().__init__(config, configuration_key, dataset)
 
     def _sample(self, positive_triples: torch.Tensor, slot: int, num_samples: int):
