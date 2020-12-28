@@ -326,3 +326,142 @@
 2020-12-07 14:40:19.650707 Initializing loss function
 2020-12-07 14:40:19.650986 Initializing optimizer
 2020-12-07 14:40:19.651200 BEGIN TRANING
+2020-12-28 03:20:32.924524 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 03:26:52.957667 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 03:33:09.999948 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 03:45:05.786029 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 03:45:29.625151 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 03:46:41.187317 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 03:47:38.473738 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 03:50:28.134206 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 03:55:12.884115 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 04:09:54.862039 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 04:09:56.796243 Loading training split data for loading
+2020-12-28 04:09:56.796521 Initializing negative sampling
+2020-12-28 04:12:52.617911 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 04:12:53.668001 Loading training split data for loading
+2020-12-28 04:12:53.668268 Initializing negative sampling
+2020-12-28 04:12:53.668665 Creating model de_simple
+2020-12-28 04:12:53.894687 Initializing loss function
+2020-12-28 04:12:53.894986 Initializing optimizer
+2020-12-28 04:12:53.895344 Initializing evaluation
+2020-12-28 04:19:02.128265 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 04:19:03.165657 Loading training split data for loading
+2020-12-28 04:19:03.165942 Initializing negative sampling
+2020-12-28 04:19:03.166347 Creating model de_simple
+2020-12-28 04:19:03.385698 Initializing loss function
+2020-12-28 04:19:03.386018 Initializing optimizer
+2020-12-28 04:19:03.386399 Initializing evaluation
+2020-12-28 04:19:03.860408 BEGIN TRANING
+2020-12-28 04:19:37.594210 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 04:19:38.622168 Loading training split data for loading
+2020-12-28 04:19:38.622440 Initializing negative sampling
+2020-12-28 04:19:38.622619 Creating model de_simple
+2020-12-28 04:19:38.859106 Initializing loss function
+2020-12-28 04:19:38.859466 Initializing optimizer
+2020-12-28 04:19:38.859855 Initializing evaluation
+2020-12-28 04:19:39.351569 BEGIN TRANING
+2020-12-28 04:23:30.143640 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 04:23:31.152405 Loading training split data for loading
+2020-12-28 04:23:31.152658 Initializing negative sampling
+2020-12-28 04:23:31.152998 Creating model de_simple
+2020-12-28 04:23:31.355840 Initializing loss function
+2020-12-28 04:23:31.356137 Initializing optimizer
+2020-12-28 04:23:31.356628 Initializing evaluation
+2020-12-28 04:23:31.815120 BEGIN TRANING
+2020-12-28 04:30:34.033226 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 04:30:35.018202 Loading training split data for loading
+2020-12-28 04:30:35.018428 Initializing negative sampling
+2020-12-28 04:30:35.018593 Creating model de_simple
+2020-12-28 04:30:35.222747 Initializing loss function
+2020-12-28 04:30:35.222965 Initializing optimizer
+2020-12-28 04:30:35.223163 Initializing evaluation
+2020-12-28 04:30:35.649611 BEGIN TRANING
+2020-12-28 04:33:49.755364 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 04:33:50.768819 Loading training split data for loading
+2020-12-28 04:33:50.769098 Initializing negative sampling
+2020-12-28 04:33:50.769473 Creating model de_simple
+2020-12-28 04:33:50.976286 Initializing loss function
+2020-12-28 04:33:50.976528 Initializing optimizer
+2020-12-28 04:33:50.976725 Initializing evaluation
+2020-12-28 04:33:51.379871 BEGIN TRANING
+2020-12-28 04:35:59.260710 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 04:36:00.287088 Loading training split data for loading
+2020-12-28 04:36:00.287360 Initializing negative sampling
+2020-12-28 04:36:00.287668 Creating model de_simple
+2020-12-28 04:36:00.506985 Initializing loss function
+2020-12-28 04:36:00.507299 Initializing optimizer
+2020-12-28 04:36:00.507693 Initializing evaluation
+2020-12-28 04:36:00.977742 BEGIN TRANING
+2020-12-28 04:36:15.748853 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 04:36:16.776627 Loading training split data for loading
+2020-12-28 04:36:16.776906 Initializing negative sampling
+2020-12-28 04:36:16.777212 Creating model de_simple
+2020-12-28 04:36:17.007234 Initializing loss function
+2020-12-28 04:36:17.007611 Initializing optimizer
+2020-12-28 04:36:17.007919 Initializing evaluation
+2020-12-28 04:36:17.493401 BEGIN TRANING
+2020-12-28 04:38:27.957272 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 04:38:28.941030 Loading training split data for loading
+2020-12-28 04:38:28.941299 Initializing negative sampling
+2020-12-28 04:38:28.941676 Creating model de_simple
+2020-12-28 04:38:29.151989 Initializing loss function
+2020-12-28 04:38:29.152272 Initializing optimizer
+2020-12-28 04:38:29.152703 Initializing evaluation
+2020-12-28 04:38:29.582220 BEGIN TRANING
+2020-12-28 04:42:08.418390 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 04:42:09.488236 Loading training split data for loading
+2020-12-28 04:42:09.488508 Initializing negative sampling
+2020-12-28 04:42:09.488862 Creating model de_simple
+2020-12-28 04:42:09.706740 Initializing loss function
+2020-12-28 04:42:09.706978 Initializing optimizer
+2020-12-28 04:42:09.707179 Initializing evaluation
+2020-12-28 04:42:10.155692 BEGIN TRANING
+2020-12-28 04:44:51.551892 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 04:44:52.625401 Loading training split data for loading
+2020-12-28 04:44:52.625696 Initializing negative sampling
+2020-12-28 04:44:52.626021 Creating model de_simple
+2020-12-28 04:44:52.852483 Initializing loss function
+2020-12-28 04:44:52.852806 Initializing optimizer
+2020-12-28 04:44:52.853075 Initializing evaluation
+2020-12-28 04:44:53.323184 BEGIN TRANING
+2020-12-28 04:45:08.615135 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 04:45:09.663889 Loading training split data for loading
+2020-12-28 04:45:09.664819 Initializing negative sampling
+2020-12-28 04:45:09.665016 Creating model de_simple
+2020-12-28 04:45:09.883565 Initializing loss function
+2020-12-28 04:45:09.883905 Initializing optimizer
+2020-12-28 04:45:09.884342 Initializing evaluation
+2020-12-28 04:45:10.328678 BEGIN TRANING
+2020-12-28 04:55:57.645086 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 04:55:58.683592 Loading training split data for loading
+2020-12-28 04:55:58.683861 Initializing negative sampling
+2020-12-28 04:55:58.684248 Creating model de_simple
+2020-12-28 04:55:58.894442 Initializing loss function
+2020-12-28 04:55:58.894732 Initializing optimizer
+2020-12-28 04:55:58.894965 Initializing evaluation
+2020-12-28 04:55:59.344466 BEGIN TRANING
+2020-12-28 04:59:21.749876 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 04:59:22.797500 Loading training split data for loading
+2020-12-28 04:59:22.797780 Initializing negative sampling
+2020-12-28 04:59:22.797963 Creating model de_simple
+2020-12-28 04:59:23.007666 Initializing loss function
+2020-12-28 04:59:23.007920 Initializing optimizer
+2020-12-28 04:59:23.008150 Initializing evaluation
+2020-12-28 04:59:23.482979 BEGIN TRANING
+2020-12-28 05:00:12.607410 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 05:00:13.636607 Loading training split data for loading
+2020-12-28 05:00:13.636939 Initializing negative sampling
+2020-12-28 05:00:13.637957 Creating model de_simple
+2020-12-28 05:00:13.840736 Initializing loss function
+2020-12-28 05:00:13.840996 Initializing optimizer
+2020-12-28 05:00:13.841413 Initializing evaluation
+2020-12-28 05:00:14.312084 BEGIN TRANING
+2020-12-28 05:11:35.047661 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkge/data/icews14...
+2020-12-28 05:11:36.120520 Loading training split data for loading
+2020-12-28 05:11:36.120791 Initializing negative sampling
+2020-12-28 05:11:36.121092 Creating model de_simple
+2020-12-28 05:11:36.331326 Initializing loss function
+2020-12-28 05:11:36.331630 Initializing optimizer
+2020-12-28 05:11:36.331980 Initializing evaluation
+2020-12-28 05:11:36.798802 BEGIN TRANING

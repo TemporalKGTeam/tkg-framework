@@ -29,11 +29,11 @@ class Config:
             import tkge
             from tkge.common.misc import filename_in_module
 
-            with open(filename_in_module(tkge, "config-default.yaml"), "r") as file:
+            with open(folder, "r") as file:
                 self.options: Dict[str, Any] = yaml.load(file, Loader=yaml.SafeLoader)
 
         else:
-            with open("/Users/GengyuanMax/workspace/tkge/config-default.yaml", "r") as file:
+            with open(folder, "r") as file:
                 self.options = yaml.load(file, Loader=yaml.SafeLoader)
 
         self.folder = folder  # main folder (config file, checkpoints, ...)

@@ -25,6 +25,12 @@ class CrossEntropyLoss(Loss):
 
         """
 
+        # TODO(gengyuan) when using CE, must use labels as matrix
+
+        # TODO(gengyuan) make sure each row has one and only one label
+        labels = labels.nonzero()
+        labels = labels[:, 1]
+
         if "negative_sampling" in self._train_type:
             # Pair each 1 with the following zeros until next 1
 

@@ -60,10 +60,20 @@ class Evaluation(Configurable):
 
         return ranks
 
-    def filter_query(self, queries: torch.Tensor, filtered_list: Dict[str, List]):
+    def filter_query(self, queries: torch.Tensor, filtered_list: Dict[str, List], miss: str = "o"):
         filtered_index = [[], []]
         for i, q in enumerate(queries):
-            for j in filtered_list[q]:
+            # TODO(gengyuan) formatting
+            sid = int(q[0])
+            rid = int(q[1])
+            oid = int(q[2])
+
+            if miss == "o":
+                query = f"{sid}-{rid}-None"
+            else:
+                query = f"None-{rid}-{oid}"
+
+            for j in filtered_list[query]:
                 filtered_index[0].append(i)
                 filtered_index[1].append(j)
 

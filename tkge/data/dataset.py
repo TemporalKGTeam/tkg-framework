@@ -38,8 +38,8 @@ class DatasetProcessor(Registrable):
         self.valid_set = defaultdict(list)
         self.test_set = defaultdict(list)
 
-        self.all_triples = None
-        self.all_quadruples = None
+        self.all_triples = []
+        self.all_quadruples = []
 
         self.load()
         self.process()
@@ -49,10 +49,10 @@ class DatasetProcessor(Registrable):
     def create(config: Config):
         """Factory method for data creation"""
 
-        ds_type = config.get("data.name")
+        ds_type = config.get("dataset.name")
 
         if ds_type in DatasetProcessor.list_available():
-            kwargs = config.get("data.args")  # TODO: 需要改成key的格式
+            kwargs = config.get("dataset.args")  # TODO: 需要改成key的格式
             return DatasetProcessor.by_name(ds_type)(config)
         else:
             raise ConfigurationError(
@@ -123,9 +123,14 @@ class DatasetProcessor(Registrable):
         for tup in all_tuples:
             query = tup.copy()
 
-            missing = query[SPOT[target].value]
-            query[SPOT[target].value] = None
-            query_k = str(query)
+            # TODO(gengyuan) enum
+            missing = query[SPOT[target].value - 1]
+            query[SPOT[target].value - 1] = None
+
+            query_k = f"{query[0]}-{query[1]}-{query[2]}"
+
+            if type!="static":
+                raise NotImplementedError
 
             filtered_data[query_k].append(missing)
 
@@ -141,32 +146,44 @@ class GDELTDatasetProcessor(DatasetProcessor):
             rel = int(rel)
             tail = int(tail)
             ts = self.process_time(ts)
+            ts_id = self.index_timestamps(ts)
 
             self.train_set['triple'].append([head, rel, tail])
-            self.train_set['timestamp_id'].append([self.index_timestamps(ts)])
+            self.train_set['timestamp_id'].append([ts_id])
             self.train_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
 
-        for rd in self.train_raw:
+            self.all_triples.append([head, rel, tail])
+            self.all_quadruples.append([head, rel, tail, ts_id])
+
+        for rd in self.valid_raw:
             head, rel, tail, ts = rd.strip().split('\t')
             head = int(head)
             rel = int(rel)
             tail = int(tail)
             ts = self.process_time(ts)
+            ts_id = self.index_timestamps(ts)
 
             self.valid_set['triple'].append([head, rel, tail])
-            self.valid_set['timestamp_id'].append([self.index_timestamps(ts)])
+            self.valid_set['timestamp_id'].append([ts_id])
             self.valid_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
 
-        for rd in self.train_raw:
+            self.all_triples.append([head, rel, tail])
+            self.all_quadruples.append([head, rel, tail, ts_id])
+
+        for rd in self.test_raw:
             head, rel, tail, ts = rd.strip().split('\t')
             head = int(head)
             rel = int(rel)
             tail = int(tail)
             ts = self.process_time(ts)
+            ts_id = self.index_timestamps(ts)
 
             self.test_set['triple'].append([head, rel, tail])
-            self.test_set['timestamp_id'].append([self.index_timestamps(ts)])
+            self.test_set['timestamp_id'].append([ts_id])
             self.test_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+
+            self.all_triples.append([head, rel, tail])
+            self.all_quadruples.append([head, rel, tail, ts_id])
 
     def process_time(self, origin: str, granularity: str = 'day'):
         level = ['year', 'month', 'day', 'hour', 'minute', 'second']
@@ -188,32 +205,44 @@ class ICEWS14DatasetProcessor(DatasetProcessor):
             rel = self.index_relations(rel)
             tail = self.index_entities(tail)
             ts = self.process_time(ts)
+            ts_id = self.index_timestamps(ts)
 
             self.train_set['triple'].append([head, rel, tail])
-            self.train_set['timestamp_id'].append([self.index_timestamps(ts)])
+            self.train_set['timestamp_id'].append([ts_id])
             self.train_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
 
-        for rd in self.train_raw:
+            self.all_triples.append([head, rel, tail])
+            self.all_quadruples.append([head, rel, tail, ts_id])
+
+        for rd in self.valid_raw:
             head, rel, tail, ts = rd.strip().split('\t')
             head = self.index_entities(head)
             rel = self.index_relations(rel)
             tail = self.index_entities(tail)
             ts = self.process_time(ts)
+            ts_id = self.index_timestamps(ts)
 
             self.valid_set['triple'].append([head, rel, tail])
-            self.valid_set['timestamp_id'].append([self.index_timestamps(ts)])
+            self.valid_set['timestamp_id'].append([ts_id])
             self.valid_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
 
-        for rd in self.train_raw:
+            self.all_triples.append([head, rel, tail])
+            self.all_quadruples.append([head, rel, tail, ts_id])
+
+        for rd in self.test_raw:
             head, rel, tail, ts = rd.strip().split('\t')
             head = self.index_entities(head)
             rel = self.index_relations(rel)
             tail = self.index_entities(tail)
             ts = self.process_time(ts)
+            ts_id = self.index_timestamps(ts)
 
             self.test_set['triple'].append([head, rel, tail])
-            self.test_set['timestamp_id'].append([self.index_timestamps(ts)])
+            self.test_set['timestamp_id'].append([ts_id])
             self.test_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+
+            self.all_triples.append([head, rel, tail])
+            self.all_quadruples.append([head, rel, tail, ts_id])
 
     def process_time(self, origin: str):
         level = ['year', 'month', 'day', 'hour', 'minute', 'second']
@@ -492,7 +521,7 @@ class SplitDataset(torch.utils.data.Dataset):
 
         if 'timestamp_float' in self.datatype:
             timestamp_float = torch.Tensor(self.dataset['timestamp_float'][index])
-            sample = torch.cat([sample, timestamp_id], dim=0)
+            sample = torch.cat([sample, timestamp_float], dim=0)
 
         return sample
 

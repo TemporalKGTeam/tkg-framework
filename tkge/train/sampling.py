@@ -80,6 +80,7 @@ class NonNegativeSampler(NegativeSampler):
         elif replace == "head":
             samples[:, 0] = torch.arange(vocab_size).repeat(batch_size)
         else:
+            raise NotImplementedError
 
         if as_matrix:
             samples = samples.view(3, -1)
@@ -94,8 +95,10 @@ class NonNegativeSampler(NegativeSampler):
 
         if replace == "tail":
             labels[range(batch_size), pos_batch[:, 2]] = 1.
-        else:
+        elif replace == "head":
             labels[range(batch_size), pos_batch[:, 0]] = 1.
+        else:
+            raise NotImplementedError
 
         if not as_matrix:
             labels = labels.view(-1)
@@ -123,10 +126,8 @@ class BasicNegativeSampler(NegativeSampler):
         pos_neg_samples_h = pos_batch.repeat((1, num_pos_neg)).view(-1, dim)
         pos_neg_samples_t = pos_neg_samples_h.clone()
 
-        rand_nums_h = torch.randint(low=0, high=self.dataset.num_entities() - 1, size=(pos_neg_samples_h.shape[0], 1),
-                                    dtype=torch.long)
-        rand_nums_t = torch.randint(low=0, high=self.dataset.num_entities() - 1, size=(pos_neg_samples_t.shape[0], 1),
-                                    dtype=torch.long)
+        rand_nums_h = torch.randint(low=0, high=self.dataset.num_entities() - 1, size=(pos_neg_samples_h.shape[0], 1))
+        rand_nums_t = torch.randint(low=0, high=self.dataset.num_entities() - 1, size=(pos_neg_samples_t.shape[0], 1))
 
         for i in range(pos_neg_samples_h.shape[0] // num_pos_neg):
             rand_nums_h[i * num_pos_neg] = 0
@@ -146,7 +147,7 @@ class BasicNegativeSampler(NegativeSampler):
         batch_size = pos_batch.size(0)
 
         labels = torch.cat((torch.ones(batch_size, 1), torch.zeros(batch_size, self.num_samples)),
-                           dim=1).repeat(2)
+                           dim=1).repeat((2, 1))
 
         if not as_matrix:
             labels = labels.view(-1)

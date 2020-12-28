@@ -18,7 +18,7 @@ class TrainTask(Task):
 
         self.config = config
 
-        self.dataset = self.config.get("data.name")
+        self.dataset = self.config.get("dataset.name")
         self.train_loader = None
         self.valid_loader = None
         # self.test_loader = None
@@ -30,8 +30,8 @@ class TrainTask(Task):
 
         self.train_bs = self.config.get("train.batch_size")
         self.valid_bs = self.config.get("train.valid.batch_size")
-        self.datatype = (['timestamp_id'] if self.config.get("dataset.temporal.index") else None) + (
-            ['timestamp_float'] if self.config.get("dataset.temporal.float") else None)
+        self.datatype = (['timestamp_id'] if self.config.get("dataset.temporal.index") else []) + (
+            ['timestamp_float'] if self.config.get("dataset.temporal.float") else [])
 
         # TODO(gengyuan): passed to all modules
         self.device = self.config.get("task.device")
@@ -43,7 +43,7 @@ class TrainTask(Task):
         # TODO optimizer should be added into modules
 
     def _prepare(self):
-        self.config.log(f"Preparing datasets {self.dataset} in folder {self.config.get('data.folder')}...")
+        self.config.log(f"Preparing datasets {self.dataset} in folder {self.config.get('dataset.folder')}...")
         self.dataset = DatasetProcessor.create(config=self.config)
 
         self.config.log(f"Loading training split data for loading")
@@ -93,9 +93,9 @@ class TrainTask(Task):
         self.config.log("BEGIN TRANING")
 
         save_freq = self.config.get("train.checkpoint.every")
-        eval_freq = self.config.get("train.validation.every")
+        eval_freq = self.config.get("train.valid.every")
 
-        regularizer = self.config.get("train.regularizer.list")
+        regularizer = self.config.get("train.regularizer")
 
         for epoch in range(1, self.config.get("train.max_epochs") + 1):
             self.model.train()
@@ -130,23 +130,50 @@ class TrainTask(Task):
             if epoch % eval_freq == 0:
                 self.model.eval()
 
+                scores_head = []
+                scores_tail = []
+                queries = []
+                queries = []
+
                 for batch in self.valid_loader:
-                    samples, labels =
+                    samples_head, labels_head = self.onevsall_sampler.sample(batch, "head")
+                    samples_tail, labels_tail = self.onevsall_sampler.sample(batch, "tail")
 
-    def eval(self):
-        # TODO early stopping
+                    batch_scores_head, _ = self.model(samples_head)
+                    batch_scores_tail, _ = self.model(samples_tail)
 
-        raise NotImplementedError
+                    queries.append(batch)
+                    scores_head.append(batch_scores_head)
+                    scores_tail.append(batch_scores_tail)
 
-    def save_ckpt(self, epoch):
-        model = self.config.get("model.name")
-        dataset = self.config.get("data.name")
-        folder = self.config.get("train.checkpoint.folder")
-        filename = f"epoch:{epoch}_model:{model}_dataset:{dataset}.ckpt"
+                queries = torch.cat(queries, dim=0)
+                scores_head = torch.cat(scores_head, dim=0)
+                scores_tail = torch.cat(scores_tail, dim=0)
 
-        self.config.log(f"Save the model to {folder} as file {filename}")
+                metrics = dict()
+                metrics['head'] = self.evaluation.eval(queries, scores_head, miss='s')
+                metrics['tail'] = self.evaluation.eval(queries, scores_tail, miss='o')
 
-        torch.save(self.model, os.path.join(folder, filename))
+                self.config.log(f"Metrics(head prediction) in iteration {epoch} : {metrics['head']}")
+                self.config.log(f"Metrics(tail prediction) in iteration {epoch} : {metrics['tail']}")
 
-    def load_ckpt(self, ckpt_path):
-        raise NotImplementedError
+
+def eval(self):
+    # TODO early stopping
+
+    raise NotImplementedError
+
+
+def save_ckpt(self, epoch):
+    model = self.config.get("model.name")
+    dataset = self.config.get("dataset.name")
+    folder = self.config.get("train.checkpoint.folder")
+    filename = f"epoch:{epoch}_model:{model}_dataset:{dataset}.ckpt"
+
+    self.config.log(f"Save the model to {folder} as file {filename}")
+
+    torch.save(self.model, os.path.join(folder, filename))
+
+
+def load_ckpt(self, ckpt_path):
+    raise NotImplementedError

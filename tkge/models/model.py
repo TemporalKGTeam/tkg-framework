@@ -146,12 +146,14 @@ class DeSimplEModel(BaseModel):
         return h_emb1, r_emb1, t_emb1, h_emb2, r_emb2, t_emb2
 
     def forward(self, sample):
-        head = sample[:, 0]
-        rel = sample[:, 1]
-        tail = sample[:, 2]
-        year = sample[:, 3].float()
-        month = sample[:, 4].float()
-        day = sample[:, 5].float()
+        bs = sample.size(0)
+        sample = sample.view(-1, 6)
+        head = sample[:, 0].long()
+        rel = sample[:, 1].long()
+        tail = sample[:, 2].long()
+        year = sample[:, 3]
+        month = sample[:, 4]
+        day = sample[:, 5]
 
         h_emb1, r_emb1, t_emb1, h_emb2, r_emb2, t_emb2 = self.get_embedding(head, rel, tail, year, month, day)
 
@@ -160,6 +162,7 @@ class DeSimplEModel(BaseModel):
         score = ((h_emb1 * r_emb1) * t_emb1 + (h_emb2 * r_emb2) * t_emb2) / 2.0
         score = F.dropout(score, p=p, training=self.training)  # TODO training
         score = torch.sum(score, dim=1)
+        score = score.view(bs, -1)
 
         return score, None
 
