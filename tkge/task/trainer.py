@@ -3,6 +3,9 @@ import torch
 import time
 import os
 
+from typing import Dict, List
+from collections import defaultdict
+
 from tkge.task.task import Task
 from tkge.data.dataset import DatasetProcessor, SplitDataset
 from tkge.train.sampling import NegativeSampler, NonNegativeSampler
@@ -70,7 +73,7 @@ class TrainTask(Task):
 
         self.config.log(f"Initializing negative sampling")
         self.sampler = NegativeSampler.create(config=self.config, dataset=self.dataset)
-        self.onevsall_sampler = NonNegativeSampler(config=self.config, dataset=self.dataset)
+        self.onevsall_sampler = NonNegativeSampler(config=self.config, dataset=self.dataset, as_matrix=True)
 
         self.config.log(f"Creating model {self.config.get('model.name')}")
         self.model = BaseModel.create(config=self.config, dataset=self.dataset, device=self.device)
@@ -108,11 +111,15 @@ class TrainTask(Task):
             start = time.time()
 
             for pos_batch in self.train_loader:
+                self.optimizer.zero_grad()
+
                 samples, labels = self.sampler.sample(pos_batch)
+
+                samples = samples.to(self.device)
+                labels = labels.to(self.device)
 
                 scores, factors = self.model(samples)
                 regs = None
-                print(regularizer)
 
                 # TODO(gengyuan) add regularizer
                 loss = self.loss(scores, labels)
@@ -122,40 +129,51 @@ class TrainTask(Task):
                 # TODO(gengyuan) inplace regularize
                 total_loss += loss.cpu().item()
 
-            self.config.log(f"Loss in iteration {epoch} : {total_loss} ")
+            stop = time.time()
+
+            self.config.log(f"Loss in iteration {epoch} : {total_loss} comsuming {stop - start}s")
 
             if epoch % save_freq == 0:
                 self.save_ckpt(epoch)
 
             if epoch % eval_freq == 0:
-                self.model.eval()
+                with torch.no_grad():
+                    self.model.eval()
 
-                scores_head = []
-                scores_tail = []
-                queries = []
-                queries = []
+                    l = 0
 
-                for batch in self.valid_loader:
-                    samples_head, labels_head = self.onevsall_sampler.sample(batch, "head")
-                    samples_tail, labels_tail = self.onevsall_sampler.sample(batch, "tail")
+                    metrics = dict()
+                    metrics['head'] = defaultdict(float)
+                    metrics['tail'] = defaultdict(float)
 
-                    batch_scores_head, _ = self.model(samples_head)
-                    batch_scores_tail, _ = self.model(samples_tail)
+                    for batch in self.valid_loader:
+                        bs = batch.size(0)
+                        l += bs
 
-                    queries.append(batch)
-                    scores_head.append(batch_scores_head)
-                    scores_tail.append(batch_scores_tail)
+                        samples_head, _ = self.onevsall_sampler.sample(batch, "head")
+                        samples_tail, _ = self.onevsall_sampler.sample(batch, "tail")
 
-                queries = torch.cat(queries, dim=0)
-                scores_head = torch.cat(scores_head, dim=0)
-                scores_tail = torch.cat(scores_tail, dim=0)
+                        samples_head = samples_head.to(self.device)
+                        samples_tail = samples_tail.to(self.device)
 
-                metrics = dict()
-                metrics['head'] = self.evaluation.eval(queries, scores_head, miss='s')
-                metrics['tail'] = self.evaluation.eval(queries, scores_tail, miss='o')
+                        batch_scores_head, _ = self.model(samples_head)
+                        batch_scores_tail, _ = self.model(samples_tail)
 
-                self.config.log(f"Metrics(head prediction) in iteration {epoch} : {metrics['head']}")
-                self.config.log(f"Metrics(tail prediction) in iteration {epoch} : {metrics['tail']}")
+                        batch_metrics = dict()
+                        batch_metrics['head'] = self.evaluation.eval(batch, batch_scores_head, miss='s')
+                        batch_metrics['tail'] = self.evaluation.eval(batch, batch_scores_tail, miss='o')
+
+                        # TODO(gengyuan) refactor
+                        for pos in ['head', 'tail']:
+                            for key in batch_metrics[pos].keys():
+                                metrics[pos][key] += batch_metrics[pos][key] * bs
+
+                    for pos in ['head', 'tail']:
+                        for key in metrics[pos].keys():
+                            metrics[pos][key] /= l
+
+                    self.config.log(f"Metrics(head prediction) in iteration {epoch} : {metrics['head'].items()}")
+                    self.config.log(f"Metrics(tail prediction) in iteration {epoch} : {metrics['tail'].items()}")
 
 
 def eval(self):

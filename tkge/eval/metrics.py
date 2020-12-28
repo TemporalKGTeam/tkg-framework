@@ -33,13 +33,16 @@ class Evaluation(Configurable):
 
         filtered_list = self.filtered_data['sp_'] if miss == 'o' else self.filtered_data['_po']
         filtered_index = self.filter_query(queries, filtered_list)
-        targets = queries[:, 2] if miss == 'o' else queries[:, 0]
+        targets = queries[:, 2].long() if miss == 'o' else queries[:, 0].long()
 
         ranks = self.ranking(scores, targets, filtered_index)
 
         metrics['mean_ranking'] = self.mean_ranking(ranks)
         metrics['mean_reciprocal_ranking'] = self.mean_reciprocal_ranking(ranks)
-        metrics['hits'] = self.hits(ranks)
+
+        hits = self.hits(ranks)
+        for k, hit_at_k in zip(self.k, hits):
+            metrics[f"hits_at_{k}"] = hit_at_k
 
         return metrics
 
@@ -58,7 +61,7 @@ class Evaluation(Configurable):
 
         ranks = comp.sum(1) + 1
 
-        return ranks
+        return ranks.float()
 
     def filter_query(self, queries: torch.Tensor, filtered_list: Dict[str, List], miss: str = "o"):
         filtered_index = [[], []]
@@ -77,7 +80,7 @@ class Evaluation(Configurable):
                 filtered_index[0].append(i)
                 filtered_index[1].append(j)
 
-        filtered_index = torch.Tensor(filtered_index).to(self.device)
+        filtered_index = torch.Tensor(filtered_index).long().to(self.device)
 
         return filtered_index
 

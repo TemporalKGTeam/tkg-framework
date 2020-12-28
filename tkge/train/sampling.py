@@ -17,12 +17,12 @@ S, P, O, T = SLOTS
 
 
 class NegativeSampler(Registrable):
-    def __init__(self, config: Config, dataset: DatasetProcessor):
+    def __init__(self, config: Config, dataset: DatasetProcessor, as_matrix: bool = True):
         super(NegativeSampler, self).__init__(config, configuration_key="negative_sampling")
 
         self.num_samples = self.config.get("negative_sampling.num_samples")
         self.filter = self.config.get("negative_sampling.filter")
-        self.as_matrix = self.config.get("negative_sampling.as_matrix")
+        self.as_matrix = as_matrix
 
         self.dataset = dataset
 
@@ -33,8 +33,9 @@ class NegativeSampler(Registrable):
         ns_type = config.get("negative_sampling.name")
 
         if ns_type in NegativeSampler.list_available():
+            as_matrix = config.get("negative_sampling.as_matrix")
             kwargs = config.get("model.args")  # TODO: 需要改成key的格式
-            return NegativeSampler.by_name(ns_type)(config, dataset)
+            return NegativeSampler.by_name(ns_type)(config, dataset, as_matrix)
         else:
             raise ConfigurationError(
                 f"{ns_type} specified in configuration file is not supported"
@@ -65,8 +66,8 @@ class NegativeSampler(Registrable):
 
 @NegativeSampler.register(name='no_sampling')
 class NonNegativeSampler(NegativeSampler):
-    def __init__(self, config: Config, dataset: DatasetProcessor):
-        super().__init__(config, dataset)
+    def __init__(self, config: Config, dataset: DatasetProcessor, as_matrix: bool):
+        super().__init__(config, dataset, as_matrix)
 
     def _sample(self, pos_batch, as_matrix, replace):
         batch_size = pos_batch.size(0)
@@ -83,7 +84,7 @@ class NonNegativeSampler(NegativeSampler):
             raise NotImplementedError
 
         if as_matrix:
-            samples = samples.view(3, -1)
+            samples = samples.view(batch_size, -1)
 
         return samples
 
@@ -94,9 +95,9 @@ class NonNegativeSampler(NegativeSampler):
         labels = torch.zeros((batch_size, vocab_size))
 
         if replace == "tail":
-            labels[range(batch_size), pos_batch[:, 2]] = 1.
+            labels[range(batch_size), pos_batch[:, 2].long()] = 1.
         elif replace == "head":
-            labels[range(batch_size), pos_batch[:, 0]] = 1.
+            labels[range(batch_size), pos_batch[:, 0].long()] = 1.
         else:
             raise NotImplementedError
 
@@ -108,8 +109,8 @@ class NonNegativeSampler(NegativeSampler):
 
 @NegativeSampler.register(name='time_agnostic')
 class BasicNegativeSampler(NegativeSampler):
-    def __init__(self, config: Config, dataset: DatasetProcessor):
-        super().__init__(config, dataset)
+    def __init__(self, config: Config, dataset: DatasetProcessor, as_matrix: bool):
+        super().__init__(config, dataset, as_matrix)
 
     def _sample(self, pos_batch: torch.Tensor, as_matrix: bool, replace: str):
         # TODO 可不可以用generator 参考torch.RandomSampler
