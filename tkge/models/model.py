@@ -64,8 +64,10 @@ class DeSimplEModel(BaseModel):
         num_ent = self.dataset.num_entities()
         num_rel = self.dataset.num_relations()
 
-        s_emb_dim = self.config.get("model.embedding.s_emb_dim")
-        t_emb_dim = self.config.get("model.embedding.t_emb_dim")
+        emb_dim = self.config.get("model.embedding.emb_dim")
+        se_prop = self.config.get("model.se_prop")
+        s_emb_dim = int(self * emb_dim)
+        t_emb_dim = emb_dim - s_emb_dim
 
         device = self.device
 
