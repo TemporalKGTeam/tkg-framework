@@ -18,6 +18,7 @@ class Evaluation(Configurable):
         super().__init__(config=config)
 
         self.dataset = dataset
+        self.vocab_size = dataset.num_entities()
 
         self.device = self.config.get("task.device")
         self.filter = self.config.get("eval.filter")
@@ -32,7 +33,7 @@ class Evaluation(Configurable):
         metrics = {}
 
         filtered_list = self.filtered_data['sp_'] if miss == 'o' else self.filtered_data['_po']
-        filtered_index = self.filter_query(queries, filtered_list)
+        filtered_index = self.filter_query(queries, filtered_list, miss=miss)
         targets = queries[:, 2].long() if miss == 'o' else queries[:, 0].long()
 
         ranks = self.ranking(scores, targets, filtered_index)
@@ -46,13 +47,13 @@ class Evaluation(Configurable):
 
         return metrics
 
-    def ranking(self, scores: torch.Tensor, targets: torch.Tensor, filtered_index: torch.Tensor):
+    def ranking(self, scores: torch.Tensor, targets: torch.Tensor, filtered_mask: torch.Tensor):
         query_size = scores.size(0)
         vocabulary_size = scores.size(1)
 
         target_scores = scores[range(query_size), targets].unsqueeze(1).repeat((1, vocabulary_size))
 
-        scores[filtered_index[0], filtered_index[1]] = 0.0
+        scores = scores.masked_fill(filtered_mask.byte(), 0.0)
 
         if self.ordering == "optimistic":
             comp = scores.gt(target_scores)
@@ -63,8 +64,10 @@ class Evaluation(Configurable):
 
         return ranks.float()
 
-    def filter_query(self, queries: torch.Tensor, filtered_list: Dict[str, List], miss: str = "o"):
+    def filter_query(self, queries: torch.Tensor, filtered_list: Dict[str, List], miss: str = "o") -> torch.Tensor:
         filtered_index = [[], []]
+        query_size = queries.size(0)
+
         for i, q in enumerate(queries):
             # TODO(gengyuan) formatting
             sid = int(q[0])
@@ -80,9 +83,10 @@ class Evaluation(Configurable):
                 filtered_index[0].append(i)
                 filtered_index[1].append(j)
 
-        filtered_index = torch.Tensor(filtered_index).long().to(self.device)
+        filtered_mask = torch.zeros((query_size, self.vocab_size)).to(self.device)
+        filtered_mask[filtered_index] = 1
 
-        return filtered_index
+        return filtered_mask.long()
 
     def mean_ranking(self, ranks):
         mr = torch.mean(ranks).item()

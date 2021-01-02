@@ -175,22 +175,20 @@ class TrainTask(Task):
                     self.config.log(f"Metrics(head prediction) in iteration {epoch} : {metrics['head'].items()}")
                     self.config.log(f"Metrics(tail prediction) in iteration {epoch} : {metrics['tail'].items()}")
 
+    def eval(self):
+        # TODO early stopping
 
-def eval(self):
-    # TODO early stopping
+        raise NotImplementedError
 
-    raise NotImplementedError
+    def save_ckpt(self, epoch):
+        model = self.config.get("model.name")
+        dataset = self.config.get("dataset.name")
+        folder = self.config.get("train.checkpoint.folder")
+        filename = f"epoch_{epoch}_model_{model}_dataset_{dataset}.ckpt"
 
+        self.config.log(f"Save the model to {folder} as file {filename}")
 
-def save_ckpt(self, epoch):
-    model = self.config.get("model.name")
-    dataset = self.config.get("dataset.name")
-    folder = self.config.get("train.checkpoint.folder")
-    filename = f"epoch:{epoch}_model:{model}_dataset:{dataset}.ckpt"
-
-    self.config.log(f"Save the model to {folder} as file {filename}")
-
-    torch.save(self.model, os.path.join(folder, filename))
+        torch.save({'state_dict': self.model.state_dict()}, filename)
 
 
 def load_ckpt(self, ckpt_path):

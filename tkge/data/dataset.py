@@ -113,26 +113,28 @@ class DatasetProcessor(Registrable):
 
     def filter(self, type="static", target="o") -> Dict[str, List]:
         assert type in ["static",
-                        "time-aware"], f"{type} filtering is not implemented; use static or time-aware filtering."
+                        "time-aware",
+                        "off"], f"{type} filtering is not implemented; use static/time-aware/off filtering."
         assert target in ["s", "p", "o"], "Only support s(ubject)/p(redicate)/o(bject) prediction task"
 
         filtered_data = defaultdict(list)
 
-        all_tuples = self.all_triples if type == "static" else self.all_quadruples
+        if type != "off":
+            all_tuples = self.all_triples if type == "static" else self.all_quadruples
 
-        for tup in all_tuples:
-            query = tup.copy()
+            for tup in all_tuples:
+                query = tup.copy()
 
-            # TODO(gengyuan) enum
-            missing = query[SPOT[target].value - 1]
-            query[SPOT[target].value - 1] = None
+                # TODO(gengyuan) enum
+                missing = query[SPOT[target].value - 1]
+                query[SPOT[target].value - 1] = None
 
-            query_k = f"{query[0]}-{query[1]}-{query[2]}"
+                query_k = f"{query[0]}-{query[1]}-{query[2]}"
 
-            if type!="static":
-                raise NotImplementedError
+                if type != "static":
+                    raise NotImplementedError
 
-            filtered_data[query_k].append(missing)
+                filtered_data[query_k].append(missing)
 
         return filtered_data
 
