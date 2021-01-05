@@ -156,6 +156,47 @@ class BasicNegativeSampler(NegativeSampler):
         return labels
 
 
+@NegativeSampler.register(name="atise_time")
+class AtiseTimeNegativeSampler(NegativeSampler):
+    def __init__(self, config: Config, dataset: DatasetProcessor, as_matrix: bool):
+        super().__init__(config, dataset, as_matrix)
+
+    def _sample(self, pos_batch: torch.Tensor, as_matrix: bool, replace: str):
+        batch_size, dim = list(pos_batch.size())
+
+        samples = pos_batch.clone()
+
+        for i in range(self.num_samples):
+            samples = torch.cat((samples, pos_batch), 0)
+
+        samples[:, 3] = torch.randint(self.dataset.num_timestamps(), (batch_size * self.num_samples))
+
+        if as_matrix:
+            raise NotImplementedError
+
+        return torch.cat((pos_batch, samples), 0)
+
+    def _label(self, pos_batch: torch.Tensor, as_matrix: bool, replace: str):
+        batch_size, dim = list(pos_batch.size())
+
+        ones = torch.ones((batch_size, 1))
+        zeros = torch.zeros((batch_size * self.num_samples, 1))
+
+        return torch.ones((ones, zeros), 0)
+
+
+@NegativeSampler.register(name="self_adversarial")
+class SelfAdversarialNegativeSampler(NegativeSampler):
+    def __init__(self, config: Config, dataset: DatasetProcessor, as_matrix: bool):
+        super().__init__(config, dataset, as_matrix)
+
+    def _sample(self, pos_batch: torch.Tensor, as_matrix: bool, replace: str):
+        raise NotImplementedError
+
+    def _label(self, pos_batch: torch.Tensor, as_matrix: bool, replace: str):
+        raise NotImplementedError
+
+
 class DepNegativeSampler(Registrable):
     def __init__(self, config: Config, configuration_key: str, dataset: DatasetProcessor):
         super().__init__(config, configuration_key)

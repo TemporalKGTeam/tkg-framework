@@ -15,10 +15,10 @@ class Loss(Registrable):
     def create(config: Config):
         """Factory method for loss creation"""
 
-        loss_type = config.get("train.loss")
+        loss_type = config.get("train.loss.type")
 
         if loss_type in Loss.list_available():
-            kwargs = config.get("train.loss_arg")  # TODO: 需要改成key的格式
+            # kwargs = config.get("train.loss_arg")  # TODO: 需要改成key的格式
             return Loss.by_name(loss_type)(config)
         else:
             raise ConfigurationError(

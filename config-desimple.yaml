@@ -114,7 +114,7 @@ model:
   name: 'de_simple'
   embedding:
     emb_dim: 100
-    se_prop: 0.9
+    se_prop: 0.68
   dropout: 0.4
   args: ~
 
@@ -148,7 +148,7 @@ train:
     split: test # in [test or valid]
     every: 10
     batch_size: 100
-    filter: static  # in [off, static, time-aware]
+    filter: time-aware  # in [off, static, time-aware]
     ordering: optimistic    # in [optimistic, peesimistic]
     k: [1, 3, 10]
 
@@ -193,7 +193,7 @@ train:
     # create an additional checkpoint every this many epochs. Disable additional
     # checkpoints with 0.
     folder: /home/gengyuan/workplace/ckpt/
-    every: 10
+    every: 50
 
     # Keep this many most recent additional checkpoints.
     keep: 3
@@ -214,9 +214,19 @@ train:
 
 
 eval:
-  filter: static
+  filter: time-aware
   ordering: optimistic
   k: [1,3,10]
+
+
+test:
+  batch_size: 256
+  loader:
+    num_workers: 0
+    pin_memory: False
+    drop_last: False
+    timeout: 0
+  model_path: "/home/gengyuan/workspace/tkge/epoch_500_model_de_simple_dataset_icews14.ckpt"
 
 
 

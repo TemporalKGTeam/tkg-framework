@@ -351,9 +351,8 @@ class Config:
         output line.
 
         """
-        if not os.path.exists(self.logfile()):
-            f = open(self.logfile(), "w+")
-            f.close()
+        if not os.path.exists(self.logdir()):
+            os.makedirs(self.logdir())
 
         with open(self.logfile(), "a") as file:
             for line in msg.splitlines():
@@ -491,6 +490,10 @@ class Config:
                 )
             )
         return value
+
+    def logdir(self) -> str:
+        folder = self.log_folder if self.log_folder else self.folder
+        return folder
 
     def logfile(self) -> str:
         folder = self.log_folder if self.log_folder else self.folder

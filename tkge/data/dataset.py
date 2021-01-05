@@ -1,6 +1,4 @@
 import torch
-from torch import nn
-from torch import Tensor
 from torch.utils.data.dataset import Dataset as PTDataset
 import numpy as np
 
@@ -96,6 +94,7 @@ class DatasetProcessor(Registrable):
             self.test_raw = f.readlines()
 
     def process_time(self, origin: str):
+        # TODO(gengyuan) 使用time或者datetime里面的函数来处理
         raise NotImplementedError
 
     def get(self, split: str = "train"):
@@ -131,8 +130,8 @@ class DatasetProcessor(Registrable):
 
                 query_k = f"{query[0]}-{query[1]}-{query[2]}"
 
-                if type != "static":
-                    raise NotImplementedError
+                if type == "time-aware":
+                    query_k += f"-{query[3]}"
 
                 filtered_data[query_k].append(missing)
 
@@ -514,16 +513,20 @@ class SplitDataset(torch.utils.data.Dataset):
         # TODO(gengyuan) calculate the length
         return len(self.dataset['triple'])
 
-    def __getitem__(self, index):
+    def __getitem__(self, index, train=True):
         sample = torch.Tensor(self.dataset['triple'][index])
 
-        if 'timestamp_id' in self.datatype:
-            timestamp_id = torch.Tensor(self.dataset['timestamp_id'][index])
-            sample = torch.cat([sample, timestamp_id], dim=0)
+        for type in self.datatype:
+            if type == 'timestamp_id':
+                timestamp_id = torch.Tensor(self.dataset['timestamp_id'][index])
+                sample = torch.cat([sample, timestamp_id], dim=0)
 
-        if 'timestamp_float' in self.datatype:
-            timestamp_float = torch.Tensor(self.dataset['timestamp_float'][index])
-            sample = torch.cat([sample, timestamp_float], dim=0)
+            elif type == 'timestamp_float':
+                timestamp_float = torch.Tensor(self.dataset['timestamp_float'][index])
+                sample = torch.cat([sample, timestamp_float], dim=0)
+            else:
+                raise NotImplementedError
+
 
         return sample
 

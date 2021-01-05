@@ -22,7 +22,6 @@ class BaseModel(nn.Module, Registrable):
 
         self.dataset = dataset
         self.device = device
-        self.prepare_embedding()
 
     @staticmethod
     def create(config: Config, dataset: DatasetProcessor, device: str):
@@ -58,6 +57,8 @@ class DeSimplEModel(BaseModel):
     def __init__(self, config: Config, dataset: DatasetProcessor, device: str = 'cpu'):
         super().__init__(config, dataset, device)
 
+        self.prepare_embedding()
+
         self.time_nl = torch.sin  # TODO add to configuration file
 
     def prepare_embedding(self):
@@ -65,8 +66,8 @@ class DeSimplEModel(BaseModel):
         num_rel = self.dataset.num_relations()
 
         emb_dim = self.config.get("model.embedding.emb_dim")
-        se_prop = self.config.get("model.se_prop")
-        s_emb_dim = int(self * emb_dim)
+        se_prop = self.config.get("model.embedding.se_prop")
+        s_emb_dim = int(se_prop * emb_dim)
         t_emb_dim = emb_dim - s_emb_dim
 
         device = self.device
@@ -212,16 +213,16 @@ class TComplExModel(BaseModel):
         # 2nd item: reg item factors
         # 3rd item: time
 
-        score = (lhs[0] * full_rel[0] - lhs[1] * full_rel[1]) @ right[0].t() + \
-                (lhs[1] * full_rel[0] + lhs[0] * full_rel[1]) @ right[1].t()
-        factor = {
+        scores = (lhs[0] * full_rel[0] - lhs[1] * full_rel[1]) @ right[0].t() + \
+                 (lhs[1] * full_rel[0] + lhs[0] * full_rel[1]) @ right[1].t()
+        factors = {
             "n3_regularize": (torch.sqrt(lhs[0] ** 2 + lhs[1] ** 2),
                               torch.sqrt(full_rel[0] ** 2 + full_rel[1] ** 2),
                               torch.sqrt(rhs[0] ** 2 + rhs[1] ** 2)),
             "lambda3_regularize": self.embeddings[2].weight[:-1] if self.no_time_emb else self.embeddings[2].weight
         }
 
-        return score, factor
+        return scores, factors
 
     def forward_over_time(self, x):
         lhs = self.embeddings[0](x[:, 0])
@@ -253,10 +254,12 @@ class ATiSEModel(BaseModel):
     def __init__(self, config: Config, dataset: DatasetProcessor, device: str = 'cpu'):
         super().__init__(config, dataset, device)
 
-        self.gamma = self.config.get("model.gamma")
+        # TODO(gengyuan) load params before initialize
         self.cmin = self.config.get("model.cmin")
         self.cmax = self.config.get("model.cmax")
         self.emb_dim = self.config.get("model.embedding_dim")
+
+        self.prepare_embedding()
 
     def prepare_embedding(self):
         num_ent = self.dataset.num_entities()
@@ -304,11 +307,15 @@ class ATiSEModel(BaseModel):
         self.embedding['emb_TE'].weight.data.renorm_(p=2, dim=0, maxnorm=1)
         self.embedding['emb_TR'].weight.data.renorm_(p=2, dim=0, maxnorm=1)
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, sample: torch.Tensor):
+        bs = sample.size(0)
+        sample = sample.view(-1, 4)
+
         # TODO(gengyuan) type conversion when feeding the data instead of running the models
-        h_i, t_i, r_i, d_i = x[:, 0].long(), x[:, 1].long(), x[:, 2].long(), x[:, 3]
+        h_i, t_i, r_i, d_i = sample[:, 0].long(), sample[:, 2].long(), sample[:, 1].long(), sample[:, 3]
 
         pi = 3.14159265358979323846
+
         h_mean = self.embedding['emb_E'](h_i).view(-1, self.emb_dim) + \
                  d_i.view(-1, 1) * self.embedding['alpha_E'](h_i).view(-1, 1) * self.embedding['emb_TE'](h_i).view(-1,
                                                                                                                    self.emb_dim) \
@@ -328,7 +335,7 @@ class ATiSEModel(BaseModel):
             2 * pi * self.embedding['omega_R'](r_i).view(-1, self.emb_dim) * d_i.view(-1, 1))
 
         h_var = self.embedding['emb_E_var'](h_i).view(-1, self.emb_dim)
-        t_var = self.embedding['mb_E_var'](t_i).view(-1, self.emb_dim)
+        t_var = self.embedding['emb_E_var'](t_i).view(-1, self.emb_dim)
         r_var = self.embedding['emb_R_var'](r_i).view(-1, self.emb_dim)
 
         out1 = torch.sum((h_var + t_var) / r_var, 1) + torch.sum(((r_mean - h_mean + t_mean) ** 2) / r_var,
@@ -337,7 +344,19 @@ class ATiSEModel(BaseModel):
                                                                  1) - self.emb_dim
         scores = (out1 + out2) / 4
 
-        return scores, None
+        scores = scores.view(bs, -1)
+
+
+        factors = {
+            "renorm": (self.embedding['emb_E'].weight,
+                       self.embedding['emb_R'].weight,
+                       self.embedding['emb_TE'].weight,
+                       self.embedding['emb_TR'].weight),
+            "clamp": (self.embedding['emb_E_var'].weight,
+                      self.embedding['emb_R_var'].weight)
+        }
+
+        return scores, factors
 
 
 # reference: https://github.com/bsantraigi/TA_TransE/blob/master/model.py

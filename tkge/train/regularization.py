@@ -8,21 +8,22 @@ from tkge.common.registry import Registrable
 
 
 class Regularizer(nn.Module, Registrable):
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, name: str):
         Registrable.__init__(self, config)
         nn.Module.__init__(self)
 
-        self.device = self.get_option("device")
+        self.device = self.config.get("task.device")
+        self.name = name
 
     def forward(self, factors: Tuple[torch.Tensor], **kwargs):
         raise NotImplementedError
 
     @staticmethod
     def create(config: Config, name: str):
-        reg_type = config.get(f"regularize.{name}.type")
+        reg_type = config.get(f"train.regularizer.{name}.type")
 
         if reg_type in Regularizer.list_available():
-            return Regularizer.by_name(reg_type)(config, reg_type)
+            return Regularizer.by_name(reg_type)(config, name)
 
         else:
             raise ValueError(
@@ -34,10 +35,10 @@ class Regularizer(nn.Module, Registrable):
 class InplaceRegularizer(Regularizer):
     @staticmethod
     def create(config: Config, name: str):
-        reg_type = config.get(f"regularize.{name}.type")
+        reg_type = config.get(f"train.inplace_regularizer.{name}.type")
 
         if reg_type in InplaceRegularizer.list_available():
-            return InplaceRegularizer.by_name(reg_type)(config, reg_type)
+            return InplaceRegularizer.by_name(reg_type)(config, name)
 
         else:
             raise ValueError(
@@ -88,7 +89,7 @@ class N3Reg(Regularizer):
         super().__init__(config)
 
         # TODO(gengyuan) add attribute automatically
-        self.weight = self.config.get(f"regularizer.{name}.weight")
+        self.weight = self.config.get(f"train.regularizer.{name}.weight")
 
     def forward(self, factors: Tuple[torch.Tensor], **kwargs):
         norm = 0
@@ -104,7 +105,7 @@ class F2Reg(Regularizer):
     def __init__(self, config: Config, name: str):
         super().__init__(config)
 
-        self.weight = self.config.get(f"regularizer.{name}.weight")
+        self.weight = self.config.get(f"train.regularizer.{name}.weight")
 
     def forward(self, factors: Tuple[torch.Tensor], **kwargs):
         norm = 0
@@ -116,14 +117,15 @@ class F2Reg(Regularizer):
 @Regularizer.register(name="lambda3_regularize")
 class Lambda3Reg(Regularizer):
     def __init__(self, config: Config, name: str):
-        super().__init__(config)
+        super().__init__(config, name)
 
-        self.weight = self.config.get(f"regularizer.{name}.weight")
+        self.weight = self.config.get(f"train.regularizer.{name}.weight")
 
         # TODO(gengyuan): check whether all needed parameters are defined in config file; if not, print logging and load the default number
         # at the moment, throw errors
 
     def forward(self, factors: Tuple[torch.Tensor], **kwargs):
+        raise NotImplementedError
         ddiff = factors[1:] - factors[:-1]
         rank = int(ddiff.shape[1] / 2)
         diff = torch.sqrt(ddiff[:, :rank] ** 2 + ddiff[:, rank:] ** 2) ** 3
@@ -133,25 +135,25 @@ class Lambda3Reg(Regularizer):
 @InplaceRegularizer.register(name="inplace_renorm_regularize")
 class InplaceRenormReg(Regularizer):
     def __init__(self, config: Config, name: str):
-        super().__init__(config)
+        super().__init__(config, name)
 
-        self.p = self.config.get(f"regularizer.{name}.p")
-        self.dim = self.config.get(f"regularizer.{name}.dim")
-        self.maxnorm = self.config.get(f"regularizer.{name}.maxnorm")
+        self.p = self.config.get(f"train.inplace_regularizer.{name}.p")
+        self.dim = self.config.get(f"train.inplace_regularizer.{name}.dim")
+        self.maxnorm = self.config.get(f"train.inplace_regularizer.{name}.maxnorm")
 
     def forward(self, factors: Tuple[torch.Tensor], **kwargs):
         for f in factors:
-            f.weight.data.renorm_(p=self.p, dim=self.dim, maxnorm=self.maxnorm)
+            f.data.renorm_(p=self.p, dim=self.dim, maxnorm=self.maxnorm)
 
-@InplaceRegularizer.register(name="inplace_uniform_regularize")
+
+@InplaceRegularizer.register(name="inplace_clamp_regularize")
 class InplaceClampReg(Regularizer):
-    def __init__(self, config:Config, name:str):
-        super().__init__(config)
+    def __init__(self, config: Config, name: str):
+        super().__init__(config, name)
 
-
-        self.min = self.config.get(f"regularizer.{name}.min")
-        self.max = self.config.get(f"regularizer.{name}.max")
+        self.min = self.config.get(f"train.inplace_regularizer.{name}.min")
+        self.max = self.config.get(f"train.inplace_regularizer.{name}.max")
 
     def forward(self, factors: Tuple[torch.Tensor], **kwargs):
         for f in factors:
-            f.weight.data.clamp_(max=self.max, min=self.min)
+            f.data.clamp_(max=self.max, min=self.min)

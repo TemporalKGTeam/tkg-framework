@@ -9,6 +9,7 @@ from collections import defaultdict
 from tkge.task.task import Task
 from tkge.data.dataset import DatasetProcessor, SplitDataset
 from tkge.train.sampling import NegativeSampler, NonNegativeSampler
+from tkge.train.regularization import Regularizer, InplaceRegularizer
 from tkge.common.config import Config
 from tkge.models.model import BaseModel
 from tkge.models.loss import Loss
@@ -62,7 +63,7 @@ class TrainTask(Task):
         )
 
         self.valid_loader = torch.utils.data.DataLoader(
-            SplitDataset(self.dataset.get("valid"), self.datatype),
+            SplitDataset(self.dataset.get("valid"), self.datatype + ['timestamp_id']),
             shuffle=False,
             batch_size=self.valid_bs,
             num_workers=self.config.get("train.loader.num_workers"),
@@ -89,6 +90,18 @@ class TrainTask(Task):
             weight_decay=self.config.get("train.optimizer.reg_lambda")
         )
 
+        self.config.log((f"Initializeing regularizer"))
+        self.regularizer = dict()
+        self.inplace_regularizer = dict()
+
+        if self.config.get("train.regularizer"):
+            for name in self.config.get("train.regularizer"):
+                self.regularizer[name] = Regularizer.create(self.config, name)
+
+        if self.config.get("train.inplace_regularizer"):
+            for name in self.config.get("train.inplace_regularizer"):
+                self.inplace_regularizer[name] = InplaceRegularizer.create(self.config, name)
+
         self.config.log(f"Initializing evaluation")
         self.evaluation = Evaluation(config=self.config, dataset=self.dataset)
 
@@ -97,8 +110,6 @@ class TrainTask(Task):
 
         save_freq = self.config.get("train.checkpoint.every")
         eval_freq = self.config.get("train.valid.every")
-
-        regularizer = self.config.get("train.regularizer")
 
         for epoch in range(1, self.config.get("train.max_epochs") + 1):
             self.model.train()
@@ -119,14 +130,22 @@ class TrainTask(Task):
                 labels = labels.to(self.device)
 
                 scores, factors = self.model(samples)
-                regs = None
 
                 # TODO(gengyuan) add regularizer
                 loss = self.loss(scores, labels)
+
+                for name, tensors in factors.items():
+                    if name in self.regularizer:
+                        loss += self.regularizer[name](tensors)
+
                 loss.backward()
                 self.optimizer.step()
 
                 # TODO(gengyuan) inplace regularize
+                for name, tensors in factors.items():
+                    if name in self.inplace_regularizer:
+                        self.inplace_regularizer[name](tensors)
+
                 total_loss += loss.cpu().item()
 
             stop = time.time()
@@ -188,7 +207,7 @@ class TrainTask(Task):
 
         self.config.log(f"Save the model to {folder} as file {filename}")
 
-        torch.save({'state_dict': self.model.state_dict()}, filename)
+        torch.save({'state_dict': self.model.state_dict()}, os.path.join(model, dataset, folder, filename))
 
 
 def load_ckpt(self, ckpt_path):

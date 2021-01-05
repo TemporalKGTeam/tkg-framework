@@ -4,7 +4,7 @@
 console:
   # If set, no console output is produced
   quiet: False
-  folder: "/Users/GengyuanMax/workspace/tkge/"
+  folder: "/home/gengyuan/workspace/tkge/log/atise"
 
   # Formatting of trace entries for console output after certain events, such as
   # finishing an epoch. Each entry is a key-value pair, where the key refers to
@@ -29,7 +29,7 @@ task:
   type: train
 
   # Main device to use for this job (e.g., 'cpu', 'cuda', 'cuda:0')
-  device: 'cpu'
+  device: 'cuda'
 
 # The seeds of the PRNGs can be set manually for (increased) reproducibility.
 # Use -1 to disable explicit seeding.
@@ -50,12 +50,17 @@ random_seed:
 
 dataset:
   # data folder includes train, val, test files
-  folder: '/Users/GengyuanMax/workspace/tkge/data/icews14'
+  folder: '/home/gengyuan/workspace/tkge/data/icews14'
 
   # indexes mapping [false, true]
   # TODO 可以保存到cache
   mapping: FALSE
   filter: FALSE
+  temporal:
+    level: "day"  #deprecated
+    index: False
+    float: True
+    gran: 3
   args: ~
 
 
@@ -63,7 +68,7 @@ dataset:
   # Specify a data here. There must be a folder of that name under "data/".
   # If this folder contains a data.yaml file, it overrides the defaults
   # specified below.
-  name: 'icews14'
+  name: 'icews14_atise'
 
   # Number of entities. If set to -1, automatically determined from the
   # entity_ids file (see below).
@@ -80,7 +85,7 @@ dataset:
     # Files that store human-readble string representations of each
     # entity/relation. These files are optional.
     #
-    # Type can be map (field 0 is internal index) or idmap (field 0 is external
+  # Type can be map (field 0 is internal index) or idmap (field 0 is external
   # id).
 
 
@@ -104,16 +109,17 @@ dataset:
 # configuration files under kge/model.
 model:
   name: 'atise'
-  embedding_dim: 128
-  gamma: ~
-  cmin: ~
-  cmax: ~
+  embedding_dim: 500
+  cmin: 0.003
+  cmax: 0.3
+  args: ~
 
 
 negative_sampling:
   name: 'time_agnostic'
-  num_samples: 5
-  filter: FALSE
+  num_samples: 10
+  filter: False
+  as_matrix: True
 
 
 ## TRAINING ####################################################################
@@ -159,22 +165,17 @@ train:
   #
   # LibKGE also supports some other losses, which we do not recommend to use.
   # See kge/loss.py for details.
-  loss: cross_entropy_loss
+  loss:
+    type: log_rank_loss
+    gamma: 120
+    temp: 0.5
 
-  # Argument of loss function (if any). If .nan is specified, a default value is
-  # used (as stated in parenthesis below).
-  #
-  # - margin_ranking (1.0): margin to use
-  # - bce (0.0): offset to add to raw model scores before appyling the logistic
-  #              function. This is useful esp. when the model only outputs negative
-  #              scores (e.g., TransE, RotatE).
-  loss_arg: .nan
 
   # Maximum number of epochs used for training
-  max_epochs: 20
+  max_epochs: 5000
 
   # Batch size used for training.
-  batch_size: 100
+  batch_size: 512
 
   # If specified, split the batch into subbatches of at most this size and run
   # the forward/backward passes separately on each subbatch. This reduces memory
@@ -190,12 +191,11 @@ train:
 
   # Number of workers used to construct batches. Leave at 0 for default (no
   # separate workers). On Windows, only 0 is supported.
-  num_workers: 0
 
   # Optimizer used for training.
   optimizer:
     type: Adam
-    lr: 0.001
+    lr: 0.0003
     reg_lambda: 0.0
     args: ~
 
@@ -208,19 +208,35 @@ train:
       args:
         +++: +++
 
-  regularizer:
-    name: ["reg1", "reg2"]
-    reg1:
-      type: "inplace_renorm_reg"
+
+  loader:
+    num_workers: 0
+    pin_memory: False
+    drop_last: False
+    timeout: 0
+
+
+  valid:
+    split: test # in [test or valid]
+    every: 10
+    batch_size: 64
+    filter: static  # in [off, static, time-aware]
+    ordering: optimistic    # in [optimistic, peesimistic]
+    k: [1, 3, 10]
+
+  regularizer: ~
+
+  inplace_regularizer:
+    renorm:
+      type: inplace_renorm_regularize
       p: 2
       dim: 0
       maxnorm: 1
-    reg2:
-      type: "inplace_clamp_reg"
-      min: ~
-      max: ~
+    clamp:
+      type: inplace_clamp_regularize
+      min: 0.003
+      max: 0.3
 
-    args: ~
 
 
     # Specific optimizer options for parameters matched with regex expressions can be
@@ -237,7 +253,6 @@ train:
     # model.named_parameters()
     # or from a checkpoint by:
     # kge dump checkpoint checkpoint_file.pt | grep parameter_names
-    +++: +++
 
   # Learning rate scheduler to use. Any scheduler from torch.optim.lr_scheduler
   # can be used (e.g., ReduceLROnPlateau). When left empty, no LR scheduler is
@@ -257,7 +272,7 @@ train:
     # create an additional checkpoint every this many epochs. Disable additional
     # checkpoints with 0.
     folder: /Users/GengyuanMax/Downloads/ckpt/
-    every: 5
+    every: 100
 
     # Keep this many most recent additional checkpoints.
     keep: 3
@@ -299,105 +314,11 @@ KvsAll:
     s_o: False
     _po: True
 
-## Options for negative sampling training (train.type=="negative_sampling")
-#negative_sampling:
-#  # Negative sampler to use
-#  # - uniform  : samples entities/relations for corruption uniformly from the set
-#  #              of entities/relations
-#  # - frequency: samples entities/relations for corruption based on their relative
-#  #              frequency in the corresponding slot in the training data
-#  sampling_type: uniform
-#
-#  # Options for sampling type frequency (negative_sampling.sampling_type=="frequency")
-#  frequency:
-#    # Smoothing constant to add to frequencies in training data (disable with
-#    # 0). Corresponds to a symmetric Dirichlet prior.
-#    smoothing: 1
-#
-#  # Number of times each slot of each positive triple is corrupted by the
-#  # sampler to obtain negative triples.
-#  num_samples:
-#    s: 3
-#    p: 0          # -1 means: same as s
-#    o: -1         # -1 means: same as s
-#
-#  # Whether to resample corrupted triples that occur in the training data (and
-#  # are hence positives). Can be set separately for each slot.
-#  filtering:
-#    s: False       # filter and resample for slot s
-#    p: False       # as above
-#    o: False       # as above
-#
-#    split: ''      # split containing the positives; default is train.split
-#
-#    # Implementation to use for filtering.
-#    # standard: use slow generic implementation, available for all samplers
-#    # fast: use specialized fast implementation, available for some samplers
-#    # fast_if_available: use fast implementation if available, else standard
-#    implementation: fast_if_available
-#
-#  # Whether to share the s/p/o corruptions for all triples in the batch. This
-#  # can make training more efficient. Cannot be used with together with
-#  # filtering, but it is ensured that each triple does not get itself as a
-#  # negative.
-#  shared: False
-#
-#  # Type of shared sampling implementation:
-#  #
-#  # - naive: Each positive triples uses exactly the same set of shared samples,
-#  #          even if it's own positive entity is in the shared sample as a
-#  #          negative. Very fast.
-#  # - default: Avoid that a positive triple's entity occurs in its shared
-#  #            negative samples. This is done by using a shared sample size that
-#  #            is one sample larger then needed. The actual sample of a triple
-#  #            is then obtained by dropping the sample corresponding to its
-#  #            positive entity (or a random one if there is no such sample).
-#  shared_type: 'default'
-#
-#  # Whether sampling should be performed with replacement. Without replacement
-#  # sampling is currently only supported for shared sampling.
-#  with_replacement: True
-#
-#  # Implementation to use for the negative sampling job. Possible values are:
-#  # - triple: Scores every positive and negative triple in the batch
-#  # - all   : Scores against all possible targets and filters relevant scores
-#  #           out of the resulting score matrix
-#  # - batch : Scores against all targets contained in batch (or chunk) and
-#  #           filters relevant scores out of the resulting score matrix.
-#  # - auto  : Chooses best implementation based on num_samples.
-#  #           'batch' if shared sampling is activated or max(num_samples.s,
-#  #           num_samples.p, num_samples.o) > 30. 'triple' otherwise.
-#  #
-#  # 'batch' or 'auto' is recommended (faster) for models which have efficient
-#  # implementations to score many targets at once. For all other models, use
-#  # 'triple' (e.g., for TransE or RotatE in the current implementation).
-#  implementation: triple
 
-## VALIDATION AND EVALUATION ###################################################
-
-# Options used for all evaluation jobs (job.type=="eval"). Also used during
-# validation when training (unless overridden, see below). Right now, evaluation
-# jobs compute a fixed set of metrics: MRR, HITS@k.
 eval:
-  # Split used for evaluation (specified under 'data.files').
-  split: valid
-
-  # Type of evaluation (entity_ranking, training_loss)
-  type: entity_ranking
-
-  # Batch size used during evaluation
-  batch_size: 100
-
-  # Amount of tracing information being written. When set to "example", traces
-  # the rank of the correct answer for each example.
-  trace_level: epoch            # example, batch, epoch
-
-  # Number of workers used to construct batches. Leave at 0 for default (no
-  # separate workers). On Windows, only 0 is supported.
-  num_workers: 0
-
-  # Other options
-  pin_memory: False
+  filter: time-aware
+  ordering: optimistic
+  k: [1,3,10]
 
 
 # Configuration options for model validation/selection during training. Applied
