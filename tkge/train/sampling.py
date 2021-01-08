@@ -42,24 +42,27 @@ class NegativeSampler(Registrable):
                 f"implement your negative samping class with `NegativeSampler.register(name)"
             )
 
-    def _sample(self, pos_batch: torch.Tensor, as_matrix: bool, replace: str):
+    def _sample(self, pos_batch: torch.Tensor, as_matrix: bool, sample_target: str):
         raise NotImplementedError
 
-    def _label(self, pos_batch: torch.Tensor, as_matrix: bool, replace: str):
+    def _label(self, pos_batch: torch.Tensor, as_matrix: bool, sample_target: str):
         raise NotImplementedError
 
     def _filtered_sample(self, neg_sample):
         raise NotImplementedError
 
-    def sample(self, pos_batch: torch.Tensor, replace: str = "both"):
-        assert replace in ["head", "tail", "both"], f"replace should be in head, tail, both"
+    def sample(self, pos_batch: torch.Tensor, sample_target: str = "both"):
+        assert sample_target in ["head", "tail", "both"], f"sample_target should be in head, tail, both"
 
-        neg_samples = self._sample(pos_batch, self.as_matrix, replace)
+        neg_samples = self._sample(pos_batch, self.as_matrix, sample_target)
 
         if self.filter:
             neg_samples = self._filtered_sample(neg_samples)
 
-        labels = self._label(pos_batch, self.as_matrix, replace)
+        labels = self._label(pos_batch, self.as_matrix, sample_target)
+
+        assert neg_samples.size(0) == labels.size(0), \
+            f"corrupted samples' size {neg_samples.size(0)} and labels' size {labels.size(0)} should be equal in first dimension"
 
         return neg_samples, labels
 
@@ -69,37 +72,43 @@ class NonNegativeSampler(NegativeSampler):
     def __init__(self, config: Config, dataset: DatasetProcessor, as_matrix: bool):
         super().__init__(config, dataset, as_matrix)
 
-    def _sample(self, pos_batch, as_matrix, replace):
+    def _sample(self, pos_batch, as_matrix, sample_target):
         batch_size = pos_batch.size(0)
-        sample_size = pos_batch.size(1)
+        dim_size = pos_batch.size(1)
         vocab_size = self.dataset.num_entities()
 
-        samples = pos_batch.repeat((1, vocab_size)).view(-1, sample_size)
+        samples = pos_batch.repeat((1, vocab_size)).view(-1, dim_size)
 
-        if replace == "tail":
+        if sample_target == "tail":
             samples[:, 2] = torch.arange(vocab_size).repeat(batch_size)
-        elif replace == "head":
+        elif sample_target == "head":
             samples[:, 0] = torch.arange(vocab_size).repeat(batch_size)
         else:
-            raise NotImplementedError
+            samples_h = samples
+            samples_t = samples.clone()
+
+            samples_h[:, 0] = torch.arange(vocab_size).repeat(batch_size)
+            samples_t[:, 2] = torch.arange(vocab_size).repeat(batch_size)
 
         if as_matrix:
-            samples = samples.view(batch_size, -1)
+            samples = samples.view(-1, dim_size)
 
         return samples
 
-    def _label(self, pos_batch, as_matrix, replace):
+    def _label(self, pos_batch, as_matrix, sample_target):
         batch_size = pos_batch.size(0)
         vocab_size = self.dataset.num_entities()
 
         labels = torch.zeros((batch_size, vocab_size))
 
-        if replace == "tail":
+        if sample_target == "tail":
             labels[range(batch_size), pos_batch[:, 2].long()] = 1.
-        elif replace == "head":
+        elif sample_target == "head":
             labels[range(batch_size), pos_batch[:, 0].long()] = 1.
         else:
-            raise NotImplementedError
+            labels = labels.repeat((2, 1))
+            labels[:range(batch_size), pos_batch[:, 0].long()] = 1.
+            labels[range(batch_size):, pos_batch[:, 2].long()] = 1.
 
         if not as_matrix:
             labels = labels.view(-1)
@@ -112,43 +121,79 @@ class BasicNegativeSampler(NegativeSampler):
     def __init__(self, config: Config, dataset: DatasetProcessor, as_matrix: bool):
         super().__init__(config, dataset, as_matrix)
 
-    def _sample(self, pos_batch: torch.Tensor, as_matrix: bool, replace: str):
+    def _sample(self, pos_batch: torch.Tensor, as_matrix: bool, sample_target: str) -> torch.Tensor:
         # TODO 可不可以用generator 参考torch.RandomSampler
         """
-        pos_batch should be batch_size * [head, rel, tail, time_info(...)]
-        return tensor should be batch_size * (1+num_samples) * [head, rel, tail, time_info]
+        Sampling method in basic time-agnostic sampler.
+
+        Args:
+            pos_batch: positive batch to be corrupted which should be batch_size * [head, rel, tail, ...(temporal)]
+            as_matrix: returned tensor will be reshaped as matrix if set True, otherwise all samples will be flatted as sample_size * dims
+            sample_target: the target that the sampling applies on. Chosen from ['head', 'tail', 'both']
         """
 
-        batch_size, dim = list(pos_batch.size())
+        batch_size, dim_size = list(pos_batch.size())
 
         num_pos_neg = 1 + self.num_samples
-        # TODO
-        # if not hasattr(torch, repeat_interleave)
-        pos_neg_samples_h = pos_batch.repeat((1, num_pos_neg)).view(-1, dim)
-        pos_neg_samples_t = pos_neg_samples_h.clone()
 
-        rand_nums_h = torch.randint(low=0, high=self.dataset.num_entities() - 1, size=(pos_neg_samples_h.shape[0], 1))
-        rand_nums_t = torch.randint(low=0, high=self.dataset.num_entities() - 1, size=(pos_neg_samples_t.shape[0], 1))
+        if sample_target == 'head':
+            pos_neg_samples_h = pos_batch.repeat((1, num_pos_neg)).view(-1, dim_size)
+            rand_nums_h = torch.randint(low=0, high=self.dataset.num_entities() - 1,
+                                        size=(pos_neg_samples_h.shape[0], 1))
 
-        for i in range(pos_neg_samples_h.shape[0] // num_pos_neg):
-            rand_nums_h[i * num_pos_neg] = 0
-            rand_nums_t[i * num_pos_neg] = 0
+            # for i in range(pos_neg_samples_h.shape[0] // num_pos_neg):
+            #     rand_nums_h[i * num_pos_neg] = 0
 
-        pos_neg_samples_h[:, 0] = (pos_neg_samples_h[:, 0] + rand_nums_h.squeeze()) % self.dataset.num_entities()
-        pos_neg_samples_t[:, 2] = (pos_neg_samples_t[:, 2] + rand_nums_t.squeeze()) % self.dataset.num_entities()
+            rand_nums_h[range(0, pos_neg_samples_h.shape[0], num_pos_neg)] = 0
+            pos_neg_samples_h[:, 0] = (pos_neg_samples_h[:, 0] + rand_nums_h.squeeze()) % self.dataset.num_entities()
 
-        samples = torch.cat((pos_neg_samples_h, pos_neg_samples_t), dim=0)
+            samples = pos_neg_samples_h
+
+        elif sample_target == 'tail':
+            pos_neg_samples_t = pos_batch.repeat((1, num_pos_neg)).view(-1, dim_size)
+            rand_nums_t = torch.randint(low=0, high=self.dataset.num_entities() - 1,
+                                        size=(pos_neg_samples_t.shape[0], 1))
+
+            # for i in range(pos_neg_samples_t.shape[0] // num_pos_neg):
+            #     rand_nums_t[i * num_pos_neg] = 0
+
+            rand_nums_t[range(0, pos_neg_samples_t.shape[0], num_pos_neg)] = 0
+            pos_neg_samples_t[:, 2] = (pos_neg_samples_t[:, 2] + rand_nums_t.squeeze()) % self.dataset.num_entities()
+
+            samples = pos_neg_samples_t
+
+        else:
+            pos_neg_samples_h = pos_batch.repeat((1, num_pos_neg)).view(-1, dim_size)
+            pos_neg_samples_t = pos_neg_samples_h.clone()
+
+            rand_nums_h = torch.randint(low=0, high=self.dataset.num_entities() - 1,
+                                        size=(pos_neg_samples_h.shape[0], 1))
+            rand_nums_t = torch.randint(low=0, high=self.dataset.num_entities() - 1,
+                                        size=(pos_neg_samples_t.shape[0], 1))
+
+            # for i in range(pos_neg_samples_h.shape[0] // num_pos_neg):
+            #     rand_nums_h[i * num_pos_neg] = 0
+            #     rand_nums_t[i * num_pos_neg] = 0
+            rand_nums_h[range(0, pos_neg_samples_h.shape[0], num_pos_neg)] = 0
+            rand_nums_t[range(0, pos_neg_samples_t.shape[0], num_pos_neg)] = 0
+
+            pos_neg_samples_h[:, 0] = (pos_neg_samples_h[:, 0] + rand_nums_h.squeeze()) % self.dataset.num_entities()
+            pos_neg_samples_t[:, 2] = (pos_neg_samples_t[:, 2] + rand_nums_t.squeeze()) % self.dataset.num_entities()
+
+            samples = torch.cat((pos_neg_samples_h, pos_neg_samples_t), dim=0)
 
         if as_matrix:
-            samples = samples.view(2 * batch_size, -1)
+            samples = samples.view(-1, dim_size)
 
         return samples
 
-    def _label(self, pos_batch: torch.Tensor, as_matrix: bool, replace: str):
+    def _label(self, pos_batch: torch.Tensor, as_matrix: bool, sample_target: str):
         batch_size = pos_batch.size(0)
 
-        labels = torch.cat((torch.ones(batch_size, 1), torch.zeros(batch_size, self.num_samples)),
-                           dim=1).repeat((2, 1))
+        labels = torch.cat((torch.ones(batch_size, 1), torch.zeros(batch_size, self.num_samples)), dim=1)
+
+        if sample_target == 'both':
+            labels = labels.repeat((2, 1))
 
         if not as_matrix:
             labels = labels.view(-1)
@@ -161,7 +206,7 @@ class AtiseTimeNegativeSampler(NegativeSampler):
     def __init__(self, config: Config, dataset: DatasetProcessor, as_matrix: bool):
         super().__init__(config, dataset, as_matrix)
 
-    def _sample(self, pos_batch: torch.Tensor, as_matrix: bool, replace: str):
+    def _sample(self, pos_batch: torch.Tensor, as_matrix: bool, sample_target: str):
         batch_size, dim = list(pos_batch.size())
 
         samples = pos_batch.clone()
@@ -176,7 +221,7 @@ class AtiseTimeNegativeSampler(NegativeSampler):
 
         return torch.cat((pos_batch, samples), 0)
 
-    def _label(self, pos_batch: torch.Tensor, as_matrix: bool, replace: str):
+    def _label(self, pos_batch: torch.Tensor, as_matrix: bool, sample_target: str):
         batch_size, dim = list(pos_batch.size())
 
         ones = torch.ones((batch_size, 1))
@@ -190,10 +235,10 @@ class SelfAdversarialNegativeSampler(NegativeSampler):
     def __init__(self, config: Config, dataset: DatasetProcessor, as_matrix: bool):
         super().__init__(config, dataset, as_matrix)
 
-    def _sample(self, pos_batch: torch.Tensor, as_matrix: bool, replace: str):
+    def _sample(self, pos_batch: torch.Tensor, as_matrix: bool, sample_target: str):
         raise NotImplementedError
 
-    def _label(self, pos_batch: torch.Tensor, as_matrix: bool, replace: str):
+    def _label(self, pos_batch: torch.Tensor, as_matrix: bool, sample_target: str):
         raise NotImplementedError
 
 
