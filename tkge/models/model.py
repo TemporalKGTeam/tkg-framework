@@ -150,7 +150,9 @@ class DeSimplEModel(BaseModel):
 
     def forward(self, sample):
         bs = sample.size(0)
-        sample = sample.view(-1, 6)
+        dim = sample.size(1)
+
+        sample = sample.view(-1, dim)
         head = sample[:, 0].long()
         rel = sample[:, 1].long()
         tail = sample[:, 2].long()
@@ -309,7 +311,9 @@ class ATiSEModel(BaseModel):
 
     def forward(self, sample: torch.Tensor):
         bs = sample.size(0)
-        sample = sample.view(-1, 4)
+        # TODO(gengyuan)
+        dim = sample.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
+        sample = sample.view(-1, dim)
 
         # TODO(gengyuan) type conversion when feeding the data instead of running the models
         h_i, t_i, r_i, d_i = sample[:, 0].long(), sample[:, 2].long(), sample[:, 1].long(), sample[:, 3]
@@ -346,6 +350,59 @@ class ATiSEModel(BaseModel):
 
         scores = scores.view(bs, -1)
 
+        factors = {
+            "renorm": (self.embedding['emb_E'].weight,
+                       self.embedding['emb_R'].weight,
+                       self.embedding['emb_TE'].weight,
+                       self.embedding['emb_TR'].weight),
+            "clamp": (self.embedding['emb_E_var'].weight,
+                      self.embedding['emb_R_var'].weight)
+        }
+
+        return scores, factors
+
+    # TODO(gengyaun):
+    # walkaround
+    def predict(self, sample: torch.Tensor):
+        bs = sample.size(0)
+        # TODO(gengyuan)
+        dim = sample.size(1) // (self.dataset.num_entities())
+        sample = sample.view(-1, dim)
+
+        # TODO(gengyuan) type conversion when feeding the data instead of running the models
+        h_i, t_i, r_i, d_i = sample[:, 0].long(), sample[:, 2].long(), sample[:, 1].long(), sample[:, 3]
+
+        pi = 3.14159265358979323846
+
+        h_mean = self.embedding['emb_E'](h_i).view(-1, self.emb_dim) + \
+                 d_i.view(-1, 1) * self.embedding['alpha_E'](h_i).view(-1, 1) * self.embedding['emb_TE'](h_i).view(-1,
+                                                                                                                   self.emb_dim) \
+                 + self.embedding['beta_E'](h_i).view(-1, self.emb_dim) * torch.sin(
+            2 * pi * self.embedding['omega_E'](h_i).view(-1, self.emb_dim) * d_i.view(-1, 1))
+
+        t_mean = self.embedding['emb_E'](t_i).view(-1, self.emb_dim) + \
+                 d_i.view(-1, 1) * self.embedding['alpha_E'](t_i).view(-1, 1) * self.embedding['emb_TE'](t_i).view(-1,
+                                                                                                                   self.emb_dim) \
+                 + self.embedding['beta_E'](t_i).view(-1, self.emb_dim) * torch.sin(
+            2 * pi * self.embedding['omega_E'](t_i).view(-1, self.emb_dim) * d_i.view(-1, 1))
+
+        r_mean = self.embedding['emb_R'](r_i).view(-1, self.emb_dim) + \
+                 d_i.view(-1, 1) * self.embedding['alpha_R'](r_i).view(-1, 1) * self.embedding['emb_TR'](r_i).view(-1,
+                                                                                                                   self.emb_dim) \
+                 + self.embedding['beta_R'](r_i).view(-1, self.emb_dim) * torch.sin(
+            2 * pi * self.embedding['omega_R'](r_i).view(-1, self.emb_dim) * d_i.view(-1, 1))
+
+        h_var = self.embedding['emb_E_var'](h_i).view(-1, self.emb_dim)
+        t_var = self.embedding['emb_E_var'](t_i).view(-1, self.emb_dim)
+        r_var = self.embedding['emb_R_var'](r_i).view(-1, self.emb_dim)
+
+        out1 = torch.sum((h_var + t_var) / r_var, 1) + torch.sum(((r_mean - h_mean + t_mean) ** 2) / r_var,
+                                                                 1) - self.emb_dim
+        out2 = torch.sum(r_var / (h_var + t_var), 1) + torch.sum(((h_mean - t_mean - r_mean) ** 2) / (h_var + t_var),
+                                                                 1) - self.emb_dim
+        scores = (out1 + out2) / 4
+
+        scores = scores.view(bs, -1)
 
         factors = {
             "renorm": (self.embedding['emb_E'].weight,

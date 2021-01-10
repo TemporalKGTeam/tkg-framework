@@ -13,5 +13,5 @@ args = parser.parse_args()
 
 config = Config(folder=args.config, load_default=False)  # TODO load_default is false
 
-# trainer = TrainTask(config)
-tester = TestTask(config)
+trainer = TrainTask(config)
+# tester = TestTask(config)

@@ -33,6 +33,8 @@ task:
   # Main device to use for this job (e.g., 'cpu', 'cuda', 'cuda:0')
   device: 'cuda'
 
+  reciprocal_relation: False
+
 
 # The seeds of the PRNGs can be set manually for (increased) reproducibility.
 # Use -1 to disable explicit seeding.
@@ -124,6 +126,7 @@ negative_sampling:
   num_samples: 500
   filter: False
   as_matrix: True
+  target: both
 
 
 ## TRAINING ####################################################################

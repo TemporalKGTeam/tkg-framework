@@ -73,8 +73,10 @@ class NonNegativeSampler(NegativeSampler):
         super().__init__(config, dataset, as_matrix)
 
     def _sample(self, pos_batch, as_matrix, sample_target):
+
         batch_size = pos_batch.size(0)
         dim_size = pos_batch.size(1)
+
         vocab_size = self.dataset.num_entities()
 
         samples = pos_batch.repeat((1, vocab_size)).view(-1, dim_size)
@@ -90,8 +92,10 @@ class NonNegativeSampler(NegativeSampler):
             samples_h[:, 0] = torch.arange(vocab_size).repeat(batch_size)
             samples_t[:, 2] = torch.arange(vocab_size).repeat(batch_size)
 
+            samples = torch.cat((samples_h, samples_t), dim=0)
+
         if as_matrix:
-            samples = samples.view(-1, dim_size)
+            samples = samples.view(-1, dim_size * vocab_size)
 
         return samples
 
@@ -183,7 +187,7 @@ class BasicNegativeSampler(NegativeSampler):
             samples = torch.cat((pos_neg_samples_h, pos_neg_samples_t), dim=0)
 
         if as_matrix:
-            samples = samples.view(-1, dim_size)
+            samples = samples.view(-1, dim_size * (self.num_samples + 1))
 
         return samples
 

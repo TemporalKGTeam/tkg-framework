@@ -49,6 +49,7 @@ class TrainTask(Task):
     def _prepare(self):
         self.config.log(f"Preparing datasets {self.dataset} in folder {self.config.get('dataset.folder')}...")
         self.dataset = DatasetProcessor.create(config=self.config)
+        self.dataset.info()
 
         self.config.log(f"Loading training split data for loading")
         # TODO(gengyuan) load params
@@ -111,6 +112,8 @@ class TrainTask(Task):
         save_freq = self.config.get("train.checkpoint.every")
         eval_freq = self.config.get("train.valid.every")
 
+        sample_target = self.config.get("negative_sampling.target")
+
         for epoch in range(1, self.config.get("train.max_epochs") + 1):
             self.model.train()
 
@@ -124,7 +127,7 @@ class TrainTask(Task):
             for pos_batch in self.train_loader:
                 self.optimizer.zero_grad()
 
-                samples, labels = self.sampler.sample(pos_batch)
+                samples, labels = self.sampler.sample(pos_batch, sample_target)
 
                 samples = samples.to(self.device)
                 labels = labels.to(self.device)
@@ -167,6 +170,8 @@ class TrainTask(Task):
 
                     for batch in self.valid_loader:
                         bs = batch.size(0)
+                        dim = batch.size(1)
+
                         l += bs
 
                         samples_head, _ = self.onevsall_sampler.sample(batch, "head")
@@ -175,10 +180,34 @@ class TrainTask(Task):
                         samples_head = samples_head.to(self.device)
                         samples_tail = samples_tail.to(self.device)
 
-                        batch_scores_head, _ = self.model(samples_head)
-                        batch_scores_tail, _ = self.model(samples_tail)
+                        batch_scores_head, _ = self.model.predict(samples_head)
+                        batch_scores_tail, _ = self.model.predict(samples_tail)
+
+                        # TODO(gengyuan) : 无论如何都要转化成matrix才可以计算evaluation
+
+                        if self.config.get("task.reciprocal_relation"):
+                            samples_head_reciprocal = samples_head.clone().view(-1, dim)
+                            samples_tail_reciprocal = samples_tail.clone().view(-1, dim)
+
+                            samples_head_reciprocal[:, 1] += 1
+                            samples_head_reciprocal[:, [0, 2]] = samples_head_reciprocal.index_select(1, torch.Tensor(
+                                [2, 0]).long().to(self.device))
+
+                            samples_tail_reciprocal[:, 1] += 1
+                            samples_tail_reciprocal[:, [0, 2]] = samples_tail_reciprocal.index_select(1, torch.Tensor(
+                                [2, 0]).long().to(self.device))
+
+                            samples_head_reciprocal = samples_head_reciprocal.view(bs, -1)
+                            samples_tail_reciprocal = samples_tail_reciprocal.view(bs, -1)
+
+                            batch_scores_head_reci, _ = self.model.predict(samples_head_reciprocal)
+                            batch_scores_tail_reci, _ = self.model.predict(samples_tail_reciprocal)
+
+                            batch_scores_head += batch_scores_head_reci
+                            batch_scores_tail += batch_scores_tail_reci
 
                         batch_metrics = dict()
+
                         batch_metrics['head'] = self.evaluation.eval(batch, batch_scores_head, miss='s')
                         batch_metrics['tail'] = self.evaluation.eval(batch, batch_scores_tail, miss='o')
 
