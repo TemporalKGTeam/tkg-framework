@@ -61,10 +61,12 @@ class ICEWS14AtiseDatasetProcessor(DatasetProcessor):
             self.all_quadruples.append([head, rel, tail, ts_id])
 
     def process_time(self, origin: str):
-        gran = self.config.get("dataset.temporal.gran")
+        # TODO (gengyuan) move to init method
+        self.gran = self.config.get("dataset.temporal.gran")
+
         start_sec = time.mktime(time.strptime('2014-01-01', '%Y-%m-%d'))
 
         end_sec = time.mktime(time.strptime(origin, '%Y-%m-%d'))
-        day = int((end_sec - start_sec) / (gran * 24 * 60 * 60))
+        day = int((end_sec - start_sec) / (self.gran * 24 * 60 * 60))
 
         return day

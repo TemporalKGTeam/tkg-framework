@@ -64,7 +64,7 @@ class TrainTask(Task):
         )
 
         self.valid_loader = torch.utils.data.DataLoader(
-            SplitDataset(self.dataset.get("valid"), self.datatype + ['timestamp_id']),
+            SplitDataset(self.dataset.get("test"), self.datatype + ['timestamp_id']),
             shuffle=False,
             batch_size=self.valid_bs,
             num_workers=self.config.get("train.loader.num_workers"),
@@ -134,12 +134,14 @@ class TrainTask(Task):
 
                 scores, factors = self.model(samples)
 
+
                 # TODO(gengyuan) add regularizer
                 loss = self.loss(scores, labels)
 
                 for name, tensors in factors.items():
                     if name in self.regularizer:
                         loss += self.regularizer[name](tensors)
+
 
                 loss.backward()
                 self.optimizer.step()

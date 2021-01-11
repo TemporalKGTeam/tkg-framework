@@ -40,11 +40,10 @@ class TestTask(Task):
         self.config.log(f"Preparing datasets {self.dataset} in folder {self.config.get('dataset.folder')}")
         self.dataset = DatasetProcessor.create(config=self.config)
 
-
         self.config.log(f"Loading testing split data for loading")
         # TODO(gengyuan) load params
         self.test_loader = torch.utils.data.DataLoader(
-            SplitDataset(self.dataset.get("test"), self.datatype),
+            SplitDataset(self.dataset.get("test"), self.datatype + ['timestamp_id']),
             shuffle=False,
             batch_size=self.test_bs,
             num_workers=self.config.get("test.loader.num_workers"),
@@ -61,7 +60,6 @@ class TestTask(Task):
         model_state_dict = torch.load(model_path)
 
         self.model.load_state_dict(model_state_dict['state_dict'])
-
 
         self.config.log(f"Initializing evaluation")
         self.evaluation = Evaluation(config=self.config, dataset=self.dataset)
@@ -80,6 +78,7 @@ class TestTask(Task):
 
             for batch in self.test_loader:
                 bs = batch.size(0)
+                dim = batch.size(1)
                 l += bs
 
                 samples_head, _ = self.onevsall_sampler.sample(batch, "head")
@@ -88,8 +87,8 @@ class TestTask(Task):
                 samples_head = samples_head.to(self.device)
                 samples_tail = samples_tail.to(self.device)
 
-                batch_scores_head, _ = self.model(samples_head)
-                batch_scores_tail, _ = self.model(samples_tail)
+                batch_scores_head, _ = self.model.predict(samples_head)
+                batch_scores_tail, _ = self.model.predict(samples_tail)
 
                 batch_metrics = dict()
                 batch_metrics['head'] = self.evaluation.eval(batch, batch_scores_head, miss='s')

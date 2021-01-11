@@ -54,12 +54,13 @@ class Evaluation(Configurable):
 
         target_scores = scores[range(query_size), targets].unsqueeze(1).repeat((1, vocabulary_size))
 
-        scores = scores.masked_fill(filtered_mask.bool(), 0.0)
+        #TODO(gengyuan)
+        scores = scores.masked_fill(filtered_mask.bool(), 1e6)
 
         if self.ordering == "optimistic":
-            comp = scores.gt(target_scores)
+            comp = scores.lt(target_scores)
         else:
-            comp = scores.ge(target_scores)
+            comp = scores.le(target_scores)
 
         ranks = comp.sum(1) + 1
 

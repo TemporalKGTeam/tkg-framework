@@ -198,7 +198,7 @@ train:
   # Optimizer used for training.
   optimizer:
     type: Adam
-    lr: 0.0003
+    lr: 0.00003
     reg_lambda: 0.0
     args: ~
 
@@ -221,7 +221,7 @@ train:
 
   valid:
     split: test # in [test or valid]
-    every: 50
+    every: 5
     batch_size: 64
     filter: time-aware  # in [off, static, time-aware]
     ordering: optimistic    # in [optimistic, peesimistic]

@@ -150,7 +150,30 @@ class DeSimplEModel(BaseModel):
 
     def forward(self, sample):
         bs = sample.size(0)
-        dim = sample.size(1)
+        dim = sample.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
+
+        sample = sample.view(-1, dim)
+        head = sample[:, 0].long()
+        rel = sample[:, 1].long()
+        tail = sample[:, 2].long()
+        year = sample[:, 3]
+        month = sample[:, 4]
+        day = sample[:, 5]
+
+        h_emb1, r_emb1, t_emb1, h_emb2, r_emb2, t_emb2 = self.get_embedding(head, rel, tail, year, month, day)
+
+        p = self.config.get('model.dropout')
+
+        score = ((h_emb1 * r_emb1) * t_emb1 + (h_emb2 * r_emb2) * t_emb2) / 2.0
+        score = F.dropout(score, p=p, training=self.training)  # TODO training
+        score = torch.sum(score, dim=1)
+        score = score.view(bs, -1)
+
+        return score, None
+
+    def predict(self, sample):
+        bs = sample.size(0)
+        dim = sample.size(1) // self.dataset.num_entities()
 
         sample = sample.view(-1, dim)
         head = sample[:, 0].long()
