@@ -20,8 +20,8 @@ class ICEWS14AtiseDatasetProcessor(DatasetProcessor):
             head = self.index_entities(head)
             rel = self.index_relations(rel)
             tail = self.index_entities(tail)
-            ts = self.process_time(ts)
             ts_id = self.index_timestamps(ts)
+            ts = self.process_time(ts)
 
             self.train_set['triple'].append([head, rel, tail])
             self.train_set['timestamp_id'].append([ts_id])
@@ -35,8 +35,8 @@ class ICEWS14AtiseDatasetProcessor(DatasetProcessor):
             head = self.index_entities(head)
             rel = self.index_relations(rel)
             tail = self.index_entities(tail)
-            ts = self.process_time(ts)
             ts_id = self.index_timestamps(ts)
+            ts = self.process_time(ts)
 
             self.valid_set['triple'].append([head, rel, tail])
             self.valid_set['timestamp_id'].append([ts_id])
@@ -50,8 +50,8 @@ class ICEWS14AtiseDatasetProcessor(DatasetProcessor):
             head = self.index_entities(head)
             rel = self.index_relations(rel)
             tail = self.index_entities(tail)
-            ts = self.process_time(ts)
             ts_id = self.index_timestamps(ts)
+            ts = self.process_time(ts)
 
             self.test_set['triple'].append([head, rel, tail])
             self.test_set['timestamp_id'].append([ts_id])

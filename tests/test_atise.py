@@ -447,13 +447,25 @@ def test():
         metrics['head'] = defaultdict(float)
         metrics['tail'] = defaultdict(float)
 
+        rank_left = []
+        rank_right = []
+        scores_head = []
+        scores_tail = []
+
+        filter_left = []
+        filter_right = []
+
         l = 0
+
+        dfs = dataset.filter(type="time-aware", target="s")
+        dfo = dataset.filter(type="time-aware", target="o")
 
         for batch in valid_loader:
             bs = batch.size(0)
             dim = batch.size(1)
 
             l += bs
+
             print(l)
 
             samples_head, _ = sampler.sample(batch, "head")
@@ -492,21 +504,42 @@ def test():
             batch_scores_head += batch_scores_head_reci
             batch_scores_tail += batch_scores_tail_reci
 
+            scores_head.append(batch_scores_head)
+            scores_tail.append(batch_scores_tail)
+
             batch_metrics = dict()
 
             batch_metrics['head'] = evaluator.eval(batch, batch_scores_head, miss='s')
             batch_metrics['tail'] = evaluator.eval(batch, batch_scores_tail, miss='o')
+
+            # print filter
+            filter_left.append(
+                dfs[f'None-{int(batch[0, 1])}-{int(batch[0, 2])}-{int(batch[0, -1])}'])
+            filter_right.append(
+                dfo[f'{int(batch[0, 0])}-{int(batch[0, 1])}-None-{int(batch[0, -1])}'])
+
+            # rank_left.append(batch_metrics['head']['mean_ranking'])
+            # rank_right.append(batch_metrics['tail']['mean_ranking'])
 
             # TODO(gengyuan) refactor
             for pos in ['head', 'tail']:
                 for key in batch_metrics[pos].keys():
                     metrics[pos][key] += batch_metrics[pos][key] * bs
 
-        print(l)
+        # rank = rank_left + rank_right
+        # torch.save(rank, "/home/gengyuan/workspace/baseline/ATISE/rank_tkge.pt")
+        # rank2 = torch.load("/home/gengyuan/workspace/baseline/ATISE/rank.pt")
+        #
+        # print('assert Equal')
+        # print(rank==rank2)
+
+        # torch.save(scores_head + scores_tail, "/home/gengyuan/workspace/baseline/ATISE/scores_tkge.pt")
+        torch.save(filter_left, "/home/gengyuan/workspace/baseline/ATISE/filter_left_tkge.pt")
+        torch.save(filter_right, "/home/gengyuan/workspace/baseline/ATISE/filter_right_tkge.pt")
 
         for pos in ['head', 'tail']:
             for key in metrics[pos].keys():
-                metrics[pos][key]
+                metrics[pos][key] /= l
 
         print(f"Metrics(head prediction) in iteration : {metrics['head'].items()}")
         print(f"Metrics(tail prediction) in iteration : {metrics['tail'].items()}")
