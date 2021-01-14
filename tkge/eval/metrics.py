@@ -22,6 +22,7 @@ class Evaluation(Configurable):
 
         self.device = self.config.get("task.device")
         self.filter = self.config.get("eval.filter")
+        self.preference = self.config.get("eval.preference")
         self.ordering = self.config.get("eval.ordering")
         self.k = self.config.get("eval.k")
 
@@ -54,15 +55,31 @@ class Evaluation(Configurable):
 
         target_scores = scores[range(query_size), targets].unsqueeze(1).repeat((1, vocabulary_size))
 
-        #TODO(gengyuan)
-        scores = scores.masked_fill(filtered_mask.bool(), 1e6)
 
-        if self.ordering == "optimistic":
-            comp = scores.lt(target_scores)
+
+        # TODO(gengyuan)
+
+        assert self.preference in ["optimistic", "pessimistic"]
+        assert self.ordering in ["ascending", "descending"]
+
+        if self.ordering == "ascending":
+            scores = scores.masked_fill(filtered_mask.bool(), 1e6)
+
+            if self.preference == "optimistic":
+                comp = scores.lt(target_scores)
+            else:
+                comp = scores.le(target_scores)
         else:
-            comp = scores.le(target_scores)
+            scores = scores.masked_fill(filtered_mask.bool(), -1e6)
+
+            if self.preference == "optimistic":
+                comp = scores.gt(target_scores)
+            else:
+                comp = scores.ge(target_scores)
 
         ranks = comp.sum(1) + 1
+
+        print(ranks)
 
         return ranks.float()
 

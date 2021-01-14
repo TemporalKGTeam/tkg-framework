@@ -87,7 +87,6 @@ class DatasetProcessor(Registrable):
         test_file = self.folder + "/test.txt"
 
         with open(train_file, "r") as f:
-
             if self.reciprocal_training:
                 for line in f.readlines():
                     self.train_raw.append(line)

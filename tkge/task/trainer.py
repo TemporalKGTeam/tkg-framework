@@ -138,18 +138,20 @@ class TrainTask(Task):
                 # TODO(gengyuan) add regularizer
                 loss = self.loss(scores, labels)
 
-                for name, tensors in factors.items():
-                    if name in self.regularizer:
-                        loss += self.regularizer[name](tensors)
+                if factors:
+                    for name, tensors in factors.items():
+                        if name in self.regularizer:
+                            loss += self.regularizer[name](tensors)
 
 
                 loss.backward()
                 self.optimizer.step()
 
                 # TODO(gengyuan) inplace regularize
-                for name, tensors in factors.items():
-                    if name in self.inplace_regularizer:
-                        self.inplace_regularizer[name](tensors)
+                if factors:
+                    for name, tensors in factors.items():
+                        if name in self.inplace_regularizer:
+                            self.inplace_regularizer[name](tensors)
 
                 total_loss += loss.cpu().item()
 
@@ -238,7 +240,7 @@ class TrainTask(Task):
 
         self.config.log(f"Save the model to {folder} as file {filename}")
 
-        torch.save({'state_dict': self.model.state_dict()}, os.path.join(model, dataset, folder, filename))
+        torch.save({'state_dict': self.model.state_dict()}, filename) #os.path.join(model, dataset, folder, filename))
 
 
 def load_ckpt(self, ckpt_path):

@@ -7,15 +7,18 @@ import sys
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__)) + '/desimple_master'
+print(BASE_DIR)
+sys.path.append(BASE_DIR)
+
 from collections import defaultdict
 
 from tkge.data.dataset import ICEWS14DatasetProcessor, SplitDataset
 from tkge.eval.metrics import Evaluation
 from tkge.train.sampling import NonNegativeSampler
 
-import tests.de_simple
-from tests.tester import Tester
-from tests.dataset import Dataset
+from desimple_master.tester import Tester
+from desimple_master.dataset import Dataset
 
 
 class MockICEWS14DatasetProcessor(ICEWS14DatasetProcessor):
@@ -25,9 +28,12 @@ class MockICEWS14DatasetProcessor(ICEWS14DatasetProcessor):
         self.index = False
         self.float = True
 
-        self.train_raw = None
-        self.valid_raw = None
-        self.test_raw = None
+        self.reciprocal_training = False
+
+
+        self.train_raw = []
+        self.valid_raw = []
+        self.test_raw = []
 
         self.ent2id = defaultdict(None)
         self.rel2id = defaultdict(None)
@@ -52,7 +58,8 @@ class MockEvaluation(Evaluation):
 
         self.device = device
         self.filter = 'time-aware'
-        self.ordering = 'optimistic'
+        self.preference = 'optimistic'
+        self.ordering = 'descending'
         self.k = [1, 3, 10]
 
         self.filtered_data = defaultdict(None)
@@ -198,6 +205,15 @@ def test():
     evaluator = MockEvaluation(dataset, device)
     sampler = MockSampler(dataset, as_matrix=True)
 
+    print('==============================================')
+    print(f"Number of entities : {dataset.num_entities()}")
+    print(f"Number of relations : {dataset.num_relations()}")
+    print(f"\n")
+    print(f"Train set size : {dataset.train_size}")
+    print(f"Valid set size : {dataset.valid_size}")
+    print(f"Test set size : {dataset.test_size}")
+    print('==============================================')
+
     valid_loader = torch.utils.data.DataLoader(
         SplitDataset(dataset.get("test"), ['timestamp_float', 'timestamp_id']),
         shuffle=False,
@@ -220,10 +236,19 @@ def test():
 
         l = 0
 
+        filt_list = {'head':[],
+                     'tail':[]}
+        rank_list = {'head':[],
+                     'tail':[]}
+        score_list = {'head':[],
+                     'tail':[]}
+
+        dfs = dataset.filter(type="time-aware", target="s")
+        dfo = dataset.filter(type="time-aware", target="o")
+
         for batch in valid_loader:
             bs = batch.size(0)
             l += bs
-
 
             samples_head, _ = sampler.sample(batch, "head")
             samples_tail, _ = sampler.sample(batch, "tail")
@@ -254,13 +279,28 @@ def test():
             batch_scores_tail = new_model(head, rel, tail, year, month, day)
             batch_scores_tail = batch_scores_tail.view(bs, -1)
 
+            # score_list['head'].append(batch_scores_head[0, batch[0, 0].long()].item())
+            # score_list['tail'].append(batch_scores_tail[0, batch[0, 2].long()].item())
+            #
+
+
             batch_metrics = dict()
             batch_metrics['head'] = evaluator.eval(batch, batch_scores_head, miss='s')
             batch_metrics['tail'] = evaluator.eval(batch, batch_scores_tail, miss='o')
 
+
+
+            rank_list['head'].append(batch_metrics['head']['mean_ranking'])
+            rank_list['tail'].append(batch_metrics['tail']['mean_ranking'])
+            filt_list['head'].append(dfs[f'None-{int(batch[0, 1])}-{int(batch[0, 2])}-{int(batch[0, -1])}'])
+            filt_list['tail'].append(dfo[f'{int(batch[0, 0])}-{int(batch[0, 1])}-None-{int(batch[0, -1])}'])
+
             for pos in ['head', 'tail']:
                 for key in batch_metrics[pos].keys():
                     metrics[pos][key] += batch_metrics[pos][key] * bs
+
+        torch.save(score_list, '/home/gengyuan/workspace/tkge/tests/desimple_master/scorelist_tkge.pt')
+        # torch.save(filt_list, '/home/gengyuan/workspace/tkge/tests/desimple_master/filtlist_tkge.pt')
 
         for pos in ['head', 'tail']:
             for key in metrics[pos].keys():

@@ -20,6 +20,7 @@ class Measure:
             self.hit3[raw_or_fil] += 1.0
         if rank <= 10:
             self.hit10[raw_or_fil] += 1.0
+
             
         self.mr[raw_or_fil]  += rank
         self.mrr[raw_or_fil] += (1.0 / rank)
