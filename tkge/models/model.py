@@ -51,6 +51,9 @@ class BaseModel(nn.Module, Registrable):
     def forward(self, **kwargs):
         raise NotImplementedError
 
+    def predict(self, **kwargs):
+        raise NotImplementedError
+
 
 @BaseModel.register(name='de_simple')
 class DeSimplEModel(BaseModel):
@@ -249,23 +252,45 @@ class TComplExModel(BaseModel):
 
         return scores, factors
 
-    def forward_over_time(self, x):
+    def predict(self, x):
         lhs = self.embeddings[0](x[:, 0])
         rel = self.embeddings[1](x[:, 1])
         rhs = self.embeddings[0](x[:, 2])
-        time = self.embeddings[2].weight
+        time = self.embeddings[2](x[:, 3])
 
         lhs = lhs[:, :self.rank], lhs[:, self.rank:]
         rel = rel[:, :self.rank], rel[:, self.rank:]
         rhs = rhs[:, :self.rank], rhs[:, self.rank:]
         time = time[:, :self.rank], time[:, self.rank:]
 
-        return (
-                (lhs[0] * rel[0] * rhs[0] - lhs[1] * rel[1] * rhs[0] -
-                 lhs[1] * rel[0] * rhs[1] + lhs[0] * rel[1] * rhs[1]) @ time[0].t() +
-                (lhs[1] * rel[0] * rhs[0] - lhs[0] * rel[1] * rhs[0] +
-                 lhs[0] * rel[0] * rhs[1] - lhs[1] * rel[1] * rhs[1]) @ time[1].t()
-        )
+        right = self.embedding[0].weight
+        right = right[:, :self.rank], right[:, self.rank:]
+
+        scores = (lhs[0] * rel[0] * time[0] - lhs[1] * rel[1] * time[0] -
+                  lhs[1] * rel[0] * time[1] - lhs[0] * rel[1] * time[1]) @ right[0].t() + \
+                 (lhs[1] * rel[0] * time[0] + lhs[0] * rel[1] * time[0] +
+                  lhs[0] * rel[0] * time[1] - lhs[1] * rel[1] * time[1]) @ right[1].t()
+
+        return scores, None
+
+
+def forward_over_time(self, x):
+    lhs = self.embeddings[0](x[:, 0])
+    rel = self.embeddings[1](x[:, 1])
+    rhs = self.embeddings[0](x[:, 2])
+    time = self.embeddings[2].weight
+
+    lhs = lhs[:, :self.rank], lhs[:, self.rank:]
+    rel = rel[:, :self.rank], rel[:, self.rank:]
+    rhs = rhs[:, :self.rank], rhs[:, self.rank:]
+    time = time[:, :self.rank], time[:, self.rank:]
+
+    return (
+            (lhs[0] * rel[0] * rhs[0] - lhs[1] * rel[1] * rhs[0] -
+             lhs[1] * rel[0] * rhs[1] + lhs[0] * rel[1] * rhs[1]) @ time[0].t() +
+            (lhs[1] * rel[0] * rhs[0] - lhs[0] * rel[1] * rhs[0] +
+             lhs[0] * rel[0] * rhs[1] - lhs[1] * rel[1] * rhs[1]) @ time[1].t()
+    )
 
 
 @BaseModel.register(name="hyte")

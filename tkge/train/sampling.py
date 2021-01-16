@@ -67,13 +67,29 @@ class NegativeSampler(Registrable):
         return neg_samples, labels
 
 
+@NegativeSampler.register(name='pseudo_sampling')
+class PseudoNegativeSampling(NegativeSampler):
+    def __init__(self, config: Config, dataset: DatasetProcessor, as_matrix: bool):
+        super().__init__(config, dataset, as_matrix)
+
+    def _sample(self, pos_batch: torch.Tensor, as_matrix: bool, sample_target: str):
+        return pos_batch
+
+    def _label(self, pos_batch: torch.Tensor, as_matrix: bool, sample_target: str):
+        if sample_target == "head":
+            return sample_target[:, 0]
+        elif sample_target == "tail":
+            return sample_target[:, 2]
+        else:
+            return torch.cat((sample_target[:, 0], sample_target[:, 2]), 0)
+
+
 @NegativeSampler.register(name='no_sampling')
 class NonNegativeSampler(NegativeSampler):
     def __init__(self, config: Config, dataset: DatasetProcessor, as_matrix: bool):
         super().__init__(config, dataset, as_matrix)
 
     def _sample(self, pos_batch, as_matrix, sample_target):
-
         batch_size = pos_batch.size(0)
         dim_size = pos_batch.size(1)
 
