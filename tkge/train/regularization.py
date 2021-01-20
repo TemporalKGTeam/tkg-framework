@@ -86,13 +86,13 @@ class InplaceRegularizer(Regularizer):
 @Regularizer.register(name="n3_regularize")
 class N3Reg(Regularizer):
     def __init__(self, config: Config, name: str):
-        super().__init__(config)
+        super().__init__(config, name)
 
         # TODO(gengyuan) add attribute automatically
         self.weight = self.config.get(f"train.regularizer.{name}.weight")
 
     def forward(self, factors: Tuple[torch.Tensor], **kwargs):
-        norm = 0
+        norm = 0.
         for f in factors:
             norm += self.weight * torch.sum(torch.abs(f) ** 3)
 
@@ -103,7 +103,7 @@ class N3Reg(Regularizer):
 @Regularizer.register(name="f2_regularize")
 class F2Reg(Regularizer):
     def __init__(self, config: Config, name: str):
-        super().__init__(config)
+        super().__init__(config, name)
 
         self.weight = self.config.get(f"train.regularizer.{name}.weight")
 
@@ -125,11 +125,16 @@ class Lambda3Reg(Regularizer):
         # at the moment, throw errors
 
     def forward(self, factors: Tuple[torch.Tensor], **kwargs):
-        raise NotImplementedError
-        ddiff = factors[1:] - factors[:-1]
-        rank = int(ddiff.shape[1] / 2)
-        diff = torch.sqrt(ddiff[:, :rank] ** 2 + ddiff[:, rank:] ** 2) ** 3
-        return self.weight * torch.sum(diff) / (factors.shape[0] - 1)
+        reg_loss = 0.
+
+        for factor in factors:
+            ddiff = factor[1:] - factor[:-1]
+            rank = int(ddiff.shape[1] / 2)
+            diff = torch.sqrt(ddiff[:, :rank] ** 2 + ddiff[:, rank:] ** 2) ** 3
+
+            reg_loss += self.weight * torch.sum(diff) / (factor.shape[0] - 1)
+
+        return reg_loss
 
 
 @InplaceRegularizer.register(name="inplace_renorm_regularize")

@@ -78,14 +78,19 @@ class TrainTask(Task):
         self.onevsall_sampler = NonNegativeSampler(config=self.config, dataset=self.dataset, as_matrix=True)
 
         self.config.log(f"Creating model {self.config.get('model.name')}")
-        self.model = BaseModel.create(config=self.config, dataset=self.dataset, device=self.device)
+        self.model = BaseModel.create(config=self.config, dataset=self.dataset)
+        self.model.to(self.device)
 
         self.config.log(f"Initializing loss function")
         self.loss = Loss.create(config=self.config)
 
         self.config.log(f"Initializing optimizer")
         # TODO  choose Adam or other types
-        self.optimizer = torch.optim.Adam(
+        optim_dict = {
+            'Adam': torch.optim.Adam,
+            'Adamgrad': torch.optim.Adagrad
+        }
+        self.optimizer = optim_dict[self.config.get("train.optimizer.type")](
             self.model.parameters(),
             lr=self.config.get("train.optimizer.lr"),
             weight_decay=self.config.get("train.optimizer.reg_lambda")
@@ -134,26 +139,37 @@ class TrainTask(Task):
 
                 scores, factors = self.model(samples)
 
-
                 # TODO(gengyuan) add regularizer
                 loss = self.loss(scores, labels)
 
+                assert not set(factors.keys()) - (set(self.regularizer) | set(
+                    self.inplace_regularizer)), f"Regularizer name defined in model {set(factors.keys())} should correspond to that in config file"
+
                 if factors:
                     for name, tensors in factors.items():
-                        if name in self.regularizer:
-                            loss += self.regularizer[name](tensors)
+                        if name not in self.regularizer:
+                            continue
 
+                        if not isinstance(tensors, (tuple, list)):
+                            tensors = [tensors]
+
+                        loss += self.regularizer[name](tensors)
 
                 loss.backward()
                 self.optimizer.step()
 
+                total_loss += loss.cpu().item()
+
                 # TODO(gengyuan) inplace regularize
                 if factors:
                     for name, tensors in factors.items():
-                        if name in self.inplace_regularizer:
-                            self.inplace_regularizer[name](tensors)
+                        if name not in self.inplace_regularizer:
+                            continue
 
-                total_loss += loss.cpu().item()
+                        if not isinstance(tensors, (tuple, list)):
+                            tensors = [tensors]
+
+                        self.inplace_regularizer[name](tensors)
 
             stop = time.time()
 
@@ -176,39 +192,49 @@ class TrainTask(Task):
                         bs = batch.size(0)
                         dim = batch.size(1)
 
+                        batch = batch.to(self.device)
+
                         l += bs
 
-                        samples_head, _ = self.onevsall_sampler.sample(batch, "head")
-                        samples_tail, _ = self.onevsall_sampler.sample(batch, "tail")
+                        queries_head = batch.clone()
+                        queries_tail = batch.clone()
 
-                        samples_head = samples_head.to(self.device)
-                        samples_tail = samples_tail.to(self.device)
+                        # samples_head, _ = self.onevsall_sampler.sample(queries, "head")
+                        # samples_tail, _ = self.onevsall_sampler.sample(queries, "tail")
 
-                        batch_scores_head, _ = self.model.predict(samples_head)
-                        batch_scores_tail, _ = self.model.predict(samples_tail)
+                        # samples_head = samples_head.to(self.device)
+                        # samples_tail = samples_tail.to(self.device)
+
+                        queries_head[:, 0] = float('nan')
+                        queries_tail[:, 2] = float('nan')
+
+                        batch_scores_head, _ = self.model.predict(queries_head)
+                        batch_scores_tail, _ = self.model.predict(queries_tail)
 
                         # TODO(gengyuan) : 无论如何都要转化成matrix才可以计算evaluation
 
-                        if self.config.get("task.reciprocal_relation"):
-                            samples_head_reciprocal = samples_head.clone().view(-1, dim)
-                            samples_tail_reciprocal = samples_tail.clone().view(-1, dim)
+                        # TODO (gengyuan): ATISE的eval可以统一进predict里面
 
-                            samples_head_reciprocal[:, 1] += 1
-                            samples_head_reciprocal[:, [0, 2]] = samples_head_reciprocal.index_select(1, torch.Tensor(
-                                [2, 0]).long().to(self.device))
-
-                            samples_tail_reciprocal[:, 1] += 1
-                            samples_tail_reciprocal[:, [0, 2]] = samples_tail_reciprocal.index_select(1, torch.Tensor(
-                                [2, 0]).long().to(self.device))
-
-                            samples_head_reciprocal = samples_head_reciprocal.view(bs, -1)
-                            samples_tail_reciprocal = samples_tail_reciprocal.view(bs, -1)
-
-                            batch_scores_head_reci, _ = self.model.predict(samples_head_reciprocal)
-                            batch_scores_tail_reci, _ = self.model.predict(samples_tail_reciprocal)
-
-                            batch_scores_head += batch_scores_head_reci
-                            batch_scores_tail += batch_scores_tail_reci
+                        # if self.config.get("task.reciprocal_relation"):
+                        #     samples_head_reciprocal = samples_head.clone().view(-1, dim)
+                        #     samples_tail_reciprocal = samples_tail.clone().view(-1, dim)
+                        #
+                        #     samples_head_reciprocal[:, 1] += 1
+                        #     samples_head_reciprocal[:, [0, 2]] = samples_head_reciprocal.index_select(1, torch.Tensor(
+                        #         [2, 0]).long().to(self.device))
+                        #
+                        #     samples_tail_reciprocal[:, 1] += 1
+                        #     samples_tail_reciprocal[:, [0, 2]] = samples_tail_reciprocal.index_select(1, torch.Tensor(
+                        #         [2, 0]).long().to(self.device))
+                        #
+                        #     samples_head_reciprocal = samples_head_reciprocal.view(bs, -1)
+                        #     samples_tail_reciprocal = samples_tail_reciprocal.view(bs, -1)
+                        #
+                        #     batch_scores_head_reci, _ = self.model.predict(samples_head_reciprocal)
+                        #     batch_scores_tail_reci, _ = self.model.predict(samples_tail_reciprocal)
+                        #
+                        #     batch_scores_head += batch_scores_head_reci
+                        #     batch_scores_tail += batch_scores_tail_reci
 
                         batch_metrics = dict()
 
@@ -240,7 +266,7 @@ class TrainTask(Task):
 
         self.config.log(f"Save the model to {folder} as file {filename}")
 
-        torch.save({'state_dict': self.model.state_dict()}, filename) #os.path.join(model, dataset, folder, filename))
+        torch.save({'state_dict': self.model.state_dict()}, filename)  # os.path.join(model, dataset, folder, filename))
 
 
 def load_ckpt(self, ckpt_path):

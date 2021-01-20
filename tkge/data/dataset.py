@@ -170,6 +170,9 @@ class DatasetProcessor(Registrable):
 
 @DatasetProcessor.register(name="gdelt")
 class GDELTDatasetProcessor(DatasetProcessor):
+    def __init__(self, config: Config):
+        super().__init__(config)
+
     def process(self):
         for rd in self.train_raw:
             head, rel, tail, ts = rd.strip().split('\t')
@@ -229,6 +232,38 @@ class GDELTDatasetProcessor(DatasetProcessor):
 
 @DatasetProcessor.register(name="icews14")
 class ICEWS14DatasetProcessor(DatasetProcessor):
+    # def __init__(self, config: Config):
+    #     super().__init__(config)
+    #
+    #     self.folder = self.config.get("dataset.folder")
+    #     self.level = self.config.get("dataset.temporal.level")
+    #     self.index = self.config.get("dataset.temporal.index")
+    #     self.float = self.config.get("dataset.temporal.float")
+    #
+    #     self.reciprocal_training = self.config.get("task.reciprocal_relation")
+    #     # self.filter_method = self.config.get("data.filter")
+    #
+    #     self.train_raw: List[str] = []
+    #     self.valid_raw: List[str] = []
+    #     self.test_raw: List[str] = []
+    #
+    #     mapping = torch.load('/mnt/data1/ma/gengyuan/baseline/tkbc/tkbc/mapping.pt')
+    #
+    #     self.ent2id = mapping[0]
+    #     self.rel2id = mapping[1]
+    #     self.ts2id = mapping[2]
+    #
+    #     self.train_set = defaultdict(list)
+    #     self.valid_set = defaultdict(list)
+    #     self.test_set = defaultdict(list)
+    #
+    #     self.all_triples = []
+    #     self.all_quadruples = []
+    #
+    #     self.load()
+    #     self.process()
+    #     self.filter()
+
     def process(self):
         for rd in self.train_raw:
             head, rel, tail, ts = rd.strip().split('\t')

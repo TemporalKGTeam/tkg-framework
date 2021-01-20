@@ -55,8 +55,6 @@ class Evaluation(Configurable):
 
         target_scores = scores[range(query_size), targets].unsqueeze(1).repeat((1, vocabulary_size))
 
-
-
         # TODO(gengyuan)
 
         assert self.preference in ["optimistic", "pessimistic"]
@@ -78,8 +76,6 @@ class Evaluation(Configurable):
                 comp = scores.ge(target_scores)
 
         ranks = comp.sum(1) + 1
-
-        print(ranks)
 
         return ranks.float()
 

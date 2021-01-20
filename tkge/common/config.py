@@ -7,6 +7,7 @@ import time
 import uuid
 import datetime
 import sys
+import re
 from enum import Enum
 
 from tkge.common.error import ConfigurationError
@@ -101,8 +102,10 @@ class Config:
             except KeyError:
                 raise KeyError(f"Error accessing {name} for key {key}")
 
-        if remove_plusplusplus and isinstance(result, collections.Mapping):
+        if isinstance(result, str) and re.findall(r'[+\-]?(?:0|[1-9]\d*)(?:\.\d*)?(?:[eE][+\-]?\d+)', result):
+            result = float(result)
 
+        if remove_plusplusplus and isinstance(result, collections.Mapping):
             def do_remove_plusplusplus(option):
                 if isinstance(option, collections.Mapping):
                     option.pop("+++", None)

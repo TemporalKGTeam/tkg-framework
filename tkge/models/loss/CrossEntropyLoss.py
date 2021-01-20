@@ -16,7 +16,7 @@ class CrossEntropyLoss(Loss):
     def __call__(self, scores, labels, **kwargs):
         """Computes the loss given the scores and corresponding labels.
 
-        `scores` is a batch_size x triples matrix holding the scores predicted by some
+        `scores` is a batch_size x vocab matrix holding the scores predicted by some
         model.
 
         `labels` is either (i) a batch_size x triples Boolean matrix holding the
@@ -28,8 +28,12 @@ class CrossEntropyLoss(Loss):
         # TODO(gengyuan) when using CE, must use labels as matrix
 
         # TODO(gengyuan) make sure each row has one and only one label
-        labels = labels.nonzero()
-        labels = labels[:, 1]
+
+        if labels.dim()!=1:
+            labels = labels.nonzero()
+            labels = labels[:, 1]
+        else:
+            labels = labels.long()
 
         if "negative_sampling" in self._train_type:
             # Pair each 1 with the following zeros until next 1

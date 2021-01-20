@@ -34,7 +34,7 @@ class NegativeSampler(Registrable):
 
         if ns_type in NegativeSampler.list_available():
             as_matrix = config.get("negative_sampling.as_matrix")
-            kwargs = config.get("model.args")  # TODO: 需要改成key的格式
+             # kwargs = config.get("model.args")  # TODO: 需要改成key的格式
             return NegativeSampler.by_name(ns_type)(config, dataset, as_matrix)
         else:
             raise ConfigurationError(
@@ -77,11 +77,11 @@ class PseudoNegativeSampling(NegativeSampler):
 
     def _label(self, pos_batch: torch.Tensor, as_matrix: bool, sample_target: str):
         if sample_target == "head":
-            return sample_target[:, 0]
+            return pos_batch[:, 0]
         elif sample_target == "tail":
-            return sample_target[:, 2]
+            return pos_batch[:, 2]
         else:
-            return torch.cat((sample_target[:, 0], sample_target[:, 2]), 0)
+            return torch.cat((pos_batch[:, 0], pos_batch[:, 2]), 0)
 
 
 @NegativeSampler.register(name='no_sampling')

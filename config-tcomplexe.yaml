@@ -4,7 +4,7 @@
 console:
   # If set, no console output is produced
   quiet: False
-  folder: "/home/gengyuan/workspace/tkge/log/atise"
+  folder: "/mnt/data1/ma/gengyuan/logging/tcomplex"
 
   # Formatting of trace entries for console output after certain events, such as
   # finishing an epoch. Each entry is a key-value pair, where the key refers to
@@ -52,7 +52,7 @@ random_seed:
 
 dataset:
   # data folder includes train, val, test files
-  folder: '/home/gengyuan/workspace/tkge/data/icews14'
+  folder: '/mnt/data1/ma/gengyuan/tkge/data/icews14'
 
   # indexes mapping [false, true]
   # TODO 可以保存到cache
@@ -60,9 +60,8 @@ dataset:
   filter: FALSE
   temporal:
     level: "day"  #deprecated
-    index: False
-    float: True
-    gran: 3
+    index: True
+    float: False
   args: ~
 
 
@@ -70,7 +69,7 @@ dataset:
   # Specify a data here. There must be a folder of that name under "data/".
   # If this folder contains a data.yaml file, it overrides the defaults
   # specified below.
-  name: 'icews14_atise'
+  name: 'icews14'
 
   # Number of entities. If set to -1, automatically determined from the
   # entity_ids file (see below).
@@ -86,7 +85,7 @@ dataset:
 
     # Files that store human-readble string representations of each
     # entity/relation. These files are optional.
-    #
+  #
   # Type can be map (field 0 is internal index) or idmap (field 0 is external
   # id).
 
@@ -110,19 +109,23 @@ dataset:
 # "transe", or "conve". For available models, see the project homepage and/or
 # configuration files under kge/model.
 model:
-  name: 'atise'
-  embedding_dim: 500
-  cmin: 0.003
-  cmax: 0.3
-  args: ~
+  name: 'tcomplex'
+  rank: 156
+  no_time_emb: False
+  init_size: 0.01
+
+
+
 
 
 negative_sampling:
-  name: 'no_sampling'
-  num_samples: 10 # should has no effect
+  name: 'pseudo_sampling'
+  num_samples: -1 # should has no effect
   filter: False
   as_matrix: True
-  target: both
+  target: tail
+  args: ~
+
 
 
 ## TRAINING ####################################################################
@@ -169,16 +172,13 @@ train:
   # LibKGE also supports some other losses, which we do not recommend to use.
   # See kge/loss.py for details.
   loss:
-    type: log_rank_loss
-    gamma: 120
-    temp: 0.5
-
+    type: cross_entropy_loss
 
   # Maximum number of epochs used for training
-  max_epochs: 5000
+  max_epochs: 500
 
   # Batch size used for training.
-  batch_size: 512
+  batch_size: 1000
 
   # If specified, split the batch into subbatches of at most this size and run
   # the forward/backward passes separately on each subbatch. This reduces memory
@@ -197,8 +197,8 @@ train:
 
   # Optimizer used for training.
   optimizer:
-    type: Adam
-    lr: 0.00003
+    type: Adamgrad
+    lr: 0.1
     reg_lambda: 0.0
     args: ~
 
@@ -222,23 +222,20 @@ train:
   valid:
     split: test # in [test or valid]
     every: 5
-    batch_size: 64
+    batch_size: 1000
     filter: time-aware  # in [off, static, time-aware]
     ordering: optimistic    # in [optimistic, peesimistic]
     k: [1, 3, 10]
 
-  regularizer: ~
+  regularizer:
+    n3:
+      type: n3_regularize
+      weight: 1e-2
+    lambda3:
+      type: lambda3_regularize
+      weight: 1e-2
 
-  inplace_regularizer:
-    renorm:
-      type: inplace_renorm_regularize
-      p: 2
-      dim: 0
-      maxnorm: 1
-    clamp:
-      type: inplace_clamp_regularize
-      min: 0.003
-      max: 0.3
+  inplace_regularizer: ~
 
 
 
@@ -274,8 +271,8 @@ train:
     # In addition the the checkpoint of the last epoch (which is transient),
     # create an additional checkpoint every this many epochs. Disable additional
     # checkpoints with 0.
-    folder: /home/gengyuan/workspace/ckpt/
-    every: 500
+    folder: /mnt/data1/ma/gengyuan/ckpt
+    every: 10
 
     # Keep this many most recent additional checkpoints.
     keep: 3
@@ -320,7 +317,8 @@ KvsAll:
 
 eval:
   filter: time-aware
-  ordering: optimistic
+  preference: optimistic
+  ordering: descending
   k: [1,3,10]
 
 

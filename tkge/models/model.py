@@ -7,6 +7,7 @@ import numpy as np
 from enum import Enum
 from collections import defaultdict
 from typing import Mapping, Dict
+import random
 
 from tkge.common.registry import Registrable
 from tkge.common.config import Config
@@ -16,22 +17,21 @@ from tkge.models.layers import LSTMModel
 
 
 class BaseModel(nn.Module, Registrable):
-    def __init__(self, config: Config, dataset: DatasetProcessor, device: str):
+    def __init__(self, config: Config, dataset: DatasetProcessor):
         nn.Module.__init__(self)
         Registrable.__init__(self, config=config)
 
         self.dataset = dataset
-        self.device = device
 
     @staticmethod
-    def create(config: Config, dataset: DatasetProcessor, device: str):
+    def create(config: Config, dataset: DatasetProcessor):
         """Factory method for sampler creation"""
 
         model_type = config.get("model.name")
 
         if model_type in BaseModel.list_available():
-            kwargs = config.get("model.args")  # TODO: 需要改成key的格式
-            return BaseModel.by_name(model_type)(config, dataset, device)
+            # kwargs = config.get("model.args")  # TODO: 需要改成key的格式
+            return BaseModel.by_name(model_type)(config, dataset)
         else:
             raise ConfigurationError(
                 f"{model_type} specified in configuration file is not supported"
@@ -57,8 +57,8 @@ class BaseModel(nn.Module, Registrable):
 
 @BaseModel.register(name='de_simple')
 class DeSimplEModel(BaseModel):
-    def __init__(self, config: Config, dataset: DatasetProcessor, device: str = 'cpu'):
-        super().__init__(config, dataset, device)
+    def __init__(self, config: Config, dataset: DatasetProcessor):
+        super().__init__(config, dataset)
 
         self.prepare_embedding()
 
@@ -73,39 +73,37 @@ class DeSimplEModel(BaseModel):
         s_emb_dim = int(se_prop * emb_dim)
         t_emb_dim = emb_dim - s_emb_dim
 
-        device = self.device
-
         self.embedding: Dict[str, nn.Module] = defaultdict(dict)
 
-        self.embedding.update({'ent_embs_h': nn.Embedding(num_ent, s_emb_dim).to(device)})
-        self.embedding.update({'ent_embs_t': nn.Embedding(num_ent, s_emb_dim).to(device)})
-        self.embedding.update({'rel_embs_f': nn.Embedding(num_rel, s_emb_dim + t_emb_dim).to(device)})
-        self.embedding.update({'rel_embs_i': nn.Embedding(num_rel, s_emb_dim + t_emb_dim).to(device)})
+        self.embedding.update({'ent_embs_h': nn.Embedding(num_ent, s_emb_dim)})
+        self.embedding.update({'ent_embs_t': nn.Embedding(num_ent, s_emb_dim)})
+        self.embedding.update({'rel_embs_f': nn.Embedding(num_rel, s_emb_dim + t_emb_dim)})
+        self.embedding.update({'rel_embs_i': nn.Embedding(num_rel, s_emb_dim + t_emb_dim)})
 
         # frequency embeddings for the entities
 
-        self.embedding.update({'m_freq_h': nn.Embedding(num_ent, t_emb_dim).to(device)})
-        self.embedding.update({'m_freq_t': nn.Embedding(num_ent, t_emb_dim).to(device)})
-        self.embedding.update({'d_freq_h': nn.Embedding(num_ent, t_emb_dim).to(device)})
-        self.embedding.update({'d_freq_t': nn.Embedding(num_ent, t_emb_dim).to(device)})
-        self.embedding.update({'y_freq_h': nn.Embedding(num_ent, t_emb_dim).to(device)})
-        self.embedding.update({'y_freq_t': nn.Embedding(num_ent, t_emb_dim).to(device)})
+        self.embedding.update({'m_freq_h': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'m_freq_t': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'d_freq_h': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'d_freq_t': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'y_freq_h': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'y_freq_t': nn.Embedding(num_ent, t_emb_dim)})
 
         # phi embeddings for the entities
-        self.embedding.update({'m_phi_h': nn.Embedding(num_ent, t_emb_dim).to(device)})
-        self.embedding.update({'m_phi_t': nn.Embedding(num_ent, t_emb_dim).to(device)})
-        self.embedding.update({'d_phi_h': nn.Embedding(num_ent, t_emb_dim).to(device)})
-        self.embedding.update({'d_phi_t': nn.Embedding(num_ent, t_emb_dim).to(device)})
-        self.embedding.update({'y_phi_h': nn.Embedding(num_ent, t_emb_dim).to(device)})
-        self.embedding.update({'y_phi_t': nn.Embedding(num_ent, t_emb_dim).to(device)})
+        self.embedding.update({'m_phi_h': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'m_phi_t': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'d_phi_h': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'d_phi_t': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'y_phi_h': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'y_phi_t': nn.Embedding(num_ent, t_emb_dim)})
 
         # frequency embeddings for the entities
-        self.embedding.update({'m_amps_h': nn.Embedding(num_ent, t_emb_dim).to(device)})
-        self.embedding.update({'m_amps_t': nn.Embedding(num_ent, t_emb_dim).to(device)})
-        self.embedding.update({'d_amps_h': nn.Embedding(num_ent, t_emb_dim).to(device)})
-        self.embedding.update({'d_amps_t': nn.Embedding(num_ent, t_emb_dim).to(device)})
-        self.embedding.update({'y_amps_h': nn.Embedding(num_ent, t_emb_dim).to(device)})
-        self.embedding.update({'y_amps_t': nn.Embedding(num_ent, t_emb_dim).to(device)})
+        self.embedding.update({'m_amps_h': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'m_amps_t': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'d_amps_h': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'d_amps_t': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'y_amps_h': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'y_amps_t': nn.Embedding(num_ent, t_emb_dim)})
 
         self.embedding = nn.ModuleDict(self.embedding)
 
@@ -200,31 +198,42 @@ class DeSimplEModel(BaseModel):
 
 @BaseModel.register(name="tcomplex")
 class TComplExModel(BaseModel):
-    def __init__(self, config: Config, dataset: DatasetProcessor, device: str = 'cpu'):
-        super().__init__(config, dataset, device)
+    def __init__(self, config: Config, dataset: DatasetProcessor):
+        super().__init__(config, dataset)
 
-        self.sizes = self.config.get("model.sizes")
         self.rank = self.config.get("model.rank")
         self.no_time_emb = self.config.get("model.no_time_emb")
         self.init_size = self.config.get("model.init_size")
 
+        self.num_ent = self.dataset.num_entities()
+        self.num_rel = self.dataset.num_relations()
+        self.num_ts = self.dataset.num_timestamps()
+
+        self.prepare_embedding()
+
     def prepare_embedding(self):
-        self.embedding = nn.ModuleList([
+        torch.manual_seed(0)
+        torch.cuda.manual_seed(0)
+        np.random.seed(0)
+        random.seed(0)
+        torch.backends.cudnn.determnistic = True
+
+        self.embeddings = nn.ModuleList([
             nn.Embedding(s, 2 * self.rank, sparse=True)
-            for s in [self.sizes[0], self.sizes[1], self.sizes[3]]
+            for s in [self.num_ent, self.num_rel, self.num_ts]
         ])
 
-        for emb in self.embedding:
+        for emb in self.embeddings:
             emb.weight.data *= self.init_size
 
     def forward(self, x):
         """
         x is spot
         """
-        lhs = self.embeddings[0](x[:, 0])
-        rel = self.embeddings[1](x[:, 1])
-        rhs = self.embeddings[0](x[:, 2])
-        time = self.embeddings[2](x[:, 3])
+        lhs = self.embeddings[0](x[:, 0].long())
+        rel = self.embeddings[1](x[:, 1].long())
+        rhs = self.embeddings[0](x[:, 2].long())
+        time = self.embeddings[2](x[:, 3].long())
 
         lhs = lhs[:, :self.rank], lhs[:, self.rank:]
         rel = rel[:, :self.rank], rel[:, self.rank:]
@@ -244,26 +253,35 @@ class TComplExModel(BaseModel):
         scores = (lhs[0] * full_rel[0] - lhs[1] * full_rel[1]) @ right[0].t() + \
                  (lhs[1] * full_rel[0] + lhs[0] * full_rel[1]) @ right[1].t()
         factors = {
-            "n3_regularize": (torch.sqrt(lhs[0] ** 2 + lhs[1] ** 2),
+            "n3": (torch.sqrt(lhs[0] ** 2 + lhs[1] ** 2),
                               torch.sqrt(full_rel[0] ** 2 + full_rel[1] ** 2),
                               torch.sqrt(rhs[0] ** 2 + rhs[1] ** 2)),
-            "lambda3_regularize": self.embeddings[2].weight[:-1] if self.no_time_emb else self.embeddings[2].weight
+            "lambda3": (self.embeddings[2].weight[:-1] if self.no_time_emb else self.embeddings[2].weight)
         }
 
         return scores, factors
 
     def predict(self, x):
-        lhs = self.embeddings[0](x[:, 0])
-        rel = self.embeddings[1](x[:, 1])
-        rhs = self.embeddings[0](x[:, 2])
-        time = self.embeddings[2](x[:, 3])
+        assert torch.isnan(x).sum(1).byte().all(), "Either head or tail should be absent."
+
+        missing_head_ind = torch.isnan(x)[:, 0].byte().unsqueeze(1)
+        reversed_x = x.clone()
+        reversed_x[:, 1] += 1
+        reversed_x[:, (0, 2)] = reversed_x[:, (2, 0)]
+
+        x = torch.where(missing_head_ind,
+                        reversed_x,
+                        x)
+
+        lhs = self.embeddings[0](x[:, 0].long())
+        rel = self.embeddings[1](x[:, 1].long())
+        time = self.embeddings[2](x[:, 3].long())
 
         lhs = lhs[:, :self.rank], lhs[:, self.rank:]
         rel = rel[:, :self.rank], rel[:, self.rank:]
-        rhs = rhs[:, :self.rank], rhs[:, self.rank:]
         time = time[:, :self.rank], time[:, self.rank:]
 
-        right = self.embedding[0].weight
+        right = self.embeddings[0].weight
         right = right[:, :self.rank], right[:, self.rank:]
 
         scores = (lhs[0] * rel[0] * time[0] - lhs[1] * rel[1] * time[0] -
@@ -273,36 +291,35 @@ class TComplExModel(BaseModel):
 
         return scores, None
 
+    def forward_over_time(self, x):
+        lhs = self.embeddings[0](x[:, 0])
+        rel = self.embeddings[1](x[:, 1])
+        rhs = self.embeddings[0](x[:, 2])
+        time = self.embeddings[2].weight
 
-def forward_over_time(self, x):
-    lhs = self.embeddings[0](x[:, 0])
-    rel = self.embeddings[1](x[:, 1])
-    rhs = self.embeddings[0](x[:, 2])
-    time = self.embeddings[2].weight
+        lhs = lhs[:, :self.rank], lhs[:, self.rank:]
+        rel = rel[:, :self.rank], rel[:, self.rank:]
+        rhs = rhs[:, :self.rank], rhs[:, self.rank:]
+        time = time[:, :self.rank], time[:, self.rank:]
 
-    lhs = lhs[:, :self.rank], lhs[:, self.rank:]
-    rel = rel[:, :self.rank], rel[:, self.rank:]
-    rhs = rhs[:, :self.rank], rhs[:, self.rank:]
-    time = time[:, :self.rank], time[:, self.rank:]
-
-    return (
-            (lhs[0] * rel[0] * rhs[0] - lhs[1] * rel[1] * rhs[0] -
-             lhs[1] * rel[0] * rhs[1] + lhs[0] * rel[1] * rhs[1]) @ time[0].t() +
-            (lhs[1] * rel[0] * rhs[0] - lhs[0] * rel[1] * rhs[0] +
-             lhs[0] * rel[0] * rhs[1] - lhs[1] * rel[1] * rhs[1]) @ time[1].t()
-    )
+        return (
+                (lhs[0] * rel[0] * rhs[0] - lhs[1] * rel[1] * rhs[0] -
+                 lhs[1] * rel[0] * rhs[1] + lhs[0] * rel[1] * rhs[1]) @ time[0].t() +
+                (lhs[1] * rel[0] * rhs[0] - lhs[0] * rel[1] * rhs[0] +
+                 lhs[0] * rel[0] * rhs[1] - lhs[1] * rel[1] * rhs[1]) @ time[1].t()
+        )
 
 
 @BaseModel.register(name="hyte")
 class HyTEModel(BaseModel):
-    def __init__(self, config: Config, dataset: DatasetProcessor, device: str = 'cpu'):
-        super().__init__(config, dataset, device)
+    def __init__(self, config: Config, dataset: DatasetProcessor):
+        super().__init__(config, dataset)
 
 
 @BaseModel.register(name="atise")
 class ATiSEModel(BaseModel):
-    def __init__(self, config: Config, dataset: DatasetProcessor, device: str = 'cpu'):
-        super().__init__(config, dataset, device)
+    def __init__(self, config: Config, dataset: DatasetProcessor):
+        super().__init__(config, dataset)
 
         # TODO(gengyuan) load params before initialize
         self.cmin = self.config.get("model.cmin")
@@ -315,24 +332,22 @@ class ATiSEModel(BaseModel):
         num_ent = self.dataset.num_entities()
         num_rel = self.dataset.num_relations()
 
-        device = self.device
-
         self.embedding: Dict[str, nn.Module] = defaultdict(None)
 
-        self.embedding.update({'emb_E': nn.Embedding(num_ent, self.emb_dim, padding_idx=0).to(device)})
-        self.embedding.update({'emb_E_var': nn.Embedding(num_ent, self.emb_dim, padding_idx=0).to(device)})
-        self.embedding.update({'emb_R': nn.Embedding(num_rel, self.emb_dim, padding_idx=0).to(device)})
-        self.embedding.update({'emb_R_var': nn.Embedding(num_rel, self.emb_dim, padding_idx=0).to(device)})
+        self.embedding.update({'emb_E': nn.Embedding(num_ent, self.emb_dim, padding_idx=0)})
+        self.embedding.update({'emb_E_var': nn.Embedding(num_ent, self.emb_dim, padding_idx=0)})
+        self.embedding.update({'emb_R': nn.Embedding(num_rel, self.emb_dim, padding_idx=0)})
+        self.embedding.update({'emb_R_var': nn.Embedding(num_rel, self.emb_dim, padding_idx=0)})
 
-        self.embedding.update({'emb_TE': nn.Embedding(num_ent, self.emb_dim, padding_idx=0).to(device)})
-        self.embedding.update({'alpha_E': nn.Embedding(num_ent, 1, padding_idx=0).to(device)})
-        self.embedding.update({'beta_E': nn.Embedding(num_ent, self.emb_dim, padding_idx=0).to(device)})
-        self.embedding.update({'omega_E': nn.Embedding(num_ent, self.emb_dim, padding_idx=0).to(device)})
+        self.embedding.update({'emb_TE': nn.Embedding(num_ent, self.emb_dim, padding_idx=0)})
+        self.embedding.update({'alpha_E': nn.Embedding(num_ent, 1, padding_idx=0)})
+        self.embedding.update({'beta_E': nn.Embedding(num_ent, self.emb_dim, padding_idx=0)})
+        self.embedding.update({'omega_E': nn.Embedding(num_ent, self.emb_dim, padding_idx=0)})
 
-        self.embedding.update({'emb_TR': nn.Embedding(num_rel, self.emb_dim, padding_idx=0).to(device)})
-        self.embedding.update({'alpha_R': nn.Embedding(num_rel, 1, padding_idx=0).to(device)})
-        self.embedding.update({'beta_R': nn.Embedding(num_rel, self.emb_dim, padding_idx=0).to(device)})
-        self.embedding.update({'omega_R': nn.Embedding(num_rel, self.emb_dim, padding_idx=0).to(device)})
+        self.embedding.update({'emb_TR': nn.Embedding(num_rel, self.emb_dim, padding_idx=0)})
+        self.embedding.update({'alpha_R': nn.Embedding(num_rel, 1, padding_idx=0)})
+        self.embedding.update({'beta_R': nn.Embedding(num_rel, self.emb_dim, padding_idx=0)})
+        self.embedding.update({'omega_R': nn.Embedding(num_rel, self.emb_dim, padding_idx=0)})
 
         self.embedding = nn.ModuleDict(self.embedding)
 
@@ -467,8 +482,8 @@ class ATiSEModel(BaseModel):
 # reference: https://github.com/bsantraigi/TA_TransE/blob/master/model.py
 @BaseModel.register(name="ta_transe")
 class TATransEModel(BaseModel):
-    def __init__(self, config: Config, dataset: DatasetProcessor, device: str = 'cpu'):
-        super().__init__(config, dataset, device)
+    def __init__(self, config: Config, dataset: DatasetProcessor):
+        super().__init__(config, dataset)
 
         self.emb_dim = self.config.get("model.embedding_dim")
         self.l1_flag = self.config.get("model.l1_flag")
@@ -506,8 +521,8 @@ class TATransEModel(BaseModel):
 # reference: https://github.com/bsantraigi/TA_TransE/blob/master/model.py
 @BaseModel.register(name="ta_distmult")
 class TADistmultModel(BaseModel):
-    def __init__(self, config: Config, dataset: DatasetProcessor, device: str = 'cpu'):
-        super().__init__(config, dataset, device)
+    def __init__(self, config: Config, dataset: DatasetProcessor):
+        super().__init__(config, dataset)
 
         self.emb_dim = self.config.get("model.embedding_dim")
         self.dropout = self.config.get("model.dopout")
