@@ -63,7 +63,7 @@ dataset:
   mapping: False
   filter: False
   temporal:
-    level: "day"
+    resolution: "day"
     index: False
     float: True
   args: ~

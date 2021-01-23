@@ -21,7 +21,7 @@ class DatasetProcessor(Registrable):
         super().__init__(config)
 
         self.folder = self.config.get("dataset.folder")
-        self.level = self.config.get("dataset.temporal.level")
+        self.resolution = self.config.get("dataset.temporal.resolution")
         self.index = self.config.get("dataset.temporal.index")
         self.float = self.config.get("dataset.temporal.float")
 
@@ -44,23 +44,6 @@ class DatasetProcessor(Registrable):
         self.all_quadruples = []
 
         self.load()
-
-        # import random
-        # shuffle_l = list(range(230))
-        # random.shuffle(shuffle_l)
-        #
-        # shuffle_l2 = list(range(7128))
-        # random.shuffle(shuffle_l2)
-        #
-        # for i, k in enumerate(self.rel2id.keys()):
-        #     if i % 2:
-        #         self.rel2id[k] = shuffle_l[i//2]+ 230
-        #     else:
-        #         self.rel2id[k] = shuffle_l[i//2]
-        #
-        # for i, k in enumerate(self.ent2id.keys()):
-        #     self.ent2id[k] = shuffle_l2[i]
-
         self.process()
         self.filter()
 
@@ -238,12 +221,12 @@ class GDELTDatasetProcessor(DatasetProcessor):
             self.all_triples.append([head, rel, tail])
             self.all_quadruples.append([head, rel, tail, ts_id])
 
-    def process_time(self, origin: str, granularity: str = 'day'):
-        level = ['year', 'month', 'day', 'hour', 'minute', 'second']
-        assert granularity in level, f"Time granularity should be {level}"
+    def process_time(self, origin: str, resolution: str = 'day'):
+        all_resolutions = ['year', 'month', 'day', 'hour', 'minute', 'second']
+        assert resolution in all_resolutions, f"Time granularity should be {all_resolutions}"
 
         ts = origin.split('-') + ['00', '00', '00']
-        ts = ts[:level.index(granularity) + 1]
+        ts = ts[:all_resolutions.index(resolution) + 1]
         ts = '-'.join(ts)
 
         return ts
@@ -303,11 +286,11 @@ class ICEWS14DatasetProcessor(DatasetProcessor):
         print(self.ts2id)
 
     def process_time(self, origin: str):
-        level = ['year', 'month', 'day', 'hour', 'minute', 'second']
-        assert self.level in level, f"Time granularity should be {level}"
+        all_resolutions = ['year', 'month', 'day', 'hour', 'minute', 'second']
+        assert self.resolution in all_resolutions, f"Time granularity should be {all_resolutions}"
 
         ts = origin.split('-') + ['00', '00', '00']
-        ts = ts[:level.index(self.level) + 1]
+        ts = ts[:all_resolutions.index(self.resolution) + 1]
         ts = '-'.join(ts)
 
         return ts
@@ -350,14 +333,7 @@ class ICEWS0515DatasetProcessor(DatasetProcessor):
             self.test_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
 
     def process_time(self, origin: str):
-        level = ['year', 'month', 'day', 'hour', 'minute', 'second']
-        assert self.level in level, f"Time granularity should be {level}"
-
-        ts = origin.split('-') + ['00', '00', '00']
-        ts = ts[:level.index(self.level) + 1]
-        ts = '-'.join(ts)
-
-        return ts
+        raise NotImplementedError
 
 
 @DatasetProcessor.register(name="wiki")

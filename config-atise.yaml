@@ -59,7 +59,7 @@ dataset:
   mapping: FALSE
   filter: FALSE
   temporal:
-    level: "day"  #deprecated
+    resolution: "day"  #deprecated
     index: False
     float: True
     gran: 3

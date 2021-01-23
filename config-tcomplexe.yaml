@@ -59,7 +59,7 @@ dataset:
   mapping: FALSE
   filter: FALSE
   temporal:
-    level: "day"  #deprecated
+    resolution: "day"  #deprecated
     index: True
     float: False
   args: ~
