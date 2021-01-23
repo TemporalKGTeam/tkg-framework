@@ -3,6 +3,7 @@ import torch
 import time
 import os
 from collections import defaultdict
+import argparse
 
 from tkge.task.task import Task
 from tkge.data.dataset import DatasetProcessor, SplitDataset
@@ -15,10 +16,21 @@ from tkge.eval.metrics import Evaluation
 
 
 class TestTask(Task):
+    @staticmethod
+    def parse_arguments(parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
+        description = """Eval a model"""
+        subparser = parser.add_parser("eval", description=description, help="evaluate a model.")
+
+        subparser.add_argument(
+            "-c",
+            "--config",
+            type=str,
+            help="specify configuration file path"
+        )
+
+        return subparser
+
     def __init__(self, config: Config):
-
-        self.config = config
-
         self.dataset = self.config.get("dataset.name")
         self.test_loader = None
         self.sampler = None

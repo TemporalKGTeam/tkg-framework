@@ -61,7 +61,11 @@ To get a local copy up and running follow these simple example steps.
 ## Usage
 
  ```
- python tkge.py -config config-default.yaml
+ # test a model
+ python tkge.py train --config config-default.yaml
+
+ # eval a model
+ python tkge.py eval --config config-default.yaml
  ```
 
 

@@ -283,7 +283,6 @@ class ICEWS14DatasetProcessor(DatasetProcessor):
             self.all_triples.append([head, rel, tail])
             self.all_quadruples.append([head, rel, tail, ts_id])
 
-        print(self.ts2id)
 
     def process_time(self, origin: str):
         all_resolutions = ['year', 'month', 'day', 'hour', 'minute', 'second']
@@ -383,3 +382,4 @@ class SplitDataset(torch.utils.data.Dataset):
                 raise NotImplementedError
 
         return sample
+

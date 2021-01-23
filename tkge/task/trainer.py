@@ -2,6 +2,7 @@ import torch
 
 import time
 import os
+import argparse
 
 from typing import Dict, List
 from collections import defaultdict
@@ -17,10 +18,36 @@ from tkge.eval.metrics import Evaluation
 
 
 class TrainTask(Task):
-    def __init__(self, config: Config):
-        super().__init__()
+    @staticmethod
+    def parse_arguments(parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
+        description = """Train a model"""
+        subparser = parser.add_parser("train", description=description, help="train a model.")
 
-        self.config = config
+        subparser.add_argument(
+            "-c",
+            "--config",
+            type=str,
+            help="specify configuration file path"
+        )
+
+        subparser.add_argument(
+            "--resume",
+            action="store_true",
+            default=False,
+            help="resume training from checkpoint in config file"
+        )
+
+        subparser.add_argument(
+            "--overrides",
+            action="store_true",
+            default=False,
+            help="override the hyper-parameter stored in checkpoint with the configuration file"
+        )
+
+        return subparser
+
+    def __init__(self, config: Config):
+        super().__init__(config)
 
         self.dataset = self.config.get("dataset.name")
         self.train_loader = None
@@ -41,8 +68,6 @@ class TrainTask(Task):
         self.device = self.config.get("task.device")
 
         self._prepare()
-
-        self.train()
 
         # TODO optimizer should be added into modules
 
@@ -111,7 +136,7 @@ class TrainTask(Task):
         self.config.log(f"Initializing evaluation")
         self.evaluation = Evaluation(config=self.config, dataset=self.dataset)
 
-    def train(self):
+    def main(self):
         self.config.log("BEGIN TRANING")
 
         save_freq = self.config.get("train.checkpoint.every")
@@ -270,6 +295,5 @@ class TrainTask(Task):
 
         torch.save({'state_dict': self.model.state_dict()}, filename)  # os.path.join(model, dataset, folder, filename))
 
-
-def load_ckpt(self, ckpt_path):
-    raise NotImplementedError
+    def load_ckpt(self, ckpt_path):
+        raise NotImplementedError
