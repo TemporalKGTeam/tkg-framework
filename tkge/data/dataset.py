@@ -8,8 +8,10 @@ from collections import defaultdict
 from tkge.common.registry import Registrable
 from tkge.common.config import Config
 from tkge.common.error import ConfigurationError
+from tkge.data.utils import get_all_days_of_year
 
 import enum
+import arrow
 
 SPOT = enum.Enum('spot', ('s', 'p', 'o', 't'))
 
@@ -42,6 +44,23 @@ class DatasetProcessor(Registrable):
         self.all_quadruples = []
 
         self.load()
+
+        # import random
+        # shuffle_l = list(range(230))
+        # random.shuffle(shuffle_l)
+        #
+        # shuffle_l2 = list(range(7128))
+        # random.shuffle(shuffle_l2)
+        #
+        # for i, k in enumerate(self.rel2id.keys()):
+        #     if i % 2:
+        #         self.rel2id[k] = shuffle_l[i//2]+ 230
+        #     else:
+        #         self.rel2id[k] = shuffle_l[i//2]
+        #
+        # for i, k in enumerate(self.ent2id.keys()):
+        #     self.ent2id[k] = shuffle_l2[i]
+
         self.process()
         self.filter()
 
@@ -113,7 +132,7 @@ class DatasetProcessor(Registrable):
             self.test_size = len(self.test_raw)
 
     def process_time(self, origin: str):
-        # TODO(gengyuan) 使用time或者datetime里面的函数来处理
+        # TODO(gengyuan) use datetime
         raise NotImplementedError
 
     def get(self, split: str = "train"):
@@ -232,39 +251,10 @@ class GDELTDatasetProcessor(DatasetProcessor):
 
 @DatasetProcessor.register(name="icews14")
 class ICEWS14DatasetProcessor(DatasetProcessor):
-    # def __init__(self, config: Config):
-    #     super().__init__(config)
-    #
-    #     self.folder = self.config.get("dataset.folder")
-    #     self.level = self.config.get("dataset.temporal.level")
-    #     self.index = self.config.get("dataset.temporal.index")
-    #     self.float = self.config.get("dataset.temporal.float")
-    #
-    #     self.reciprocal_training = self.config.get("task.reciprocal_relation")
-    #     # self.filter_method = self.config.get("data.filter")
-    #
-    #     self.train_raw: List[str] = []
-    #     self.valid_raw: List[str] = []
-    #     self.test_raw: List[str] = []
-    #
-    #     mapping = torch.load('/mnt/data1/ma/gengyuan/baseline/tkbc/tkbc/mapping.pt')
-    #
-    #     self.ent2id = mapping[0]
-    #     self.rel2id = mapping[1]
-    #     self.ts2id = mapping[2]
-    #
-    #     self.train_set = defaultdict(list)
-    #     self.valid_set = defaultdict(list)
-    #     self.test_set = defaultdict(list)
-    #
-    #     self.all_triples = []
-    #     self.all_quadruples = []
-    #
-    #     self.load()
-    #     self.process()
-    #     self.filter()
-
     def process(self):
+        all_timestamp = get_all_days_of_year(2014)
+        self.ts2id = {ts: (arrow.get(ts) - arrow.get('2014-01-01')).days for ts in all_timestamp}
+
         for rd in self.train_raw:
             head, rel, tail, ts = rd.strip().split('\t')
             head = self.index_entities(head)
@@ -309,6 +299,8 @@ class ICEWS14DatasetProcessor(DatasetProcessor):
 
             self.all_triples.append([head, rel, tail])
             self.all_quadruples.append([head, rel, tail, ts_id])
+
+        print(self.ts2id)
 
     def process_time(self, origin: str):
         level = ['year', 'month', 'day', 'hour', 'minute', 'second']

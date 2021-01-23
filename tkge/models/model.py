@@ -226,6 +226,7 @@ class TComplExModel(BaseModel):
         for emb in self.embeddings:
             emb.weight.data *= self.init_size
 
+
     def forward(self, x):
         """
         x is spot
@@ -254,8 +255,8 @@ class TComplExModel(BaseModel):
                  (lhs[1] * full_rel[0] + lhs[0] * full_rel[1]) @ right[1].t()
         factors = {
             "n3": (torch.sqrt(lhs[0] ** 2 + lhs[1] ** 2),
-                              torch.sqrt(full_rel[0] ** 2 + full_rel[1] ** 2),
-                              torch.sqrt(rhs[0] ** 2 + rhs[1] ** 2)),
+                   torch.sqrt(full_rel[0] ** 2 + full_rel[1] ** 2),
+                   torch.sqrt(rhs[0] ** 2 + rhs[1] ** 2)),
             "lambda3": (self.embeddings[2].weight[:-1] if self.no_time_emb else self.embeddings[2].weight)
         }
 

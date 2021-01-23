@@ -175,7 +175,7 @@ train:
     type: cross_entropy_loss
 
   # Maximum number of epochs used for training
-  max_epochs: 500
+  max_epochs: 50
 
   # Batch size used for training.
   batch_size: 1000
@@ -197,7 +197,7 @@ train:
 
   # Optimizer used for training.
   optimizer:
-    type: Adamgrad
+    type: Adagrad
     lr: 0.1
     reg_lambda: 0.0
     args: ~
@@ -221,7 +221,7 @@ train:
 
   valid:
     split: test # in [test or valid]
-    every: 5
+    every: 1
     batch_size: 1000
     filter: time-aware  # in [off, static, time-aware]
     ordering: optimistic    # in [optimistic, peesimistic]

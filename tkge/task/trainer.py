@@ -88,7 +88,7 @@ class TrainTask(Task):
         # TODO  choose Adam or other types
         optim_dict = {
             'Adam': torch.optim.Adam,
-            'Adamgrad': torch.optim.Adagrad
+            'Adagrad': torch.optim.Adagrad
         }
         self.optimizer = optim_dict[self.config.get("train.optimizer.type")](
             self.model.parameters(),
@@ -127,6 +127,8 @@ class TrainTask(Task):
             # 2. epoch
             # 3. valid koss
             total_loss = 0.0
+            train_size = self.dataset.train_size
+
             start = time.time()
 
             for pos_batch in self.train_loader:
@@ -153,7 +155,8 @@ class TrainTask(Task):
                         if not isinstance(tensors, (tuple, list)):
                             tensors = [tensors]
 
-                        loss += self.regularizer[name](tensors)
+                        reg_loss = self.regularizer[name](tensors)
+                        loss += reg_loss
 
                 loss.backward()
                 self.optimizer.step()
@@ -172,8 +175,9 @@ class TrainTask(Task):
                         self.inplace_regularizer[name](tensors)
 
             stop = time.time()
+            avg_loss = total_loss / train_size
 
-            self.config.log(f"Loss in iteration {epoch} : {total_loss} comsuming {stop - start}s")
+            self.config.log(f"Loss in iteration {epoch} : {avg_loss} comsuming {stop - start}s")
 
             if epoch % save_freq == 0:
                 self.save_ckpt(epoch)
@@ -182,7 +186,7 @@ class TrainTask(Task):
                 with torch.no_grad():
                     self.model.eval()
 
-                    l = 0
+                    counter = 0
 
                     metrics = dict()
                     metrics['head'] = defaultdict(float)
@@ -194,7 +198,7 @@ class TrainTask(Task):
 
                         batch = batch.to(self.device)
 
-                        l += bs
+                        counter += bs
 
                         queries_head = batch.clone()
                         queries_tail = batch.clone()
@@ -211,9 +215,7 @@ class TrainTask(Task):
                         batch_scores_head, _ = self.model.predict(queries_head)
                         batch_scores_tail, _ = self.model.predict(queries_tail)
 
-                        # TODO(gengyuan) : 无论如何都要转化成matrix才可以计算evaluation
-
-                        # TODO (gengyuan): ATISE的eval可以统一进predict里面
+                        # TODO (gengyuan): reimplement ATISE eval
 
                         # if self.config.get("task.reciprocal_relation"):
                         #     samples_head_reciprocal = samples_head.clone().view(-1, dim)
@@ -248,7 +250,7 @@ class TrainTask(Task):
 
                     for pos in ['head', 'tail']:
                         for key in metrics[pos].keys():
-                            metrics[pos][key] /= l
+                            metrics[pos][key] /= counter
 
                     self.config.log(f"Metrics(head prediction) in iteration {epoch} : {metrics['head'].items()}")
                     self.config.log(f"Metrics(tail prediction) in iteration {epoch} : {metrics['tail'].items()}")
