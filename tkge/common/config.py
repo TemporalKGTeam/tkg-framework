@@ -355,7 +355,7 @@ class Config:
 
         """
         if not os.path.exists(self.logdir()):
-            os.makedirs(self.logdir())
+            os.makedirs(self.logdir(), 0o700)
 
         with open(self.logfile(), "a") as file:
             for line in msg.splitlines():

@@ -75,6 +75,39 @@ class ICEWS14AtiseDatasetProcessor(DatasetProcessor):
         return day
 
 
+@DatasetProcessor.register(name="yago11k")
+class Yago11kDatasetProcessor(DatasetProcessor):
+    def process(self):
+        year_list = []
+
+        for rd in self.train_raw:
+            head, rel, tail, ts_start, ts_end = rd.strip().split('\t')
+            head = self.index_entities(head)
+            rel = self.index_relations(rel)
+            tail = self.index_entities(tail)
+            ts_start = self.process_time(ts_start, True)
+            ts_end = self.process_time(ts_start, False)
+
+            if ts_start < ts_end:
+                ts_end = self.config.get("dataset.args.yearmax")
+
+        for rd in self.valid_raw:
+            pass
+
+        for rd in self.test_raw:
+            pass
+
+    def process_time(self, origin: str, start: bool = True):
+        year = origin.split('-')[0]
+
+        if year.find('#') != -1 and len(year) == 4:
+            year = int(year)
+        else:
+            year = self.config.get("dataset.args.yearmin") if start else self.config.get("dataset.args.yearmax")
+
+        return year
+
+
 @DatasetProcessor.register(name="icews14_tcomplex")
 class TestICEWS14DatasetProcessor(DatasetProcessor):
     def __init__(self, config: Config):
@@ -103,10 +136,9 @@ class TestICEWS14DatasetProcessor(DatasetProcessor):
         temp = dict()
 
         for k in self.rel2id.keys():
-            temp[k+'(RECIPROCAL)'] = self.rel2id[k] + 230
+            temp[k + '(RECIPROCAL)'] = self.rel2id[k] + 230
 
         self.rel2id.update(temp)
-
 
         self.train_set = defaultdict(list)
         self.valid_set = defaultdict(list)
@@ -124,7 +156,6 @@ class TestICEWS14DatasetProcessor(DatasetProcessor):
         valid_file = self.folder + "/valid.txt"
         test_file = self.folder + "/test.txt"
 
-
         print('ygygyg')
 
         with open(train_file, "r") as f:
@@ -134,7 +165,7 @@ class TestICEWS14DatasetProcessor(DatasetProcessor):
                 for line in lines:
                     self.train_raw.append(line)
 
-                # for line in lines:
+                    # for line in lines:
 
                     insert_line = line.split('\t')
                     insert_line[1] += '(RECIPROCAL)'
@@ -156,7 +187,6 @@ class TestICEWS14DatasetProcessor(DatasetProcessor):
             self.test_raw = f.readlines()
 
             self.test_size = len(self.test_raw)
-
 
     def process(self):
         for rd in self.train_raw:
@@ -220,4 +250,3 @@ class TestICEWS14DatasetProcessor(DatasetProcessor):
     #         return self.rel2id[rel[:-12]] + 230
     #     else:
     #         return self.rel2id[rel]
-

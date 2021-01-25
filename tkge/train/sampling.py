@@ -159,7 +159,7 @@ class BasicNegativeSampler(NegativeSampler):
         if sample_target == 'head':
             pos_neg_samples_h = pos_batch.repeat((1, num_pos_neg)).view(-1, dim_size)
             rand_nums_h = torch.randint(low=0, high=self.dataset.num_entities() - 1,
-                                        size=(pos_neg_samples_h.shape[0], 1))
+                                        size=(pos_neg_samples_h.shape[0], 1)).float()
 
             # for i in range(pos_neg_samples_h.shape[0] // num_pos_neg):
             #     rand_nums_h[i * num_pos_neg] = 0
@@ -172,7 +172,7 @@ class BasicNegativeSampler(NegativeSampler):
         elif sample_target == 'tail':
             pos_neg_samples_t = pos_batch.repeat((1, num_pos_neg)).view(-1, dim_size)
             rand_nums_t = torch.randint(low=0, high=self.dataset.num_entities() - 1,
-                                        size=(pos_neg_samples_t.shape[0], 1))
+                                        size=(pos_neg_samples_t.shape[0], 1)).float()
 
             # for i in range(pos_neg_samples_t.shape[0] // num_pos_neg):
             #     rand_nums_t[i * num_pos_neg] = 0
@@ -187,9 +187,9 @@ class BasicNegativeSampler(NegativeSampler):
             pos_neg_samples_t = pos_neg_samples_h.clone()
 
             rand_nums_h = torch.randint(low=0, high=self.dataset.num_entities() - 1,
-                                        size=(pos_neg_samples_h.shape[0], 1))
+                                        size=(pos_neg_samples_h.shape[0], 1)).float()
             rand_nums_t = torch.randint(low=0, high=self.dataset.num_entities() - 1,
-                                        size=(pos_neg_samples_t.shape[0], 1))
+                                        size=(pos_neg_samples_t.shape[0], 1)).float()
 
             # for i in range(pos_neg_samples_h.shape[0] // num_pos_neg):
             #     rand_nums_h[i * num_pos_neg] = 0

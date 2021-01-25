@@ -143,7 +143,7 @@ def sample_negatives_t(X, C, n_day):
 
 def train(task ='LinkPrediction',
           modelname='ATISE',
-          data_dir='yago',
+          data_dir='yago11k',
           dim=500,
           batch=512,
           lr=0.1,
@@ -170,7 +170,7 @@ def train(task ='LinkPrediction',
     """
     Data Loading
     """
-    if data_dir == 'yago' or data_dir == 'wikidata':
+    if data_dir == 'yago11k' or data_dir == 'wikidata':
         kg = KnowledgeGraphYG(data_dir=data_dir, count = count,rev_set = rev_set)
         n_day = kg.n_time
         min_epoch=50

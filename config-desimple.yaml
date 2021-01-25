@@ -5,7 +5,7 @@ console:
   # If set, no console output is produced
   quiet: False
 #  folder: "/Users/GengyuanMax/workspace/tkge/"
-  folder: "/home/gengyuan/workspace/tkge/"
+  folder: /mnt/data1/ma/gengyuan/tkge
 
 
   # Formatting of trace entries folsr console output after certain events, such as
@@ -56,7 +56,7 @@ random_seed:
 dataset:
   # data folder includes train, val, test files
 #  folder: '/Users/GengyuanMax/workspace/tkge/data/icews14'
-  folder: '/home/gengyuan/workspace/tkge/data/icews14'
+  folder: /mnt/data1/ma/gengyuan/tkge/data/icews14
 
   # indexes mapping [false, true]
   # TODO 可以保存到cache
@@ -149,7 +149,7 @@ train:
 
   valid:
     split: test # in [test or valid]
-    every: 10
+    every: 1
     batch_size: 100
     filter: time-aware  # in [off, static, time-aware]
     ordering: optimistic    # in [optimistic, peesimistic]
@@ -190,8 +190,8 @@ train:
     # In addition the the checkpoint of the last epoch (which is transient),
     # create an additional checkpoint every this many epochs. Disable additional
     # checkpoints with 0.
-    folder: /home/gengyuan/workplace/ckpt/
-    every: 100
+    folder: /mnt/data1/ma/gengyuan/ckpt/
+    every: 20
 
     # Keep this many most recent additional checkpoints.
     keep: 3

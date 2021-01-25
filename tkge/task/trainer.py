@@ -49,15 +49,15 @@ class TrainTask(Task):
     def __init__(self, config: Config):
         super().__init__(config)
 
-        self.dataset = self.config.get("dataset.name")
-        self.train_loader = None
-        self.valid_loader = None
+        self.dataset: DatasetProcessor = self.config.get("dataset.name")
+        self.train_loader: torch.utils.data.DataLoader = None
+        self.valid_loader: torch.utils.data.DataLoader = None
         # self.test_loader = None
-        self.sampler = None
-        self.model = None
-        self.loss = None
-        self.optimizer = None
-        self.evaluation = None
+        self.sampler: NegativeSampler = None
+        self.model: BaseModel = None
+        self.loss: Loss = None
+        self.optimizer: torch.optim.optimizer.Optimizer = None
+        self.evaluation: Evaluation = None
 
         self.train_bs = self.config.get("train.batch_size")
         self.valid_bs = self.config.get("train.valid.batch_size")
@@ -164,13 +164,14 @@ class TrainTask(Task):
                 samples = samples.to(self.device)
                 labels = labels.to(self.device)
 
-                scores, factors = self.model(samples)
+                scores, factors = self.model.train_task(samples)
 
-                # TODO(gengyuan) add regularizer
+                # TODO (gengyuan) assertion: size of scores and labels should be matched
+                assert scores.size() == labels.size(), f"Score's size {scores.shape} should match label's size {labels.shape}"
                 loss = self.loss(scores, labels)
 
-                assert not set(factors.keys()) - (set(self.regularizer) | set(
-                    self.inplace_regularizer)), f"Regularizer name defined in model {set(factors.keys())} should correspond to that in config file"
+                assert not (factors and set(factors.keys()) - (set(self.regularizer) | set(
+                    self.inplace_regularizer))), f"Regularizer name defined in model {set(factors.keys())} should correspond to that in config file"
 
                 if factors:
                     for name, tensors in factors.items():
@@ -225,8 +226,9 @@ class TrainTask(Task):
 
                         counter += bs
 
-                        queries_head = batch.clone()
-                        queries_tail = batch.clone()
+                        queries_head = batch.clone()[:, :-1]
+                        queries_tail = batch.clone()[:, :-1]
+
 
                         # samples_head, _ = self.onevsall_sampler.sample(queries, "head")
                         # samples_tail, _ = self.onevsall_sampler.sample(queries, "tail")
@@ -237,8 +239,13 @@ class TrainTask(Task):
                         queries_head[:, 0] = float('nan')
                         queries_tail[:, 2] = float('nan')
 
-                        batch_scores_head, _ = self.model.predict(queries_head)
-                        batch_scores_tail, _ = self.model.predict(queries_tail)
+                        batch_scores_head = self.model.predict(queries_head)
+                        assert list(batch_scores_head.shape) == [bs,
+                                                           self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
+
+                        batch_scores_tail = self.model.predict(queries_tail)
+                        assert list(batch_scores_tail.shape) == [bs,
+                                                           self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
 
                         # TODO (gengyuan): reimplement ATISE eval
 

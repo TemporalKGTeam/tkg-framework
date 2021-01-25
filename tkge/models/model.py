@@ -14,6 +14,7 @@ from tkge.common.config import Config
 from tkge.common.error import ConfigurationError
 from tkge.data.dataset import DatasetProcessor
 from tkge.models.layers import LSTMModel
+from tkge.models.utils import *
 
 
 class BaseModel(nn.Module, Registrable):
@@ -48,10 +49,26 @@ class BaseModel(nn.Module, Registrable):
     def get_embedding(self, **kwargs):
         raise NotImplementedError
 
-    def forward(self, **kwargs):
+    def forward(self, samples, **kwargs):
         raise NotImplementedError
 
-    def predict(self, **kwargs):
+    def predict(self, queries: torch.Tensor):
+        """
+        Should be a wrapper of method forward or a computation flow same as that in forward.
+        Particularly for prediction task with incomplete queries as inputs.
+        New modules or learnable parameter constructed in this namespace should be avoided since it's not evolved in training procedure.
+        """
+        raise NotImplementedError
+
+    def train_task(self, samples: torch.Tensor):
+        # TODO(gengyuan): wrapping all the models
+        """
+        Should be a wrapper of forward or a computation flow same as that in forward.
+        This method is intended to handle arbitrarily-shaped samples due to negative sampling, either matrix or flatteded.
+        Especially when training procedure and prediction procedure are different.
+        Samples should be processed in this method and then passed to forward.
+        Input samples are the direct output of the negative sampling.
+        """
         raise NotImplementedError
 
 
@@ -149,51 +166,47 @@ class DeSimplEModel(BaseModel):
 
         return h_emb1, r_emb1, t_emb1, h_emb2, r_emb2, t_emb2
 
-    def forward(self, sample):
-        bs = sample.size(0)
-        dim = sample.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
-
-        sample = sample.view(-1, dim)
-        head = sample[:, 0].long()
-        rel = sample[:, 1].long()
-        tail = sample[:, 2].long()
-        year = sample[:, 3]
-        month = sample[:, 4]
-        day = sample[:, 5]
+    def forward(self, samples, **kwargs):
+        head = samples[:, 0].long()
+        rel = samples[:, 1].long()
+        tail = samples[:, 2].long()
+        year = samples[:, 3]
+        month = samples[:, 4]
+        day = samples[:, 5]
 
         h_emb1, r_emb1, t_emb1, h_emb2, r_emb2, t_emb2 = self.get_embedding(head, rel, tail, year, month, day)
 
         p = self.config.get('model.dropout')
 
-        score = ((h_emb1 * r_emb1) * t_emb1 + (h_emb2 * r_emb2) * t_emb2) / 2.0
-        score = F.dropout(score, p=p, training=self.training)  # TODO training
-        score = torch.sum(score, dim=1)
-        score = score.view(bs, -1)
+        scores = ((h_emb1 * r_emb1) * t_emb1 + (h_emb2 * r_emb2) * t_emb2) / 2.0
+        scores = F.dropout(scores, p=p, training=self.training)  # TODO training
+        scores = torch.sum(scores, dim=1)
 
-        return score, None
+        return scores, None
 
-    def predict(self, sample):
-        bs = sample.size(0)
-        dim = sample.size(1) // self.dataset.num_entities()
+    def train_task(self, samples: torch.Tensor):
+        bs = samples.size(0)
+        dim = samples.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
 
-        sample = sample.view(-1, dim)
-        head = sample[:, 0].long()
-        rel = sample[:, 1].long()
-        tail = sample[:, 2].long()
-        year = sample[:, 3]
-        month = sample[:, 4]
-        day = sample[:, 5]
+        samples = samples.view(-1, dim)
 
-        h_emb1, r_emb1, t_emb1, h_emb2, r_emb2, t_emb2 = self.get_embedding(head, rel, tail, year, month, day)
+        scores, factor = self.forward(samples)
+        scores = scores.view(bs, -1)
 
-        p = self.config.get('model.dropout')
+        return scores, factor
 
-        score = ((h_emb1 * r_emb1) * t_emb1 + (h_emb2 * r_emb2) * t_emb2) / 2.0
-        score = F.dropout(score, p=p, training=self.training)  # TODO training
-        score = torch.sum(score, dim=1)
-        score = score.view(bs, -1)
+    def predict(self, queries: torch.Tensor):
+        assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
 
-        return score, None
+        bs = queries.size(0)
+        dim = queries.size(0)
+
+        candidates = all_candidates_of_ent_queries(queries, self.dataset.num_entities())
+
+        scores, _ = self.forward(candidates)
+        scores = scores.view(bs, -1)
+
+        return scores
 
 
 @BaseModel.register(name="tcomplex")
@@ -212,11 +225,11 @@ class TComplExModel(BaseModel):
         self.prepare_embedding()
 
     def prepare_embedding(self):
-        torch.manual_seed(0)
-        torch.cuda.manual_seed(0)
-        np.random.seed(0)
-        random.seed(0)
-        torch.backends.cudnn.determnistic = True
+        # torch.manual_seed(0)
+        # torch.cuda.manual_seed(0)
+        # np.random.seed(0)
+        # random.seed(0)
+        # torch.backends.cudnn.determnistic = True
 
         self.embeddings = nn.ModuleList([
             nn.Embedding(s, 2 * self.rank, sparse=True)
@@ -225,7 +238,6 @@ class TComplExModel(BaseModel):
 
         for emb in self.embeddings:
             emb.weight.data *= self.init_size
-
 
     def forward(self, x):
         """
@@ -290,7 +302,7 @@ class TComplExModel(BaseModel):
                  (lhs[1] * rel[0] * time[0] + lhs[0] * rel[1] * time[0] +
                   lhs[0] * rel[0] * time[1] - lhs[1] * rel[1] * time[1]) @ right[1].t()
 
-        return scores, None
+        return scores
 
     def forward_over_time(self, x):
         lhs = self.embeddings[0](x[:, 0])

@@ -82,7 +82,7 @@ parser.add_argument(
 parser.add_argument(
     '--thre',
     default=1, type=int,
-    help='the mini threshold of time classes in yago and wikidata')
+    help='the mini threshold of time classes in yago11k and wikidata')
 
 def main(args):
     print(args)
