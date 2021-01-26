@@ -5,6 +5,7 @@ from torch.nn import functional as F
 import numpy as np
 
 from enum import Enum
+import os
 from collections import defaultdict
 from typing import Mapping, Dict
 import random
@@ -90,6 +91,13 @@ class DeSimplEModel(BaseModel):
         s_emb_dim = int(se_prop * emb_dim)
         t_emb_dim = emb_dim - s_emb_dim
 
+        # torch.manual_seed(0)
+        # torch.cuda.manual_seed_all(0)
+        # np.random.seed(0)
+        # random.seed(0)
+        # torch.backends.cudnn.deterministic = True
+        # os.environ['PYTHONHASHSEED'] = str(0)
+
         self.embedding: Dict[str, nn.Module] = defaultdict(dict)
 
         self.embedding.update({'ent_embs_h': nn.Embedding(num_ent, s_emb_dim)})
@@ -127,6 +135,65 @@ class DeSimplEModel(BaseModel):
         for k, v in self.embedding.items():
             nn.init.xavier_uniform_(v.weight)
 
+        # nn.init.xavier_uniform_(self.ent_embs_h.weight)
+        # nn.init.xavier_uniform_(self.ent_embs_t.weight)
+        # nn.init.xavier_uniform_(self.rel_embs_f.weight)
+        # nn.init.xavier_uniform_(self.rel_embs_i.weight)
+        #
+        # nn.init.xavier_uniform_(self.m_freq_h.weight)
+        # nn.init.xavier_uniform_(self.d_freq_h.weight)
+        # nn.init.xavier_uniform_(self.y_freq_h.weight)
+        # nn.init.xavier_uniform_(self.m_freq_t.weight)
+        # nn.init.xavier_uniform_(self.d_freq_t.weight)
+        # nn.init.xavier_uniform_(self.y_freq_t.weight)
+        #
+        # nn.init.xavier_uniform_(self.m_phi_h.weight)
+        # nn.init.xavier_uniform_(self.d_phi_h.weight)
+        # nn.init.xavier_uniform_(self.y_phi_h.weight)
+        # nn.init.xavier_uniform_(self.m_phi_t.weight)
+        # nn.init.xavier_uniform_(self.d_phi_t.weight)
+        # nn.init.xavier_uniform_(self.y_phi_t.weight)
+        #
+        # nn.init.xavier_uniform_(self.m_amps_h.weight)
+        # nn.init.xavier_uniform_(self.d_amps_h.weight)
+        # nn.init.xavier_uniform_(self.y_amps_h.weight)
+        # nn.init.xavier_uniform_(self.m_amps_t.weight)
+        # nn.init.xavier_uniform_(self.d_amps_t.weight)
+        # nn.init.xavier_uniform_(self.y_amps_t.weight)
+
+        # nn.init.xavier_uniform_(self.embedding['ent_embs_h'].weight)
+        # nn.init.xavier_uniform_(self.embedding['ent_embs_t'].weight)
+        # nn.init.xavier_uniform_(self.embedding['rel_embs_f'].weight)
+        # nn.init.xavier_uniform_(self.embedding['rel_embs_i'].weight)
+        #
+        # nn.init.xavier_uniform_(self.embedding['m_freq_h'].weight)
+        # nn.init.xavier_uniform_(self.embedding['d_freq_h'].weight)
+        # nn.init.xavier_uniform_(self.embedding['y_freq_h'].weight)
+        # nn.init.xavier_uniform_(self.embedding['m_freq_t'].weight)
+        # nn.init.xavier_uniform_(self.embedding['d_freq_t'].weight)
+        # nn.init.xavier_uniform_(self.embedding['y_freq_t'].weight)
+        #
+        # nn.init.xavier_uniform_(self.embedding['m_phi_h'].weight)
+        # nn.init.xavier_uniform_(self.embedding['d_phi_h'].weight)
+        # nn.init.xavier_uniform_(self.embedding['y_phi_h'].weight)
+        # nn.init.xavier_uniform_(self.embedding['m_phi_t'].weight)
+        # nn.init.xavier_uniform_(self.embedding['d_phi_t'].weight)
+        # nn.init.xavier_uniform_(self.embedding['y_phi_t'].weight)
+        #
+        # nn.init.xavier_uniform_(self.embedding['m_amps_h'].weight)
+        # nn.init.xavier_uniform_(self.embedding['d_amps_h'].weight)
+        # nn.init.xavier_uniform_(self.embedding['y_amps_h'].weight)
+        # nn.init.xavier_uniform_(self.embedding['m_amps_t'].weight)
+        # nn.init.xavier_uniform_(self.embedding['d_amps_t'].weight)
+        # nn.init.xavier_uniform_(self.embedding['y_amps_t'].weight)
+
+        # for name, params in self.named_parameters():
+        #     print(name)
+        #     print(params)
+        #     print(params.size())
+        #
+        # assert False
+
     def get_time_embedding(self, ent, year, month, day, ent_pos):
         # TODO: enum
         if ent_pos == "head":
@@ -155,9 +222,9 @@ class DeSimplEModel(BaseModel):
         r_emb1 = self.embedding['rel_embs_f'](rel)
         t_emb1 = self.embedding['ent_embs_t'](tail)
 
-        h_emb2 = self.embedding['ent_embs_t'](tail)
+        h_emb2 = self.embedding['ent_embs_h'](tail)
         r_emb2 = self.embedding['rel_embs_i'](rel)
-        t_emb2 = self.embedding['ent_embs_h'](head)
+        t_emb2 = self.embedding['ent_embs_t'](head)
 
         h_emb1 = torch.cat((h_emb1, self.get_time_embedding(head, year, month, day, 'head')), 1)
         t_emb1 = torch.cat((t_emb1, self.get_time_embedding(tail, year, month, day, 'tail')), 1)

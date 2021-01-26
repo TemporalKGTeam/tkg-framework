@@ -149,7 +149,7 @@ train:
 
   valid:
     split: test # in [test or valid]
-    every: 1
+    every: 10
     batch_size: 100
     filter: time-aware  # in [off, static, time-aware]
     ordering: optimistic    # in [optimistic, peesimistic]

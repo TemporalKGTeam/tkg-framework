@@ -3,6 +3,9 @@ from torch import nn
 import torch.functional as F
 import os
 import sys
+import numpy as np
+import random
+
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
@@ -13,9 +16,10 @@ sys.path.append(BASE_DIR)
 
 from collections import defaultdict
 
-from tkge.data.dataset import ICEWS14DatasetProcessor, SplitDataset
+from tkge.data.dataset import ICEWS14DatasetProcessor, SplitDataset, DatasetProcessor
 from tkge.eval.metrics import Evaluation
 from tkge.train.sampling import NonNegativeSampler
+from tkge.models.utils import *
 
 from desimple_master.tester import Tester
 from desimple_master.dataset import Dataset
@@ -185,6 +189,179 @@ class MockDE_SimplE(torch.nn.Module):
         scores = torch.sum(scores, dim=1)
         return scores
 
+class DeSimplEModel(nn.Module):
+    def __init__(self, dataset: DatasetProcessor):
+        super().__init__()
+
+        self.prepare_embedding()
+
+        self.time_nl = torch.sin  # TODO add to configuration file
+
+    def prepare_embedding(self):
+        num_ent = self.dataset.num_entities()
+        num_rel = self.dataset.num_relations()
+
+        emb_dim = self.config.get("model.embedding.emb_dim")
+        se_prop = self.config.get("model.embedding.se_prop")
+        s_emb_dim = int(se_prop * emb_dim)
+        t_emb_dim = emb_dim - s_emb_dim
+
+        self.embedding = defaultdict(dict)
+
+        self.embedding.update({'ent_embs_h': nn.Embedding(num_ent, s_emb_dim)})
+        self.embedding.update({'ent_embs_t': nn.Embedding(num_ent, s_emb_dim)})
+        self.embedding.update({'rel_embs_f': nn.Embedding(num_rel, s_emb_dim + t_emb_dim)})
+        self.embedding.update({'rel_embs_i': nn.Embedding(num_rel, s_emb_dim + t_emb_dim)})
+
+        # frequency embeddings for the entities
+
+        self.embedding.update({'m_freq_h': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'m_freq_t': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'d_freq_h': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'d_freq_t': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'y_freq_h': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'y_freq_t': nn.Embedding(num_ent, t_emb_dim)})
+
+        # phi embeddings for the entities
+        self.embedding.update({'m_phi_h': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'m_phi_t': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'d_phi_h': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'d_phi_t': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'y_phi_h': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'y_phi_t': nn.Embedding(num_ent, t_emb_dim)})
+
+        # frequency embeddings for the entities
+        self.embedding.update({'m_amps_h': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'m_amps_t': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'d_amps_h': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'d_amps_t': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'y_amps_h': nn.Embedding(num_ent, t_emb_dim)})
+        self.embedding.update({'y_amps_t': nn.Embedding(num_ent, t_emb_dim)})
+
+        self.embedding = nn.ModuleDict(self.embedding)
+
+        for k, v in self.embedding.items():
+            nn.init.xavier_uniform_(v.weight)
+
+        # torch.manual_seed(0)
+        # torch.cuda.manual_seed_all(0)
+        # np.random.seed(0)
+        # random.seed(0)
+        # torch.backends.cudnn.deterministic = True
+
+        # nn.init.xavier_uniform_(self.embedding['ent_embs_h'].weight)
+        # nn.init.xavier_uniform_(self.embedding['ent_embs_t'].weight)
+        # nn.init.xavier_uniform_(self.embedding['rel_embs_f'].weight)
+        # nn.init.xavier_uniform_(self.embedding['rel_embs_i'].weight)
+        #
+        # nn.init.xavier_uniform_(self.embedding['m_freq_h'].weight)
+        # nn.init.xavier_uniform_(self.embedding['d_freq_h'].weight)
+        # nn.init.xavier_uniform_(self.embedding['y_freq_h'].weight)
+        # nn.init.xavier_uniform_(self.embedding['m_freq_t'].weight)
+        # nn.init.xavier_uniform_(self.embedding['d_freq_t'].weight)
+        # nn.init.xavier_uniform_(self.embedding['y_freq_t'].weight)
+        #
+        # nn.init.xavier_uniform_(self.embedding['m_phi_h'].weight)
+        # nn.init.xavier_uniform_(self.embedding['d_phi_h'].weight)
+        # nn.init.xavier_uniform_(self.embedding['y_phi_h'].weight)
+        # nn.init.xavier_uniform_(self.embedding['m_phi_t'].weight)
+        # nn.init.xavier_uniform_(self.embedding['d_phi_t'].weight)
+        # nn.init.xavier_uniform_(self.embedding['y_phi_t'].weight)
+        #
+        # nn.init.xavier_uniform_(self.embedding['m_amps_h'].weight)
+        # nn.init.xavier_uniform_(self.embedding['d_amps_h'].weight)
+        # nn.init.xavier_uniform_(self.embedding['y_amps_h'].weight)
+        # nn.init.xavier_uniform_(self.embedding['m_amps_t'].weight)
+        # nn.init.xavier_uniform_(self.embedding['d_amps_t'].weight)
+        # nn.init.xavier_uniform_(self.embedding['y_amps_t'].weight)
+
+        # for name, params in self.named_parameters():
+        #     print(name)
+        #     print(params.weight)
+        #
+        # assert False
+
+    def get_time_embedding(self, ent, year, month, day, ent_pos):
+        # TODO: enum
+        if ent_pos == "head":
+            time_emb = self.embedding['y_amps_h'](ent) * self.time_nl(
+                self.embedding['y_freq_h'](ent) * year + self.embedding['y_phi_h'](ent))
+            time_emb += self.embedding['m_amps_h'](ent) * self.time_nl(
+                self.embedding['m_freq_h'](ent) * month + self.embedding['m_phi_h'](ent))
+            time_emb += self.embedding['d_amps_h'](ent) * self.time_nl(
+                self.embedding['d_freq_h'](ent) * day + self.embedding['d_phi_h'](ent))
+        else:
+            time_emb = self.embedding['y_amps_t'](ent) * self.time_nl(
+                self.embedding['y_freq_t'](ent) * year + self.embedding['y_phi_t'](ent))
+            time_emb += self.embedding['m_amps_t'](ent) * self.time_nl(
+                self.embedding['m_freq_t'](ent) * month + self.embedding['m_phi_t'](ent))
+            time_emb += self.embedding['d_amps_t'](ent) * self.time_nl(
+                self.embedding['d_freq_t'](ent) * day + self.embedding['d_phi_t'](ent))
+
+        return time_emb
+
+    def get_embedding(self, head, rel, tail, year, month, day):
+        year = year.view(-1, 1)
+        month = month.view(-1, 1)
+        day = day.view(-1, 1)
+
+        h_emb1 = self.embedding['ent_embs_h'](head)
+        r_emb1 = self.embedding['rel_embs_f'](rel)
+        t_emb1 = self.embedding['ent_embs_t'](tail)
+
+        h_emb2 = self.embedding['ent_embs_t'](tail)
+        r_emb2 = self.embedding['rel_embs_i'](rel)
+        t_emb2 = self.embedding['ent_embs_h'](head)
+
+        h_emb1 = torch.cat((h_emb1, self.get_time_embedding(head, year, month, day, 'head')), 1)
+        t_emb1 = torch.cat((t_emb1, self.get_time_embedding(tail, year, month, day, 'tail')), 1)
+        h_emb2 = torch.cat((h_emb2, self.get_time_embedding(tail, year, month, day, 'head')), 1)
+        t_emb2 = torch.cat((t_emb2, self.get_time_embedding(head, year, month, day, 'tail')), 1)
+
+        return h_emb1, r_emb1, t_emb1, h_emb2, r_emb2, t_emb2
+
+    def forward(self, samples, **kwargs):
+        head = samples[:, 0].long()
+        rel = samples[:, 1].long()
+        tail = samples[:, 2].long()
+        year = samples[:, 3]
+        month = samples[:, 4]
+        day = samples[:, 5]
+
+        h_emb1, r_emb1, t_emb1, h_emb2, r_emb2, t_emb2 = self.get_embedding(head, rel, tail, year, month, day)
+
+        p = self.config.get('model.dropout')
+
+        scores = ((h_emb1 * r_emb1) * t_emb1 + (h_emb2 * r_emb2) * t_emb2) / 2.0
+        scores = F.dropout(scores, p=p, training=self.training)  # TODO training
+        scores = torch.sum(scores, dim=1)
+
+        return scores, None
+
+    def train_task(self, samples: torch.Tensor):
+        bs = samples.size(0)
+        dim = samples.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
+
+        samples = samples.view(-1, dim)
+
+        scores, factor = self.forward(samples)
+        scores = scores.view(bs, -1)
+
+        return scores, factor
+
+    def predict(self, queries: torch.Tensor):
+        assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
+
+        bs = queries.size(0)
+        dim = queries.size(0)
+
+        candidates = all_candidates_of_ent_queries(queries, self.dataset.num_entities())
+
+        scores, _ = self.forward(candidates)
+        scores = scores.view(bs, -1)
+
+        return scores
+
 
 def test():
     model_path = "/home/gengyuan/workspace/tkge/tests/assets/500_512_0.001_0.0_68_500_0.4_32_20_0.68_500.chkpnt"
@@ -326,6 +503,11 @@ def test_sc():
     dataset = Dataset('icews14')
     tester = Tester(dataset, new_model, "test")
     tester.test()
+
+def test_bp():
+    input = torch.Tensor([])
+
+
 
 
 if __name__ == '__main__':
