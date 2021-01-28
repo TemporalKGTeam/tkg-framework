@@ -185,7 +185,7 @@ class Config:
 
         """
         create = True
-        from kge.misc import is_number  # TODO: replace kge with tkge
+        from tkge.common.misc import is_number
 
         splits = key.split(".")
         data = self.options
@@ -409,8 +409,8 @@ class Config:
         return False
 
     def checkpoint_file(self, cpt_id: Union[str, int]) -> str:
-        "Return path of checkpoint file for given checkpoint id"
-        from kge.misc import is_number
+        """Returns path of checkpoint file for given checkpoint id"""
+        from tkge.common.misc import is_number
 
         if is_number(cpt_id, int):
             return os.path.join(self.folder, "checkpoint_{:05d}.pt".format(int(cpt_id)))
