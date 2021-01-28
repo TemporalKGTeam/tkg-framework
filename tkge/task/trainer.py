@@ -300,7 +300,7 @@ class TrainTask(Task):
 
         self.config.log(f"Save the model to {folder} as file {filename}")
 
-        torch.save({'state_dict': self.model.state_dict()}, filename)  # os.path.join(model, dataset, folder, filename))
+        torch.save({'state_dict': self.model.state_dict()}, os.path.join(folder, filename))  # os.path.join(model, dataset, folder, filename))
 
     def load_ckpt(self, ckpt_path):
         raise NotImplementedError

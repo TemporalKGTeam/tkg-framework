@@ -191,7 +191,7 @@ train:
     # create an additional checkpoint every this many epochs. Disable additional
     # checkpoints with 0.
     folder: /mnt/data1/ma/gengyuan/ckpt/
-    every: 20
+    every: 1
 
     # Keep this many most recent additional checkpoints.
     keep: 3
