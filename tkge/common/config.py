@@ -27,9 +27,6 @@ class Config:
 
     def __init__(self, folder: str = None, load_default=True):
         if load_default:
-            import tkge
-            from tkge.common.misc import filename_in_module
-
             with open(folder, "r") as file:
                 self.options: Dict[str, Any] = yaml.load(file, Loader=yaml.SafeLoader)
 
