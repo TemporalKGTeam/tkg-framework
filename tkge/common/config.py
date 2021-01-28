@@ -27,9 +27,6 @@ class Config:
 
     def __init__(self, folder: str = None, load_default=True):
         if load_default:
-            import tkge
-            from tkge.common.misc import filename_in_module
-
             with open(folder, "r") as file:
                 self.options: Dict[str, Any] = yaml.load(file, Loader=yaml.SafeLoader)
 
@@ -90,10 +87,10 @@ class Config:
     def get(self, key: str, remove_plusplusplus=True) -> Any:
         """Obtain value of specified key.
 
-                Nested dictionary values can be accessed via "." (e.g., "job.type"). Strips all
-                '+++' keys unless `remove_plusplusplus` is set to `False`.
+        Nested dictionary values can be accessed via "." (e.g., "job.type"). Strips all
+        '+++' keys unless `remove_plusplusplus` is set to `False`.
 
-                """
+        """
         result = self.options
 
         for name in key.split("."):
@@ -107,11 +104,13 @@ class Config:
 
         if remove_plusplusplus and isinstance(result, collections.Mapping):
             def do_remove_plusplusplus(option):
+                """Recursive function to remove '+++'"""
                 if isinstance(option, collections.Mapping):
                     option.pop("+++", None)
                     for values in option.values():
                         do_remove_plusplusplus(values)
 
+            # remove the '+++' not in the original options, but return a deepcopy with removed '+++'
             result = copy.deepcopy(result)
             do_remove_plusplusplus(result)
 
@@ -165,7 +164,7 @@ class Config:
                     continue
 
     def get_first_present_key(self, *keys: str, use_get_default=False) -> str:
-        "Return the first key for which ``get`` or ``get_default`` finds a value."
+        """Return the first key for which ``get`` or ``get_default`` finds a value."""
         for key in keys:
             try:
                 self.get_default(key) if use_get_default else self.get(key)
@@ -177,7 +176,6 @@ class Config:
     def set(
             self, key: str, value, create=False, overwrite=Overwrite.Yes, log=False
     ) -> Any:
-
         """Set value of specified key.
 
         Nested dictionary values can be accessed via "." (e.g., "job.type").
@@ -188,7 +186,7 @@ class Config:
 
         """
         create = True
-        from kge.misc import is_number  # TODO: replace kge with tkge
+        from tkge.common.misc import is_number
 
         splits = key.split(".")
         data = self.options
@@ -260,6 +258,7 @@ class Config:
     def set_all(
             self, new_options: Dict[str, Any], create=False, overwrite=Overwrite.Yes
     ):
+        """Updates the configuration with new options and overwrites them for existing keys."""
         for key, value in Config.flatten(new_options).items():
             self.set(key, value, create, overwrite)
 
@@ -294,7 +293,7 @@ class Config:
     def load_options(
             self, new_options, create=False, overwrite=Overwrite.Yes, allow_deprecated=True,
     ):
-        "Like `load`, but loads from an options object obtained from `yaml.load`."
+        """Like `load`, but loads from an options object obtained from `yaml.load`."""
         # import model configurations
         if "model" in new_options:
             model = new_options.get("model")
@@ -331,6 +330,7 @@ class Config:
 
     @staticmethod
     def __flatten(options: Dict[str, Any], result: Dict[str, Any], prefix=""):
+        """Flattens a nested dictionary recursively by appending nested keys and separating them by '.'"""
         for key, value in options.items():
             fullkey = key if prefix == "" else prefix + "." + key
             if type(value) is dict:
@@ -412,8 +412,8 @@ class Config:
         return False
 
     def checkpoint_file(self, cpt_id: Union[str, int]) -> str:
-        "Return path of checkpoint file for given checkpoint id"
-        from kge.misc import is_number
+        """Returns path of checkpoint file for given checkpoint id"""
+        from tkge.common.misc import is_number
 
         if is_number(cpt_id, int):
             return os.path.join(self.folder, "checkpoint_{:05d}.pt".format(int(cpt_id)))
@@ -421,7 +421,7 @@ class Config:
             return os.path.join(self.folder, "checkpoint_{}.pt".format(cpt_id))
 
     def last_checkpoint(self) -> Optional[int]:
-        "Return epoch number of latest checkpoint"
+        """Returns epoch number of latest checkpoint"""
         # stupid implementation, but works
         tried_epoch = 0
         found_epoch = 0
@@ -447,7 +447,7 @@ class Config:
         else:
             raise Exception("Could not find checkpoint in {}".format(path))
 
-        # -- CONVENIENCE METHODS --------------------------------------------------
+    # -- CONVENIENCE METHODS --------------------------------------------------
 
     def _check(self, key: str, value, allowed_values) -> Any:
         if value not in allowed_values:
