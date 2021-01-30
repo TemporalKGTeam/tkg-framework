@@ -8,7 +8,7 @@ class SoftMarginLoss(Loss):
     def __init__(self, config, reduction="sum", **kwargs):
         super().__init__(config)
 
-        self._device = config.get("job.device")
+        self._device = config.get("task.device")
 
         self._loss = torch.nn.SoftMarginLoss(reduction=reduction, **kwargs)
 

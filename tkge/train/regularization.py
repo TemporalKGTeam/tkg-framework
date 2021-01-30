@@ -137,6 +137,25 @@ class Lambda3Reg(Regularizer):
         return reg_loss
 
 
+@Regularizer.register(name="norm_regularize")
+class NormReg(Regularizer):
+    def __init__(self, config: Config, name: str):
+        super().__init__(config, name)
+
+        self.weight = self.config.get(f"train.regularizer.{name}.weight")
+
+    def forward(self, factors: Tuple[torch.Tensor], **kwargs):
+        device = factors[0].device
+        reg_loss = 0.
+
+        # TODO (gengyuan) weird implementation
+        for factor in factors:
+            factor_norm = torch.sum(factor ** 2, dim=1, keepdim=True)
+            reg_loss += torch.sum(torch.max(factor_norm-1.0, torch.Tensor([0.0]).to(device)))
+
+        return reg_loss
+
+
 @InplaceRegularizer.register(name="inplace_renorm_regularize")
 class InplaceRenormReg(Regularizer):
     def __init__(self, config: Config, name: str):
@@ -162,3 +181,5 @@ class InplaceClampReg(Regularizer):
     def forward(self, factors: Tuple[torch.Tensor], **kwargs):
         for f in factors:
             f.data.clamp_(max=self.max, min=self.min)
+
+

@@ -61,7 +61,7 @@ class BaseModel(nn.Module, Registrable):
         """
         raise NotImplementedError
 
-    def train_task(self, samples: torch.Tensor):
+    def fit(self, samples: torch.Tensor):
         # TODO(gengyuan): wrapping all the models
         """
         Should be a wrapper of forward or a computation flow same as that in forward.
@@ -251,7 +251,7 @@ class DeSimplEModel(BaseModel):
 
         return scores, None
 
-    def train_task(self, samples: torch.Tensor):
+    def fit(self, samples: torch.Tensor):
         bs = samples.size(0)
         dim = samples.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
 
@@ -292,12 +292,6 @@ class TComplExModel(BaseModel):
         self.prepare_embedding()
 
     def prepare_embedding(self):
-        # torch.manual_seed(0)
-        # torch.cuda.manual_seed(0)
-        # np.random.seed(0)
-        # random.seed(0)
-        # torch.backends.cudnn.determnistic = True
-
         self.embeddings = nn.ModuleList([
             nn.Embedding(s, 2 * self.rank, sparse=True)
             for s in [self.num_ent, self.num_rel, self.num_ts]
@@ -560,42 +554,104 @@ class ATiSEModel(BaseModel):
 
 
 # reference: https://github.com/bsantraigi/TA_TransE/blob/master/model.py
+# reference: https://github.com/jimmywangheng/knowledge_representation_pytorch
 @BaseModel.register(name="ta_transe")
 class TATransEModel(BaseModel):
     def __init__(self, config: Config, dataset: DatasetProcessor):
         super().__init__(config, dataset)
 
-        self.emb_dim = self.config.get("model.embedding_dim")
+        # model params from files
+        self.emb_dim = self.config.get("model.emb_dim")
         self.l1_flag = self.config.get("model.l1_flag")
+        self.p = self.config.get("model.p")
+
+        self.dropout = torch.nn.Dropout(p=self.p)
+        self.lstm = LSTMModel(self.emb_dim, n_layer=1)
+
+        self.prepare_embedding()
 
     def prepare_embedding(self):
         num_ent = self.dataset.num_entities()
         num_rel = self.dataset.num_relations()
-        num_tem = self.dataset.num_timestamps()
+        num_tem = 32  # should be 32
+
 
         self.embedding: Dict[str, torch.nn.Embedding] = defaultdict(None)
         self.embedding['ent'] = torch.nn.Embedding(num_ent, self.emb_dim)
         self.embedding['rel'] = torch.nn.Embedding(num_rel, self.emb_dim)
         self.embedding['tem'] = torch.nn.Embedding(num_tem, self.emb_dim)
 
+        self.embedding = nn.ModuleDict(self.embedding)
+
         for _, emb in self.embedding.items():
-            torch.nn.init.xavier_uniform_(emb)
-            emb.weight.data.renorm(p=2, dim=1)
+            torch.nn.init.xavier_uniform_(emb.weight)
+            emb.weight.data.renorm(p=2, dim=1, maxnorm=1)
 
-    def forward(self, x: torch.Tensor):
-        h, r, t, tem = x[:, 0].long(), x[:, 1].long(), x[:, 2].long(), x[:, 3].long()
+    def get_rseq(self, rel: torch.LongTensor, tem: torch.LongTensor):
+        r_e = self.embedding['rel'](rel)
+        r_e = r_e.unsqueeze(0).transpose(0, 1)
 
-        h_e = self.embedding['ent'][h]
-        t_e = self.embedding['ent'][t]
-        r_e = self.embedding['rel'][r]
-        tem_e = self.embedding['tem'][tem]
+        bs = tem.size(0)
+        tem_len = tem.size(1)
+        tem = tem.contiguous()
+        tem = tem.view(bs * tem_len)
+        token_e = self.embedding['tem'](tem)
+        token_e = token_e.view(bs, tem_len, self.emb_dim)
+        seq_e = torch.cat((r_e, token_e), 1)
 
-        if self.f1_flag:
-            scores = torch.sum(torch.abs(h_e + r_e + tem_e - t_e), 1)
+        hidden_tem = self.lstm(seq_e)
+        hidden_tem = hidden_tem[0, :, :]
+        rseq_e = hidden_tem
+
+        return rseq_e
+
+    def forward(self, samples: torch.Tensor):
+        h, r, t, tem = samples[:, 0].long(), samples[:, 1].long(), samples[:, 2].long(), samples[:, 3:].long()
+
+        h_e = self.embedding['ent'](h)
+        t_e = self.embedding['ent'](t)
+        rseq_e = self.get_rseq(r, tem)
+
+        h_e = self.dropout(h_e)
+        t_e = self.dropout(t_e)
+        rseq_e = self.dropout(rseq_e)
+
+        if self.l1_flag:
+            scores = torch.sum(torch.abs(h_e + rseq_e - t_e), 1)
         else:
-            scores = torch.sum((h_e + r_e + tem_e - t_e) ** 2, 1)
+            scores = torch.sum((h_e + rseq_e - t_e) ** 2, 1)
 
-        return scores, None
+        factors = {
+            "norm": (h_e,
+                     t_e,
+                     rseq_e)
+        }
+
+        return scores, factors
+
+    def fit(self, samples: torch.Tensor):
+        bs = samples.size(0)
+        dim = samples.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
+
+        samples = samples.view(-1, dim)
+
+        scores, factor = self.forward(samples)
+        scores = scores.view(bs, -1)
+
+        return scores, factor
+
+    def predict(self, queries: torch.Tensor):
+        assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
+
+        bs = queries.size(0)
+        dim = queries.size(0)
+
+        candidates = all_candidates_of_ent_queries(queries, self.dataset.num_entities())
+
+        scores, _ = self.forward(candidates)
+        scores = scores.view(bs, -1)
+
+        return scores
 
 
 # reference: https://github.com/bsantraigi/TA_TransE/blob/master/model.py
@@ -624,7 +680,7 @@ class TADistmultModel(BaseModel):
 
         for _, emb in self.embedding.items():
             torch.nn.init.xavier_uniform_(emb)
-            emb.weight.data.renorm(p=2, dim=1)
+            emb.weight.data.renorm(p=2, dim=1, maxnorm=1)
 
     def forward(self, x: torch.Tensor):
         h, r, t, tem = x[:, 0].long(), x[:, 1].long(), x[:, 2].long(), x[:, 3].long()

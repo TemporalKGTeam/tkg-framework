@@ -108,6 +108,75 @@ class Yago11kDatasetProcessor(DatasetProcessor):
         return year
 
 
+@DatasetProcessor.register(name="icews14_TA")
+class ICEWS14TADatasetProcessor(DatasetProcessor):
+    def process(self):
+        self.tem_dict = {
+            '0y': 0, '1y': 1, '2y': 2, '3y': 3, '4y': 4, '5y': 5, '6y': 6, '7y': 7, '8y': 8, '9y': 9,
+            '01m': 10, '02m': 11, '03m': 12, '04m': 13, '05m': 14, '06m': 15, '07m': 16, '08m': 17, '09m': 18,
+            '10m': 19, '11m': 20, '12m': 21,
+            '0d': 22, '1d': 23, '2d': 24, '3d': 25, '4d': 26, '5d': 27, '6d': 28, '7d': 29, '8d': 30, '9d': 31,
+        }
+
+        for rd in self.train_raw:
+            head, rel, tail, ts = rd.strip().split('\t')
+            head = self.index_entities(head)
+            rel = self.index_relations(rel)
+            tail = self.index_entities(tail)
+            ts_id = self.index_timestamps(ts)
+            ts = self.process_time(ts)
+
+            self.train_set['triple'].append([head, rel, tail])
+            self.train_set['timestamp_id'].append([ts_id])
+            self.train_set['timestamp_float'].append(ts)
+
+            self.all_triples.append([head, rel, tail])
+            self.all_quadruples.append([head, rel, tail, ts_id])
+
+        for rd in self.valid_raw:
+            head, rel, tail, ts = rd.strip().split('\t')
+            head = self.index_entities(head)
+            rel = self.index_relations(rel)
+            tail = self.index_entities(tail)
+            ts_id = self.index_timestamps(ts)
+            ts = self.process_time(ts)
+
+            self.valid_set['triple'].append([head, rel, tail])
+            self.valid_set['timestamp_id'].append([ts_id])
+            self.valid_set['timestamp_float'].append(ts)
+
+            self.all_triples.append([head, rel, tail])
+            self.all_quadruples.append([head, rel, tail, ts_id])
+
+        for rd in self.test_raw:
+            head, rel, tail, ts = rd.strip().split('\t')
+            head = self.index_entities(head)
+            rel = self.index_relations(rel)
+            tail = self.index_entities(tail)
+            ts_id = self.index_timestamps(ts)
+            ts = self.process_time(ts)
+
+            self.test_set['triple'].append([head, rel, tail])
+            self.test_set['timestamp_id'].append([ts_id])
+            self.test_set['timestamp_float'].append(ts)
+
+            self.all_triples.append([head, rel, tail])
+            self.all_quadruples.append([head, rel, tail, ts_id])
+
+
+
+    def process_time(self, origin: str):
+        ts = []
+        year, month, day = origin.split('-')
+
+        ts.extend([self.tem_dict[f'{int(yi):01}y'] for yi in year])
+        ts.extend([self.tem_dict[f'{int(month):02}m']])
+        ts.extend([self.tem_dict[f'{int(di):01}d'] for di in day])
+
+        return ts
+
+
+# Deprecated: dataset used for debugging tcomplex training
 @DatasetProcessor.register(name="icews14_tcomplex")
 class TestICEWS14DatasetProcessor(DatasetProcessor):
     def __init__(self, config: Config):

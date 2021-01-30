@@ -34,7 +34,7 @@ class NegativeSampler(Registrable):
 
         if ns_type in NegativeSampler.list_available():
             as_matrix = config.get("negative_sampling.as_matrix")
-             # kwargs = config.get("model.args")  # TODO: 需要改成key的格式
+            # kwargs = config.get("model.args")  # TODO: 需要改成key的格式
             return NegativeSampler.by_name(ns_type)(config, dataset, as_matrix)
         else:
             raise ConfigurationError(
@@ -69,6 +69,10 @@ class NegativeSampler(Registrable):
 
 @NegativeSampler.register(name='pseudo_sampling')
 class PseudoNegativeSampling(NegativeSampler):
+    """
+    A Pseudo Nefative Sampler class mimicking the behaviour of negative sampler but does nothing
+    """
+
     def __init__(self, config: Config, dataset: DatasetProcessor, as_matrix: bool):
         super().__init__(config, dataset, as_matrix)
 
@@ -83,9 +87,16 @@ class PseudoNegativeSampling(NegativeSampler):
         else:
             return torch.cat((pos_batch[:, 0], pos_batch[:, 2]), 0)
 
+    def _filtered_sample(self, neg_sample):
+        raise NotImplementedError
+
 
 @NegativeSampler.register(name='no_sampling')
 class NonNegativeSampler(NegativeSampler):
+    """
+    This class doesn't sample but use a one-vs-all traning strategy.
+    """
+
     def __init__(self, config: Config, dataset: DatasetProcessor, as_matrix: bool):
         super().__init__(config, dataset, as_matrix)
 
@@ -135,6 +146,9 @@ class NonNegativeSampler(NegativeSampler):
 
         return labels
 
+    def _filtered_sample(self, neg_sample):
+        raise NotImplementedError
+
 
 @NegativeSampler.register(name='time_agnostic')
 class BasicNegativeSampler(NegativeSampler):
@@ -183,6 +197,7 @@ class BasicNegativeSampler(NegativeSampler):
             samples = pos_neg_samples_t
 
         else:
+            pos_batch = pos_batch
             pos_neg_samples_h = pos_batch.repeat((1, num_pos_neg)).view(-1, dim_size)
             pos_neg_samples_t = pos_neg_samples_h.clone()
 
@@ -219,6 +234,9 @@ class BasicNegativeSampler(NegativeSampler):
             labels = labels.view(-1)
 
         return labels
+
+    def _filtered_sample(self, neg_sample):
+        raise NotImplementedError
 
 
 @NegativeSampler.register(name="atise_time")
@@ -469,14 +487,3 @@ class UniformNegativeSampler(DepNegativeSampler):
                         ctr += 1
                     num_found += len(idx)
                     num_remaining = num_new - num_found
-
-# @NegativeSampler.register(name="time_agonostic_sampler")
-# class TimeAgnosticNegativeSampler(NegativeSampler):
-#     def _sample(self):
-#         raise NotImplementedError
-#
-#
-# @NegativeSampler.register(name="time_dependent_sampler")
-# class TimeDependentNegativeSampler(NegativeSampler):
-#     def _sample(self):
-#         raise NotImplementedError
