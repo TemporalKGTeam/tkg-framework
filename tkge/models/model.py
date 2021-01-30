@@ -588,6 +588,7 @@ class TATransEModel(BaseModel):
             emb.weight.data.renorm(p=2, dim=1, maxnorm=1)
 
     def get_rseq(self, rel: torch.LongTensor, tem: torch.LongTensor):
+
         r_e = self.embedding['rel'](rel)
         r_e = r_e.unsqueeze(0).transpose(0, 1)
 
@@ -595,6 +596,7 @@ class TATransEModel(BaseModel):
         tem_len = tem.size(1)
         tem = tem.contiguous()
         tem = tem.view(bs * tem_len)
+
         token_e = self.embedding['tem'](tem)
         token_e = token_e.view(bs, tem_len, self.emb_dim)
         seq_e = torch.cat((r_e, token_e), 1)

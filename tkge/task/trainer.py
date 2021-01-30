@@ -200,6 +200,11 @@ class TrainTask(Task):
 
                         self.inplace_regularizer[name](tensors)
 
+                # empty caches
+                del samples, labels, scores, factors
+                if self.device=="cuda":
+                    torch.cuda.empty_cache()
+
             stop = time.time()
             avg_loss = total_loss / train_size
 
@@ -221,6 +226,7 @@ class TrainTask(Task):
                     for batch in self.valid_loader:
                         bs = batch.size(0)
                         dim = batch.size(1)
+
 
                         batch = batch.to(self.device)
 
