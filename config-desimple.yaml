@@ -160,9 +160,9 @@ train:
   subbatch_auto_tune: False
   optimizer:
     type: Adam
-    lr: 0.001
-    reg_lambda: 0.0
-    args: ~
+    ars:
+      lr: 0.001
+      reg_lambda: 0.0
 
     default:
       type: Adam           # sgd, adagrad, adam

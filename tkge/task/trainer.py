@@ -11,6 +11,7 @@ from tkge.task.task import Task
 from tkge.data.dataset import DatasetProcessor, SplitDataset
 from tkge.train.sampling import NegativeSampler, NonNegativeSampler
 from tkge.train.regularization import Regularizer, InplaceRegularizer
+from tkge.train.optim import get_optimizer, get_scheduler
 from tkge.common.config import Config
 from tkge.models.model import BaseModel
 from tkge.models.loss import Loss
@@ -57,6 +58,7 @@ class TrainTask(Task):
         self.model: BaseModel = None
         self.loss: Loss = None
         self.optimizer: torch.optim.optimizer.Optimizer = None
+        self.lr_scheduler = None
         self.evaluation: Evaluation = None
 
         self.train_bs = self.config.get("train.batch_size")
@@ -110,30 +112,15 @@ class TrainTask(Task):
         self.loss = Loss.create(config=self.config)
 
         self.config.log(f"Initializing optimizer")
-        # TODO  choose Adam or other types
-        optim_dict = {
-            'Adam': torch.optim.Adam,
-            'Adagrad': torch.optim.Adagrad
-        }
-        self.optimizer = optim_dict[self.config.get("train.optimizer.type")](
-            self.model.parameters(),
-            lr=self.config.get("train.optimizer.lr"),
-            weight_decay=self.config.get("train.optimizer.reg_lambda")
-        )
+        optimizer_type = self.config.get("train.optimizer.type")
+        optimizer_args = self.config.get("train.optimizer.args")
+        self.optimizer = get_optimizer(optimizer_type, optimizer_args)
 
         self.config.log(f"Initializing lr scheduler")
-        scheduler_dict = {
-            'MultiStepLR':torch.optim.lr_scheduler.MultiStepLR,
-            'StepLR': torch.optim.lr_scheduler.StepLR,
-            'ExponentialLR': torch.optim.lr_scheduler.ExponentialLR,
-            'CosineAnnealingLR': torch.optim.lr_scheduler.CosineAnnealingLR,
-            'ReduceLROnPlateau': torch.optim.lr_scheduler.ReduceLROnPlateau,
-            'LambdaLR': torch.optim.lr_scheduler.LambdaLR
-        }
-
-        scheduler_type = self.config.get("train.lr_scheduler.type")
-        scheduler_args = self.config.get("train.lr_scheduler.args")
-        self.lr_scheduler = scheduler_dict[scheduler_type](self.optimizer, **scheduler_args)
+        if self.config.get("train.lr_scheduler"):
+            scheduler_type = self.config.get("train.lr_scheduler.type")
+            scheduler_args = self.config.get("train.lr_scheduler.args")
+            self.lr_scheduler = get_scheduler(self.optimizer, scheduler_type, scheduler_args)
 
         self.config.log((f"Initializeing regularizer"))
         self.regularizer = dict()
@@ -223,10 +210,11 @@ class TrainTask(Task):
             stop = time.time()
             avg_loss = total_loss / train_size
 
-            if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-                self.lr_scheduler.step(avg_loss)
-            else:
-                self.lr_scheduler.step()
+            if not self.lr_scheduler:
+                if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                    self.lr_scheduler.step(avg_loss)
+                else:
+                    self.lr_scheduler.step()
 
             self.config.log(f"Loss in iteration {epoch} : {avg_loss} comsuming {stop - start}s")
 
@@ -326,7 +314,14 @@ class TrainTask(Task):
 
         self.config.log(f"Save the model to {folder} as file {filename}")
 
-        torch.save({'state_dict': self.model.state_dict()}, os.path.join(folder, filename))  # os.path.join(model, dataset, folder, filename))
+        checkpoint = {
+            'last_epoch': epoch,
+            'state_dict': self.model.state_dict(),
+            'optimizer': self.optimizer.state_dict(),
+            'lr_scheduler': self.lr_scheduler.state_dict()
+        }
+
+        torch.save(checkpoint, os.path.join(folder, filename))  # os.path.join(model, dataset, folder, filename))
 
     def load_ckpt(self, ckpt_path):
         raise NotImplementedError

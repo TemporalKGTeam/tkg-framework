@@ -198,9 +198,9 @@ train:
   # Optimizer used for training.
   optimizer:
     type: Adagrad
-    lr: 0.1
-    reg_lambda: 0.0
-    args: ~
+    args:
+      lr: 0.1
+      reg_lambda: 0.0
 
     default:
       type: Adagrad           # sgd, adagrad, adam
