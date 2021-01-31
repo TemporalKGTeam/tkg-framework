@@ -121,6 +121,20 @@ class TrainTask(Task):
             weight_decay=self.config.get("train.optimizer.reg_lambda")
         )
 
+        self.config.log(f"Initializing lr scheduler")
+        scheduler_dict = {
+            'MultiStepLR':torch.optim.lr_scheduler.MultiStepLR,
+            'StepLR': torch.optim.lr_scheduler.StepLR,
+            'ExponentialLR': torch.optim.lr_scheduler.ExponentialLR,
+            'CosineAnnealingLR': torch.optim.lr_scheduler.CosineAnnealingLR,
+            'ReduceLROnPlateau': torch.optim.lr_scheduler.ReduceLROnPlateau,
+            'LambdaLR': torch.optim.lr_scheduler.LambdaLR
+        }
+
+        scheduler_type = self.config.get("train.lr_scheduler.type")
+        scheduler_args = self.config.get("train.lr_scheduler.args")
+        self.lr_scheduler = scheduler_dict[scheduler_type](self.optimizer, **scheduler_args)
+
         self.config.log((f"Initializeing regularizer"))
         self.regularizer = dict()
         self.inplace_regularizer = dict()
@@ -170,6 +184,7 @@ class TrainTask(Task):
                 assert scores.size() == labels.size(), f"Score's size {scores.shape} should match label's size {labels.shape}"
                 loss = self.loss(scores, labels)
 
+                # TODO (gengyuan) assert that regularizer and inplace-regularizer don't share same name
                 assert not (factors and set(factors.keys()) - (set(self.regularizer) | set(
                     self.inplace_regularizer))), f"Regularizer name defined in model {set(factors.keys())} should correspond to that in config file"
 
@@ -201,12 +216,17 @@ class TrainTask(Task):
                         self.inplace_regularizer[name](tensors)
 
                 # empty caches
-                del samples, labels, scores, factors
-                if self.device=="cuda":
-                    torch.cuda.empty_cache()
+                # del samples, labels, scores, factors
+                # if self.device=="cuda":
+                #     torch.cuda.empty_cache()
 
             stop = time.time()
             avg_loss = total_loss / train_size
+
+            if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                self.lr_scheduler.step(avg_loss)
+            else:
+                self.lr_scheduler.step()
 
             self.config.log(f"Loss in iteration {epoch} : {avg_loss} comsuming {stop - start}s")
 
