@@ -1,4 +1,4 @@
-from typing import Type, TypeVar, Callable, Any, Optional
+from typing import TypeVar, Any, Optional
 
 from tkge.common.config import Config
 
