@@ -1,5 +1,3 @@
-from abc import abstractmethod
-
 import torch
 from torch.utils.data.dataset import Dataset as PTDataset
 import numpy as np
@@ -64,9 +62,8 @@ class DatasetProcessor(Registrable):
                 f"implement your data class with `DatasetProcessor.register(name)"
             )
 
-    @abstractmethod
     def process(self):
-        pass
+        raise NotImplementedError
 
     def index_entities(self, ent: str):
         if ent not in self.ent2id:
@@ -117,10 +114,9 @@ class DatasetProcessor(Registrable):
 
             self.test_size = len(self.test_raw)
 
-    @abstractmethod
     def process_time(self, origin: str):
         # TODO(gengyuan) use datetime
-        pass
+        raise NotImplementedError
 
     def get(self, split: str = "train"):
         # TODO(gengyuan)
