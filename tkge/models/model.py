@@ -752,3 +752,76 @@ class TADistmultModel(BaseModel):
 
         return scores
 
+
+@BaseModel.register(name="ttranse")
+class TTransEModel(BaseModel):
+    def __init__(self, config: Config, dataset: DatasetProcessor):
+        super().__init__(config, dataset)
+
+        # model params from files
+        self.emb_dim = self.config.get("model.emb_dim")
+        self.l1_flag = self.config.get("model.l1_flag")
+
+        self.prepare_embedding()
+
+    def prepare_embedding(self):
+        num_ent = self.dataset.num_entities()
+        num_rel = self.dataset.num_relations()
+        num_tem = self.dataset.num_timestamps()
+
+        self.embedding: Dict[str, torch.nn.Embedding] = defaultdict(None)
+        self.embedding['ent'] = torch.nn.Embedding(num_ent, self.emb_dim)
+        self.embedding['rel'] = torch.nn.Embedding(num_rel, self.emb_dim)
+        self.embedding['tem'] = torch.nn.Embedding(num_tem, self.emb_dim)
+
+        self.embedding = nn.ModuleDict(self.embedding)
+
+        for _, emb in self.embedding.items():
+            torch.nn.init.xavier_uniform_(emb.weight)
+            emb.weight.data.renorm(p=2, dim=1, maxnorm=1)
+
+    def forward(self, samples, **kwargs):
+        h, r, t, tem = samples[:, 0].long(), samples[:, 1].long(), samples[:, 2].long(), samples[:, 3].long()
+
+        h_e = self.embedding['ent'](h)
+        t_e = self.embedding['ent'](t)
+        r_e = self.embedding['rel'](r)
+        tem_e = self.embedding['tem'](tem)
+
+        if self.l1_flag:
+            scores = torch.sum(torch.abs(h_e + r_e + tem_e - t_e), dim=1)
+        else:
+            scores = torch.sum((h_e + r_e + tem_e - t_e) ** 2, dim=1)
+
+        factors = {
+            "norm": (h_e,
+                     t_e,
+                     r_e,
+                     tem_e)
+        }
+
+        return scores, factors
+
+    def fit(self, samples: torch.Tensor):
+        bs = samples.size(0)
+        dim = samples.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
+
+        samples = samples.view(-1, dim)
+
+        scores, factor = self.forward(samples)
+        scores = scores.view(bs, -1)
+
+        return scores, factor
+
+    def predict(self, queries: torch.Tensor):
+        assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
+
+        bs = queries.size(0)
+        dim = queries.size(0)
+
+        candidates = all_candidates_of_ent_queries(queries, self.dataset.num_entities())
+
+        scores, _ = self.forward(candidates)
+        scores = scores.view(bs, -1)
+
+        return scores
