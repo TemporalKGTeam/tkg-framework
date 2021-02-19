@@ -495,7 +495,7 @@ class Config:
         return value
 
     def logdir(self) -> str:
-        folder = self.log_folder if self.log_folder else self.folder
+        folder = os.path.join(self.log_folder, self.get("model.name")) if self.log_folder else self.folder
         return folder
 
     def logfile(self) -> str:
