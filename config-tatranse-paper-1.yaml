@@ -171,7 +171,7 @@ train:
   # LibKGE also supports some other losses, which we do not recommend to use.
   # See kge/loss.py for details.
   loss:
-    type: kl
+    type: cross_entropy_loss
 
   # Maximum number of epochs used for training
   max_epochs: 500
