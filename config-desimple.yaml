@@ -161,7 +161,7 @@ train:
     type: Adam
     ars:
       lr: 0.001
-      reg_lambda: 0.0
+      # reg_lambda: 0.0
 
     default:
       type: Adam           # sgd, adagrad, adam

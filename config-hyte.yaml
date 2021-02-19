@@ -201,7 +201,7 @@ train:
   optimizer:
     type: Adagrad
     lr: 0.1
-    reg_lambda: 0.0
+    # reg_lambda: 0.0
     args: ~
 
     default:
