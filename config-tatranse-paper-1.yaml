@@ -230,11 +230,11 @@ train:
 
 
   inplace_regularizer:
-#    norm:
-#      type: inplace_renorm_regularize
-#      p: 2
-#      dim: 1
-#      maxnorm: 1
+    norm:
+      type: inplace_renorm_regularize
+      p: 2
+      dim: 1
+      maxnorm: 1
 
 
 
