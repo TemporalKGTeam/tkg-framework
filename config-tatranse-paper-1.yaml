@@ -120,7 +120,7 @@ model:
 negative_sampling:
   name: 'time_agnostic'
   num_samples: 500
-  filter: True
+  filter: False # not original setting, but filter is not implemented yet!
   as_matrix: True
   target: both
   args: ~
