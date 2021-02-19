@@ -301,7 +301,7 @@ train:
     # In addition the the checkpoint of the last epoch (which is transient),
     # create an additional checkpoint every this many epochs. Disable additional
     # checkpoints with 0.
-    folder: /mnt/data1/ma/gengyuan/ckpt
+    folder: /mnt/data1/ma/gengyuan/experiment/ckpt
     every: 10
 
     # Keep this many most recent additional checkpoints.

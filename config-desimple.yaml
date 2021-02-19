@@ -189,7 +189,7 @@ train:
     # In addition the the checkpoint of the last epoch (which is transient),
     # create an additional checkpoint every this many epochs. Disable additional
     # checkpoints with 0.
-    folder: /mnt/data1/ma/gengyuan/ckpt/
+    folder: /mnt/data1/ma/gengyuan/experiment/ckpt
     every: 1
 
     # Keep this many most recent additional checkpoints.
@@ -224,7 +224,7 @@ test:
     pin_memory: False
     drop_last: False
     timeout: 0
-  model_path: "/home/gengyuan/workspace/tkge/epoch_250_model_de_simple_dataset_icews14.ckpt"
+  model_path: +++ # TODO
 
 
 
