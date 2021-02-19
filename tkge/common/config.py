@@ -500,11 +500,22 @@ class Config:
 
     def logfile(self) -> str:
         folder = self.log_folder if self.log_folder else self.folder
-        return os.path.join(folder, "kge.log")
+        return os.path.join(folder, f"{self.train_config_name(epoch=0)}.log")
 
     def tracefile(self) -> str:
         folder = self.log_folder if self.log_folder else self.folder
         return os.path.join(folder, "trace.yaml")
+
+    # returns an unique config name with the epoch prefix if epoch is given greater than 0
+    def train_config_name(self, epoch=0) -> str:
+        model = self.get("model.name")
+        dataset = self.get("dataset.name")
+        config = self.folder[:-5]
+
+        epoch_prefix = f"epoch_{self.epoch}_"
+        config_name = f"model_{model}_dataset_{dataset}_config_{config}"
+
+        return epoch_prefix + config_name if epoch > 0 else config_name
 
 
 def _process_deprecated_options(options: Dict[str, Any]):
