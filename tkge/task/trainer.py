@@ -114,7 +114,7 @@ class TrainTask(Task):
         self.config.log(f"Initializing optimizer")
         optimizer_type = self.config.get("train.optimizer.type")
         optimizer_args = self.config.get("train.optimizer.args")
-        self.optimizer = get_optimizer(optimizer_type, optimizer_args)
+        self.optimizer = get_optimizer(self.model.parameters(), optimizer_type, optimizer_args)
 
         self.config.log(f"Initializing lr scheduler")
         if self.config.get("train.lr_scheduler"):
