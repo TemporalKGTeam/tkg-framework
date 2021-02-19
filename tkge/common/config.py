@@ -512,7 +512,7 @@ class Config:
         dataset = self.get("dataset.name")
         config = self.folder[:-5]
 
-        epoch_prefix = f"epoch_{self.epoch}_"
+        epoch_prefix = f"epoch_{epoch}_"
         config_name = f"model_{model}_dataset_{dataset}_config_{config}"
 
         return epoch_prefix + config_name if epoch > 0 else config_name
