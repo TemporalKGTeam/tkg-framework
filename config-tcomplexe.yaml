@@ -52,7 +52,7 @@ random_seed:
 
 dataset:
   # data folder includes train, val, test files
-  folder: '/mnt/data1/ma/gengyuan/tkge/data/icews14'
+  folder: '/mnt/data1/ma/gengyuan/experiment/tkg-framework/data/icews14'
 
   # indexes mapping [false, true]
   # TODO 可以保存到cache
