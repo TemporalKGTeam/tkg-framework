@@ -112,7 +112,7 @@ model:
   name: 'ta_transe'
   emb_dim: 100
   l1_flag: True
-  p: 0.4
+  p: 0.0
 
 
 
@@ -120,7 +120,7 @@ model:
 negative_sampling:
   name: 'time_agnostic'
   num_samples: 500
-  filter: False
+  filter: True
   as_matrix: True
   target: both
   args: ~
@@ -171,15 +171,13 @@ train:
   # LibKGE also supports some other losses, which we do not recommend to use.
   # See kge/loss.py for details.
   loss:
-    type: margin_ranking_loss
-    margin: 1.0
-    reduction: mean
+    type: kl
 
   # Maximum number of epochs used for training
   max_epochs: 500
 
   # Batch size used for training.
-  batch_size: 64
+  batch_size: 512
 
   # If specified, split the batch into subbatches of at most this size and run
   # the forward/backward passes separately on each subbatch. This reduces memory
@@ -232,11 +230,11 @@ train:
 
 
   inplace_regularizer:
-    norm:
-      type: inplace_renorm_regularize
-      p: 2
-      dim: 1
-      maxnorm: 1
+#    norm:
+#      type: inplace_renorm_regularize
+#      p: 2
+#      dim: 1
+#      maxnorm: 1
 
 
 
@@ -259,11 +257,6 @@ train:
   # can be used (e.g., ReduceLROnPlateau). When left empty, no LR scheduler is
   # used.
   lr_scheduler:
-    type: ReduceLROnPlateau
-    args:
-      mode: min
-      factor: 0.1
-      verbose: true
 
   # Additional arguments for the scheduler.
   lr_scheduler_args:
@@ -278,7 +271,7 @@ train:
     # create an additional checkpoint every this many epochs. Disable additional
     # checkpoints with 0.
     folder: /mnt/data1/ma/gengyuan/experiment/ckpt
-    every: 1
+    every: 20
 
     # Keep this many most recent additional checkpoints.
     keep: 3
@@ -432,69 +425,69 @@ entity_ranking:
 
 # Options of hyperparameter search jobs (job.type=="search").
 search:
-  # The type of search to run (see descriptions below). Possible values: manual,
-  # grid, ax
-  type: ax
-
-  # Maximum number of parallel training jobs to run during a search.
-  num_workers: 1
-
-  # Device pool to use for training jobs. If this list is empty, `job.device` is
-  # used for all parallel searches. Otherwise, the first `search.num_workers`
-  # devices from this list are used. If the number of devices specified here is
-  # less than `search.num_workers`, the list wraps around so that devices are
-  # used by multiple jobs in parallel.
-  device_pool: [ ]
-
-  # What to do when an error occurs during a training job. Possible values:
-  # continue, abort
-  on_error: abort
+#  # The type of search to run (see descriptions below). Possible values: manual,
+#  # grid, ax
+#  type: ax
+#
+#  # Maximum number of parallel training jobs to run during a search.
+#  num_workers: 1
+#
+#  # Device pool to use for training jobs. If this list is empty, `job.device` is
+#  # used for all parallel searches. Otherwise, the first `search.num_workers`
+#  # devices from this list are used. If the number of devices specified here is
+#  # less than `search.num_workers`, the list wraps around so that devices are
+#  # used by multiple jobs in parallel.
+#  device_pool: [ ]
+#
+#  # What to do when an error occurs during a training job. Possible values:
+#  # continue, abort
+#  on_error: abort
 
 # Manually specify all configurations to try
 manual_search:
-  # If false, only creates training job folders but does not run the jobs.
-  run: True
-
-  # List of configurations to search. Each entry is a record with a field
-  # 'folder' (where the training job is stored) and an arbitrary number of other
-  # fields that define the search configuration (e.g.
-  # 'train.optimizer_args.lr').
-  configurations: []
+#  # If false, only creates training job folders but does not run the jobs.
+#  run: True
+#
+#  # List of configurations to search. Each entry is a record with a field
+#  # 'folder' (where the training job is stored) and an arbitrary number of other
+#  # fields that define the search configuration (e.g.
+#  # 'train.optimizer_args.lr').
+#  configurations: []
 
 
 # Metajob for a grid search. Creates a manual search job with all points on the
 # grid.
 grid_search:
-  # If false, only creates manual search job configuration file but does not run
-  # it. This may be useful to edit the configuration (e.g., change folder names)
-  # or to copy the created configurations to an existing manual search job.
-  run: True
-
-  # Define the grid. This is a dict where the key is a (flattened or nested)
-  # configuration option (e.g., "train.optimizer_args.lr") and the value is an
-  # array of grid-search values (e.g., [ 0.1, 0.01 ]). No default values
-  # specified.
-  parameters:
-    +++: +++
+#  # If false, only creates manual search job configuration file but does not run
+#  # it. This may be useful to edit the configuration (e.g., change folder names)
+#  # or to copy the created configurations to an existing manual search job.
+#  run: True
+#
+#  # Define the grid. This is a dict where the key is a (flattened or nested)
+#  # configuration option (e.g., "train.optimizer_args.lr") and the value is an
+#  # array of grid-search values (e.g., [ 0.1, 0.01 ]). No default values
+#  # specified.
+#  parameters:
+#    +++: +++
 
 # Dynamic search job that picks configurations using ax
 ax_search:
-  # Total number of trials to run. Can be increased when a search job is
-  # resumed.
-  num_trials: 10
-
-  # Number of sobol trials to run (-1: automatic); remaining trials are GP+EI.
-  # If equal or larger than num_trials, only Sobal trials will be run.
-  num_sobol_trials: -1
-
-  # Random seed for generating the sobol sequence. Has to be fixed for each
-  # experiment, or else resuming the sobol sequence is inconsistent.
-  sobol_seed: 0
-
-  # Search space definition passed to ax. See create_experiment in
-  # https://ax.dev/api/service.html#module-ax.service.ax_client
-  parameters: []
-  parameter_constraints: []
+#  # Total number of trials to run. Can be increased when a search job is
+#  # resumed.
+#  num_trials: 10
+#
+#  # Number of sobol trials to run (-1: automatic); remaining trials are GP+EI.
+#  # If equal or larger than num_trials, only Sobal trials will be run.
+#  num_sobol_trials: -1
+#
+#  # Random seed for generating the sobol sequence. Has to be fixed for each
+#  # experiment, or else resuming the sobol sequence is inconsistent.
+#  sobol_seed: 0
+#
+#  # Search space definition passed to ax. See create_experiment in
+#  # https://ax.dev/api/service.html#module-ax.service.ax_client
+#  parameters: []
+#  parameter_constraints: []
 
 
 ## USER PARAMETERS #####################################################################
