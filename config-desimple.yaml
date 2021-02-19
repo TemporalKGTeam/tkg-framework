@@ -4,8 +4,7 @@
 console:
   # If set, no console output is produced
   quiet: False
-#  folder: "/Users/GengyuanMax/workspace/tkge/"
-  folder: /mnt/data1/ma/gengyuan/tkge
+  folder: "/mnt/data1/ma/gengyuan/experiment/logging/desimple"
 
 
   # Formatting of trace entries folsr console output after certain events, such as

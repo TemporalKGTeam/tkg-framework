@@ -4,7 +4,7 @@
 console:
   # If set, no console output is produced
   quiet: False
-  folder: "/mnt/data1/ma/gengyuan/logging/ttranse"
+  folder: "/mnt/data1/ma/gengyuan/experiment/logging/ttranse"
 
   # Formatting of trace entries for console output after certain events, such as
   # finishing an epoch. Each entry is a key-value pair, where the key refers to
