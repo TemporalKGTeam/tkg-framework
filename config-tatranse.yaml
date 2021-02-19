@@ -258,7 +258,12 @@ train:
   # Learning rate scheduler to use. Any scheduler from torch.optim.lr_scheduler
   # can be used (e.g., ReduceLROnPlateau). When left empty, no LR scheduler is
   # used.
-  lr_scheduler: ""
+  lr_scheduler:
+    type: ReduceLROnPlateau
+    args:
+      mode: min
+      factor: 0.1
+      verbose: true
 
   # Additional arguments for the scheduler.
   lr_scheduler_args:
