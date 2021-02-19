@@ -4,7 +4,7 @@
 console:
   # If set, no console output is produced
   quiet: False
-  folder: "/mnt/data1/ma/gengyuan/experiment/logging/desimple"
+  folder: "/mnt/data1/ma/gengyuan/experiment/logging"
 
 
   # Formatting of trace entries folsr console output after certain events, such as
