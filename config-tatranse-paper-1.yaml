@@ -253,14 +253,14 @@ train:
     # or from a checkpoint by:
     # kge dump checkpoint checkpoint_file.pt | grep parameter_names
 
-  # Learning rate scheduler to use. Any scheduler from torch.optim.lr_scheduler
-  # can be used (e.g., ReduceLROnPlateau). When left empty, no LR scheduler is
-  # used.
-  lr_scheduler:
-
-  # Additional arguments for the scheduler.
-  lr_scheduler_args:
-    +++: +++
+#  # Learning rate scheduler to use. Any scheduler from torch.optim.lr_scheduler
+#  # can be used (e.g., ReduceLROnPlateau). When left empty, no LR scheduler is
+#  # used.
+#  lr_scheduler:
+#
+#  # Additional arguments for the scheduler.
+#  lr_scheduler_args:
+#    +++: +++
 
   # When to write entries to the trace file.
   trace_level: epoch           # batch, epoch
