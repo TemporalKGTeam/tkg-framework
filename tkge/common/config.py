@@ -35,7 +35,7 @@ class Config:
                 self.options = yaml.load(file, Loader=yaml.SafeLoader)
 
         self.folder = folder  # main folder (config file, checkpoints, ...)
-        self.log_folder = self.get("console.folder")  # None means use self.folder; used for kge.log, trace.yaml
+        self.log_folder = os.path.join(self.get("console.folder"), self.get("model.name"))  # None means use self.folder; used for kge.log, trace.yaml
         self.log_prefix: str = None
 
     def _import(self, module_name: str):
@@ -495,7 +495,7 @@ class Config:
         return value
 
     def logdir(self) -> str:
-        folder = os.path.join(self.log_folder, self.get("model.name")) if self.log_folder else self.folder
+        folder = self.log_folder if self.log_folder else self.folder
         return folder
 
     def logfile(self) -> str:
