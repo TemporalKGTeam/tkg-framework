@@ -177,7 +177,7 @@ train:
   max_epochs: 500
 
   # Batch size used for training.
-  batch_size: 256
+  batch_size: 128
 
   # If specified, split the batch into subbatches of at most this size and run
   # the forward/backward passes separately on each subbatch. This reduces memory
