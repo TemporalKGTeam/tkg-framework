@@ -5,14 +5,14 @@ from typing import Optional, Dict, Iterable
 from tkge.common.error import ConfigurationError
 
 
-def get_optimizer(params: Iterable, args: Optional[Dict]):
+def get_optimizer(params: Iterable, type: str, args: Optional[Dict]):
     optim_dict = {
         'Adam': torch.optim.Adam,
         'Adagrad': torch.optim.Adagrad
     }
 
     try:
-        optimizer = optim_dict[type](**args)
+        optimizer = optim_dict[type](params, **args)
     except KeyError:
         raise ConfigurationError(f"Optimizer type {type} specified in config file not supported.")
 
