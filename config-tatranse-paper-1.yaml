@@ -184,7 +184,7 @@ train:
   # consumption but may increase runtime. This setting allows to simulate larger
   # batch sizes when the GPU has insufficient memory. An alternative is to
   # reduce the batch size directly.
-  subbatch_size: -1            # default: no subbatches
+  subbatch_size: 128            # default: no subbatches
 
   # If set and a batch runs out of memory, repeatedly half the subbatch size
   # until the batch succeeds. The reduced subbatch size will be used for all
