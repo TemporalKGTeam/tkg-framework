@@ -140,6 +140,8 @@ class TrainTask(Task):
     def main(self):
         self.config.log("BEGIN TRANING")
 
+        print("Config file name: " + self.config.folder)
+
         save_freq = self.config.get("train.checkpoint.every")
         eval_freq = self.config.get("train.valid.every")
 
@@ -309,8 +311,9 @@ class TrainTask(Task):
     def save_ckpt(self, epoch):
         model = self.config.get("model.name")
         dataset = self.config.get("dataset.name")
+        config = self.config.folder
         folder = self.config.get("train.checkpoint.folder")
-        filename = f"epoch_{epoch}_model_{model}_dataset_{dataset}.ckpt"
+        filename = f"epoch_{epoch}_model_{model}_dataset_{dataset}_config_{config}.ckpt"
 
         self.config.log(f"Save the model to {folder} as file {filename}")
 
