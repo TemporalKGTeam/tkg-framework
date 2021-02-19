@@ -53,20 +53,31 @@ To get a local copy up and running follow these simple example steps.
 
 ### Installation
 
-1. git clone the repo to your local derictory
-
+1. git clone the repo to your local directory.
+2. Make sure to provide an environemnt with all the prequisites listet above.
 
 
 <!-- USAGE EXAMPLES -->
 ## Usage
 
- ```
- # test a model
- python tkge.py train --config config-default.yaml
-
- # eval a model
- python tkge.py eval --config config-default.yaml
- ```
+1. Edit the `config-default.yaml` file with the configuration you like to train (see comments of the file for further information about supported models and hyperparameters).
+2. Make sure to specify:
+    1. Path to datasets (`tkg-framework/data` as default)
+    2. Path for logging (tkg-framework will create it, if not already exist)
+    3. Path for model checkpoints (tkg-framework will create it, if not already exist)
+    4. Model & hyperparameters (see comments in `config-default.yaml` for more information)
+3. Run the framework with the following commands:
+    ```
+    # definition
+    python tkge.py [train, eval] [--config <config-file>] 
+    
+    # examples 
+    # test a model
+    python tkge.py train --config config-default.yaml
+    
+    # eval a model
+    python tkge.py eval --config config-default.yaml
+    ```
 
 
 
