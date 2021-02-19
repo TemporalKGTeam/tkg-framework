@@ -138,7 +138,7 @@ class TrainTask(Task):
         self.evaluation = Evaluation(config=self.config, dataset=self.dataset)
 
     def main(self):
-        self.config.log("BEGIN TRANING")
+        self.config.log("BEGIN TRAINING")
 
         save_freq = self.config.get("train.checkpoint.every")
         eval_freq = self.config.get("train.valid.every")
