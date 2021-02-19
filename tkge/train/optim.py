@@ -19,7 +19,7 @@ def get_optimizer(type: str, args: Optional[Dict]):
     return optimizer
 
 
-def get_scheduler(optimizer: torch.optim.optimizer.Optimizer, type: str, args: Optional[Dict]):
+def get_scheduler(optimizer: torch.optim.Optimizer, type: str, args: Optional[Dict]):
     scheduler_dict = {
         'MultiStepLR': torch.optim.lr_scheduler.MultiStepLR,
         'StepLR': torch.optim.lr_scheduler.StepLR,
