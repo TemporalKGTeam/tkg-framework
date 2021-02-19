@@ -1,11 +1,11 @@
 import torch
 
-from typing import Optional, Dict
+from typing import Optional, Dict, Iterable
 
 from tkge.common.error import ConfigurationError
 
 
-def get_optimizer(type: str, args: Optional[Dict]):
+def get_optimizer(params: Iterable, args: Optional[Dict]):
     optim_dict = {
         'Adam': torch.optim.Adam,
         'Adagrad': torch.optim.Adagrad
