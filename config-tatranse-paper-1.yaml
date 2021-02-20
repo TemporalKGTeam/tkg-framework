@@ -1,11 +1,11 @@
 console:
   quiet: False
-  folder: "/mnt/data1/ma/gengyuan/experiment/logging"
+  folder: /mnt/data1/ma/gengyuan/experiment/logging
   format: {}
 
 task:
   type: train
-  device: 'cuda'
+  device: cuda
   reciprocal_relation: False
 
 random_seed:
@@ -19,15 +19,15 @@ random_seed:
 ## DATASET #####################################################################
 
 dataset:
-  folder: '/mnt/data1/ma/gengyuan/experiment/tkg-framework/data/icews14'
+  folder: /mnt/data1/ma/gengyuan/experiment/tkg-framework/data/icews14
   mapping: FALSE
   filter: FALSE
   temporal:
-    resolution: "day"  #deprecated
+    resolution: day  # deprecated
     index: False
     float: True
   args: ~
-  name: 'icews14_TA'
+  name: icews14_TA
   num_entities: -1
   num_relations: -1
   pickle: True
@@ -37,13 +37,13 @@ dataset:
 ## MODEL #######################################################################
 
 model:
-  name: 'ta_transe'
+  name: ta_transe
   emb_dim: 10 # TODO
   l1_flag: True
   p: 0.0
 
 negative_sampling:
-  name: 'time_agnostic'
+  name: time_agnostic
   num_samples: 1 # TODO
   filter: False # not original setting, but filter is not implemented yet!
   as_matrix: True
@@ -121,10 +121,10 @@ eval:
   k: [1,3,10]
 
 valid:
-  split: 'valid'
+  split: valid
   every: 1
   metric: mean_reciprocal_rank_filtered_with_test
-  metric_expr: 'float("nan")'
+  metric_expr: float("nan")
   metric_max: True
   early_stopping:
     patience: 5
