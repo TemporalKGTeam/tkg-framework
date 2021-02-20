@@ -119,7 +119,7 @@ model:
 
 negative_sampling:
   name: 'time_agnostic'
-  num_samples: 10
+  num_samples: 1
   filter: False # not original setting, but filter is not implemented yet!
   as_matrix: True
   target: both
@@ -220,7 +220,7 @@ train:
 
   valid:
     split: test # in [test or valid]
-    every: 1
+    every: 20
     batch_size: 40
     filter: time-aware  # in [off, static, time-aware]
     ordering: optimistic    # in [optimistic, peesimistic]
@@ -271,7 +271,7 @@ train:
     # create an additional checkpoint every this many epochs. Disable additional
     # checkpoints with 0.
     folder: /mnt/data1/ma/gengyuan/experiment/ckpt
-    every: 20
+    every: 1
 
     # Keep this many most recent additional checkpoints.
     keep: 3
