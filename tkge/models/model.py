@@ -78,6 +78,9 @@ class DeSimplEModel(BaseModel):
     def __init__(self, config: Config, dataset: DatasetProcessor):
         super().__init__(config, dataset)
 
+        self.p = self.config.get('model.dropout')
+        self.dropout = torch.nn.Dropout(p=self.p)
+
         self.prepare_embedding()
 
         self.time_nl = torch.sin  # TODO add to configuration file
@@ -243,10 +246,8 @@ class DeSimplEModel(BaseModel):
 
         h_emb1, r_emb1, t_emb1, h_emb2, r_emb2, t_emb2 = self.get_embedding(head, rel, tail, year, month, day)
 
-        p = self.config.get('model.dropout')
-
         scores = ((h_emb1 * r_emb1) * t_emb1 + (h_emb2 * r_emb2) * t_emb2) / 2.0
-        scores = F.dropout(scores, p=p, training=self.training)  # TODO training
+        scores = self.dropout(scores)
         scores = torch.sum(scores, dim=1)
 
         return scores, None
@@ -563,7 +564,7 @@ class TATransEModel(BaseModel):
         # model params from files
         self.emb_dim = self.config.get("model.emb_dim")
         self.l1_flag = self.config.get("model.l1_flag")
-        self.p = self.config.get("model.p")
+        self.p = self.config.get("model.dropout")
 
         self.dropout = torch.nn.Dropout(p=self.p)
         self.lstm = LSTMModel(self.emb_dim, n_layer=1)
@@ -664,7 +665,7 @@ class TADistmultModel(BaseModel):
         # model params from files
         self.emb_dim = self.config.get("model.emb_dim")
         self.l1_flag = self.config.get("model.l1_flag")
-        self.p = self.config.get("model.p")
+        self.p = self.config.get("model.dropout")
 
         self.dropout = torch.nn.Dropout(p=self.p)
         self.lstm = LSTMModel(self.emb_dim, n_layer=1)
