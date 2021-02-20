@@ -220,7 +220,7 @@ train:
 
   valid:
     split: test # in [test or valid]
-    every: 20
+    every: 1
     batch_size: 40
     filter: time-aware  # in [off, static, time-aware]
     ordering: optimistic    # in [optimistic, peesimistic]
