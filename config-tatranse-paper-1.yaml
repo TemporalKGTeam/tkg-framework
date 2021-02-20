@@ -40,7 +40,7 @@ model:
   name: ta_transe
   emb_dim: 10 # TODO
   l1_flag: True
-  p: 0.0
+  dropout: 0.0
 
 negative_sampling:
   name: time_agnostic
