@@ -38,13 +38,13 @@ dataset:
 
 model:
   name: ta_transe
-  emb_dim: 10 # TODO
+  emb_dim: 100
   l1_flag: True
   dropout: 0.0
 
 negative_sampling:
   name: time_agnostic
-  num_samples: 1 # TODO
+  num_samples: 500
   filter: False # not original setting, but filter is not implemented yet! TODO implement filter
   as_matrix: True
   target: both
@@ -59,7 +59,7 @@ train:
   loss:
     type: cross_entropy_loss
   max_epochs: 500
-  batch_size: 2 # TODO
+  batch_size: 64
   subbatch_size: -1 # default: no subbatches TODO implement subbatches / chunks
   subbatch_auto_tune: False
   optimizer:
@@ -73,7 +73,7 @@ train:
     timeout: 0
   valid:
     split: test # in [test or valid]
-    every: 1
+    every: 5
     batch_size: 40
     filter: time-aware  # in [off, static, time-aware]
     ordering: optimistic    # in [optimistic, peesimistic]
@@ -92,7 +92,7 @@ train:
   trace_level: epoch           # batch, epoch
   checkpoint:
     folder: /mnt/data1/ma/gengyuan/experiment/ckpt
-    every: 1
+    every: 5
     keep: 3
   auto_correct: False
   abort_on_nan: True
@@ -117,7 +117,7 @@ eval:
 
 valid:
   split: valid
-  every: 1
+  every: 5
   metric: mean_reciprocal_rank_filtered_with_test
   metric_expr: float("nan")
   metric_max: True
