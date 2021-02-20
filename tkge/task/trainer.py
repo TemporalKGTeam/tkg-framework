@@ -243,8 +243,6 @@ class TrainTask(Task):
                         queries_head = batch.clone()[:, :-1]
                         queries_tail = batch.clone()[:, :-1]
 
-                        self.config.log("EVAL: Cloned batches.")
-
                         # samples_head, _ = self.onevsall_sampler.sample(queries, "head")
                         # samples_tail, _ = self.onevsall_sampler.sample(queries, "tail")
 
@@ -261,8 +259,6 @@ class TrainTask(Task):
                         batch_scores_tail = self.model.predict(queries_tail)
                         assert list(batch_scores_tail.shape) == [bs,
                                                            self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
-
-                        self.config.log("EVAL: Predicted scores.")
 
                         # TODO (gengyuan): reimplement ATISE eval
 
@@ -291,8 +287,6 @@ class TrainTask(Task):
 
                         batch_metrics['head'] = self.evaluation.eval(batch, batch_scores_head, miss='s')
                         batch_metrics['tail'] = self.evaluation.eval(batch, batch_scores_tail, miss='o')
-
-                        self.config.log("EVAL: Evaluated scores.")
 
                         # TODO(gengyuan) refactor
                         for pos in ['head', 'tail']:
