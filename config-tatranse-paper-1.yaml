@@ -66,11 +66,6 @@ train:
     type: Adam
     args:
       lr: 0.001
-      # reg_lambda: 0.0
-    default:
-      type: Adagrad
-      args:
-        +++: +++
   loader:
     num_workers: 0
     pin_memory: False
