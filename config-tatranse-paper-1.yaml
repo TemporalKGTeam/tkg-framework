@@ -38,13 +38,13 @@ dataset:
 
 model:
   name: 'ta_transe'
-  emb_dim: 100
+  emb_dim: 10 # TODO
   l1_flag: True
   p: 0.0
 
 negative_sampling:
   name: 'time_agnostic'
-  num_samples: 1
+  num_samples: 1 # TODO
   filter: False # not original setting, but filter is not implemented yet!
   as_matrix: True
   target: both
@@ -59,7 +59,7 @@ train:
   loss:
     type: cross_entropy_loss
   max_epochs: 500
-  batch_size: 8
+  batch_size: 2 # TODO
   subbatch_size: -1 # default: no subbatches TODO implement subbatches / chunks
   subbatch_auto_tune: False
   optimizer:
@@ -137,7 +137,7 @@ entity_ranking:
   filter_splits: [ 'train', 'valid' ]
   filter_with_test: True
   tie_handling: rounded_mean_rank
-  hits_at_k_s: [1, 3, 10, 50, 100, 200, 300, 400, 500, 1000]
+  hits_at_k_s: [1, 3, 10]
   chunk_size: -1                  # default: no chunking
   metrics_per:
     head_and_tail: False          # head, tail; also applied to relation_type below
