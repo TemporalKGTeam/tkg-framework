@@ -133,17 +133,6 @@ valid:
       metric_value: 0.0
   trace_level: epoch
 
-entity_ranking:
-  filter_splits: [ 'train', 'valid' ]
-  filter_with_test: True
-  tie_handling: rounded_mean_rank
-  hits_at_k_s: [1, 3, 10]
-  chunk_size: -1                  # default: no chunking
-  metrics_per:
-    head_and_tail: False          # head, tail; also applied to relation_type below
-    relation_type: False          # 1-to-1, 1-to-N, N-to-1, N-to-N
-    argument_frequency: False     # 25%, 50%, 75%, top quantiles per argument
-
 
 ## HYPERPARAMETER SEARCH #######################################################
 
