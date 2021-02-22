@@ -73,7 +73,7 @@ train:
     timeout: 0
   valid:
     split: test # in [test or valid]
-    every: 1
+    every: 5
     batch_size: 40
     filter: time-aware  # in [off, static, time-aware]
     ordering: optimistic    # in [optimistic, peesimistic]
@@ -117,7 +117,7 @@ eval:
 
 valid:
   split: valid
-  every: 1
+  every: 5
   metric: mean_reciprocal_rank_filtered_with_test
   metric_expr: float("nan")
   metric_max: True
