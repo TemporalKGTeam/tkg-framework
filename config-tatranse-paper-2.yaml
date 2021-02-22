@@ -59,7 +59,7 @@ train:
   loss:
     type: cross_entropy_loss
   max_epochs: 500
-  batch_size: 256
+  batch_size: 128
   subbatch_size: -1 # default: no subbatches TODO implement subbatches / chunks
   subbatch_auto_tune: False
   optimizer:
