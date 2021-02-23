@@ -1,0 +1,146 @@
+console:
+  quiet: False
+  folder: /mnt/data1/ma/gengyuan/experiment/logging
+  format: {}
+
+task:
+  type: train
+  device: cuda:1
+  reciprocal_relation: False
+
+random_seed:
+  default: -1
+  python: -1
+  torch: -1
+  numpy: -1
+  numba: -1
+
+
+## DATASET #####################################################################
+
+dataset:
+  folder: /mnt/data1/ma/gengyuan/experiment/tkg-framework/data/icews14
+  mapping: FALSE
+  filter: FALSE
+  temporal:
+    resolution: day  # deprecated
+    index: False
+    float: True
+  args: ~
+  name: icews14_TA
+  num_entities: -1
+  num_relations: -1
+  pickle: True
+  +++: +++
+
+
+## MODEL #######################################################################
+
+model:
+  name: ta_transe
+  emb_dim: 100
+  l1_flag: True
+  dropout: 0.4
+
+negative_sampling:
+  name: time_agnostic
+  num_samples: 500
+  filter: False # not original setting, but filter is not implemented yet! TODO implement filter
+  as_matrix: True
+  target: both
+  args: ~
+
+
+## TRAINING ####################################################################
+
+train:
+  split: train
+  type: negative_sampling
+  loss:
+    type: cross_entropy_loss
+  max_epochs: 500
+  batch_size: 128
+  subbatch_size: -1 # default: no subbatches TODO implement subbatches / chunks
+  subbatch_auto_tune: False
+  optimizer:
+    type: Adam
+    args:
+      lr: 0.001
+  loader:
+    num_workers: 0
+    pin_memory: False
+    drop_last: False
+    timeout: 0
+  valid:
+    split: test # in [test or valid]
+    every: 5
+    batch_size: 40
+    filter: time-aware  # in [off, static, time-aware]
+    ordering: optimistic    # in [optimistic, peesimistic]
+    k: [1, 3, 10]
+  regularizer: ~
+  inplace_regularizer:
+    norm:
+      type: inplace_renorm_regularize
+      p: 2
+      dim: 1
+      maxnorm: 1
+  lr_scheduler:
+    +++: +++
+  lr_scheduler_args:
+    +++: +++
+  trace_level: epoch           # batch, epoch
+  checkpoint:
+    folder: /mnt/data1/ma/gengyuan/experiment/ckpt
+    every: 5
+    keep: 3
+  auto_correct: False
+  abort_on_nan: True
+  visualize_graph: False
+  pin_memory: False
+
+
+## EVALUATION ##################################################################
+
+KvsAll:
+  label_smoothing: 0.0
+  query_types:
+    sp_: True
+    s_o: False
+    _po: True
+
+eval:
+  filter: time-aware
+  preference: optimistic
+  ordering: descending
+  k: [1,3,10]
+
+valid:
+  split: valid
+  every: 5
+  metric: mean_reciprocal_rank_filtered_with_test
+  metric_expr: float("nan")
+  metric_max: True
+  early_stopping:
+    patience: 5
+    threshold:
+      epochs: 0
+      metric_value: 0.0
+  trace_level: epoch
+
+
+## HYPERPARAMETER SEARCH #######################################################
+
+search:
+
+manual_search:
+
+grid_search:
+
+ax_search:
+
+
+## USER PARAMETERS #####################################################################
+
+user:
+  +++: +++
