@@ -37,7 +37,7 @@ dataset:
 ## MODEL #######################################################################
 
 model:
-  name: ta_transe
+  name: ta_distmult
   emb_dim: 100
   l1_flag: True
   dropout: 0.0
