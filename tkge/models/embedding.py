@@ -49,7 +49,7 @@ class EntityEmbedding(BaseEmbedding):
     def num(self):
         return self._num
 
-    def index_by_ent(self, index: torch.Tensor):
+    def get_by_index(self, index: torch.Tensor):
         """
         behave same as __index__ when pos_aware is false and return head and tail embeddings of the entities
         """
@@ -74,7 +74,7 @@ class RelationEmbedding(BaseEmbedding):
     def num(self):
         return self._num
 
-    def index_by_rel(self, index: torch.Tensor):
+    def get_by_index(self, index: torch.Tensor):
         """
         behave same as __index__ when pos_aware is false and return original and reciprocal embeddings of the relations
         """
@@ -93,6 +93,11 @@ class TemporalEmbedding(BaseEmbedding):
 
     def num(self):
         return self._num
+
+    def get_by_index(self, index: torch.Tensor):
+        """
+        retrieves embeddings by index
+        """
 
 
 class RealEntityEmbedding(EntityEmbedding):

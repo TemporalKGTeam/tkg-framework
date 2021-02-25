@@ -32,7 +32,7 @@ class BaseModel(nn.Module, Registrable):
         model_type = config.get("model.name")
 
         if model_type in BaseModel.list_available():
-            # kwargs = config.get("model.args")  # TODO: 需要改成key的格式
+            # kwargs = config.get("model.args")  # TODO: get all args params
             return BaseModel.by_name(model_type)(config, dataset)
         else:
             raise ConfigurationError(
@@ -41,7 +41,7 @@ class BaseModel(nn.Module, Registrable):
             )
 
     def load_config(self):
-        # TODO(gengyuan): 有参数的话加载，没指定参数的话用默认，最好可以直接读config文件然后setattr，需不需要做assert？
+        # TODO(gengyuan): should undefined params initialized by default values?
         raise NotImplementedError
 
     def prepare_embedding(self):
