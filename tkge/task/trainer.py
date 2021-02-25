@@ -67,7 +67,8 @@ class TrainTask(Task):
             ['timestamp_float'] if self.config.get("dataset.temporal.float") else [])
 
         # TODO(gengyuan): passed to all modules
-        self.device = self.config.get("task.device")
+        self.device = self.config.get("task.device_type")
+        self.devices = self.config.get("task.devices")
 
         self._prepare()
 
@@ -106,6 +107,7 @@ class TrainTask(Task):
 
         self.config.log(f"Creating model {self.config.get('model.name')}")
         self.model = BaseModel.create(config=self.config, dataset=self.dataset)
+        # TODO devices
         self.model.to(self.device)
 
         self.config.log(f"Initializing loss function")

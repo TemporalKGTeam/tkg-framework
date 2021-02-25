@@ -9,7 +9,7 @@ class LogRankLoss(Loss):
     def __init__(self, config, reduction="sum", **kwargs):
         super().__init__(config)
 
-        self._device = config.get("task.device")
+        self._device = config.get("task.device_type")
 
         self._loss = torch.nn.SoftMarginLoss(reduction=reduction, **kwargs)
 

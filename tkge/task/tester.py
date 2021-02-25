@@ -42,7 +42,7 @@ class TestTask(Task):
             ['timestamp_float'] if self.config.get("dataset.temporal.float") else [])
 
         # TODO(gengyuan): passed to all modules
-        self.device = self.config.get("task.device")
+        self.device = self.config.get("task.device_type")
 
         self._prepare()
 

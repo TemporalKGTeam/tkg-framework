@@ -12,7 +12,7 @@ class Regularizer(nn.Module, Registrable):
         Registrable.__init__(self, config)
         nn.Module.__init__(self)
 
-        self.device = self.config.get("task.device")
+        self.device = self.config.get("task.device_type")
         self.name = name
 
     def forward(self, factors: Tuple[torch.Tensor], **kwargs):

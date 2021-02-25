@@ -9,7 +9,7 @@ class BinaryCrossEntropyLoss(Loss):
     def __init__(self, config: Config):
         super().__init__(config)
 
-        self._device = config.get("task.device")
+        self._device = config.get("task.device_type")
         self._train_type = config.get("train.type")
         self._loss = torch.nn.BCEWithLogitsLoss()
 

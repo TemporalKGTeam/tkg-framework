@@ -788,8 +788,10 @@ class TTransEModel(BaseModel):
 
         if self.l1_flag:
             scores = torch.sum(torch.abs(h_e + r_e + tem_e - t_e), dim=1)
+            # scores = -torch.sum(torch.abs(h_e + r_e + tem_e - t_e), dim=1)
         else:
             scores = torch.sum((h_e + r_e + tem_e - t_e) ** 2, dim=1)
+            # scores = -torch.sum((h_e + r_e + tem_e - t_e) ** 2, dim=1)
 
         factors = {
             "norm": (h_e,

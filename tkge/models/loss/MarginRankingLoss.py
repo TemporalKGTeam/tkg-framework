@@ -11,7 +11,7 @@ class MarginRankingLoss(Loss):
         self.margin = self.config.get("train.loss.margin")
         self.reduction = self.config.get("train.loss.reduction")
 
-        self._device = self.config.get("task.device")
+        self._device = self.config.get("task.device_type")
         self._train_type = self.config.get("train.type")
         self._loss = torch.nn.MarginRankingLoss(margin=self.margin, reduction=self.reduction)
 
