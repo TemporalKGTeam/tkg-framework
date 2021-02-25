@@ -132,6 +132,11 @@ class DatasetProcessor(Registrable):
         return len(self.ts2id)
 
     def filter(self, type="static", target="o") -> Dict[str, List]:
+        """
+        Returns generated link prediction queries.
+        Removes the specified target (either s, p or o) out of a copy of each triple respectively quadruple
+        (if specified type is static respectively time-aware) and adds each answer as the last element.
+        """
         assert type in ["static",
                         "time-aware",
                         "off"], f"{type} filtering is not implemented; use static/time-aware/off filtering."

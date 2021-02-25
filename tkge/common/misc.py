@@ -1,4 +1,4 @@
-#reference: kge/misc.py
+# reference: kge/misc.py
 
 from typing import List
 
@@ -6,10 +6,11 @@ from torch import nn as nn
 import os
 # from path import Path
 import inspect
-import subprocess
+# import subprocess
+
 
 def is_number(s, number_type):
-    """ Returns True is string is a number. """
+    """Returns True if string is a number."""
     try:
         number_type(s)
         return True
@@ -51,6 +52,7 @@ def is_number(s, number_type):
 
 # from https://stackoverflow.com/questions/377017/test-if-executable-exists-in-python
 def which(program):
+    """Checks if the given program is executable."""
     import os
 
     def is_exe(fpath):
@@ -75,6 +77,10 @@ def tkge_base_dir():
 
 
 def filename_in_module(module_or_module_list, filename):
+    """Raises an error if the file associated with the specified filename does not exist
+    in the specified module or module list.
+    Else, it returns the path to the file.
+    """
     if not isinstance(module_or_module_list, list):
         module_or_module_list = [module_or_module_list]
     for module in module_or_module_list:
@@ -87,6 +93,8 @@ def filename_in_module(module_or_module_list, filename):
 
 
 def get_activation_function(s: str):
+    """Returns the associated torch activation function depending on its name (s).
+    Raises an error if there is no association for the given name (s)."""
     if s == "tanh":
         return nn.Tanh()
     elif s == "relu":
@@ -96,18 +104,17 @@ def get_activation_function(s: str):
 
 
 def round_to_points(round_points_to: List[int], to_be_rounded: int):
-    """
-    Rounds to_be_rounded to the points in round_points_to. Assumes
+    """Rounds to_be_rounded to the points in round_points_to. Assumes
     that the first element in round_points_to is the lower bound and that
     the last is the upper bound.
+
     :param round_points_to: List[int]
     :param to_be_rounded: int
     :return: int
     """
     if len(round_points_to) > 0:
-        assert (
-            round_points_to[0] <= round_points_to[-1]
-        ), "First element in round_points_to should be the lower bound and the last the upper bound"
+        assert (round_points_to[0] <= round_points_to[-1]), \
+            "First element in round_points_to should be the lower bound and the last the upper bound"
         last = -1
         for i, round_point in enumerate(round_points_to):
             if to_be_rounded < (round_point - last) / 2 + last:
