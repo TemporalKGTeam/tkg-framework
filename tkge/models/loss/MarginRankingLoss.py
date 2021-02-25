@@ -1,5 +1,4 @@
 from tkge.models.loss import Loss
-from tkge.models.model import BaseModel
 
 import torch
 
