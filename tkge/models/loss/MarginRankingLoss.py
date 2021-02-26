@@ -8,7 +8,6 @@ class MarginRankingLoss(Loss):
     def __init__(self, config):
         super().__init__(config)
 
-        self.model = self.config.get("model.name")
         self.margin = self.config.get("train.loss.margin")
         self.reduction = self.config.get("train.loss.reduction")
 
@@ -32,8 +31,7 @@ class MarginRankingLoss(Loss):
         positive_scores = positive_scores.repeat((ns, 1)).squeeze()
         negative_scores = negative_scores.reshape(-1)
 
-        # use -1 as target/y if a translation based model is used, else 1
-        y = torch.neg(torch.ones_like(positive_scores)) if self.model in ["atise", "ta_transe", "ttranse"] else torch.ones_like(positive_scores)
+        y = torch.ones_like(positive_scores)
 
         return self._loss(positive_scores, negative_scores, y)
 
