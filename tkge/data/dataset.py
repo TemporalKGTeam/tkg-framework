@@ -5,7 +5,7 @@ import numpy as np
 from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 
-from tkge.common.registry import Registrable
+from tkge.common.registrable import Registrable
 from tkge.common.config import Config
 from tkge.common.error import ConfigurationError
 from tkge.data.utils import get_all_days_of_year

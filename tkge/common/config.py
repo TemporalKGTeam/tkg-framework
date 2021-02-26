@@ -16,8 +16,212 @@ T = TypeVar("T", bound="Config")
 
 
 class Config:
+    """Configuration class for all configurable classes.
+
+    `Condig` instance could be created from a configuration file (.yaml), from a param dict.
     """
-    Configuration file for every experiment.
+
+    Overwrite = Enum("Overwrite", "Yes No Error")
+
+    def __init__(self, options: Dict[str, Any]):
+        self.options = options
+
+    @classmethod
+    def create_from_yaml(cls, filepath: str):
+        with open(filepath, "r") as file:
+            options: Dict[str, Any] = yaml.load(file, Loader=yaml.SafeLoader)
+
+        return cls.__init__(options=options)
+
+    @classmethod
+    def create_from_dict(cls, options: Dict[str, Any]):
+        return cls.__init__(options=options)
+
+    @classmethod
+    def create_from_parent(cls, parent_config: T, child_key: str):
+        return parent_config.get(child_key)
+
+    # Access Methods
+    def get(self, key: str) -> Any:
+        """Obtain value of specified key.
+
+        Nested dictionary values can be accessed via "." (e.g., "job.type").
+        """
+        result = self.options
+
+        for name in key.split("."):
+            try:
+                result = result[name]
+            except KeyError:
+                raise KeyError(f"Error accessing {name} for key {key}")
+
+        if isinstance(result, str) and re.findall(r'[+\-]?(?:0|[1-9]\d*)(?:\.\d*)?(?:[eE][+\-]?\d+)', result):
+            result = float(result)
+
+        return result
+
+    def set(
+            self, key: str, value, create=False, overwrite=Overwrite.Yes, log=False
+    ) -> Any:
+        """Set value of specified key.
+
+        Nested dictionary values can be accessed via "." (e.g., "job.type").
+
+        If ``create`` is ``False`` , raises :class:`ValueError` when the key
+        does not exist already; otherwise, the new key-value pair is inserted
+        into the configuration.
+
+        """
+        create = True
+        from tkge.common.misc import is_number
+
+        splits = key.split(".")
+        data = self.options
+
+        # flatten path and see if it is valid to be set
+        path = []
+        for i in range(len(splits) - 1):
+            if splits[i] in data:
+                create = create  # or "+++" in data[splits[i]]
+            else:
+                if create:
+                    data[splits[i]] = dict()
+                else:
+                    raise ConfigurationError(
+                        (
+                                "{} cannot be set because creation of "
+                                + "{} is not permitted"
+                        ).format(key, ".".join(splits[: (i + 1)]))
+                    )
+            path.append(splits[i])
+            data = data[splits[i]]
+
+        # check correctness of value
+        try:
+            current_value = data.get(splits[-1])
+        except:
+            raise ConfigurationError(
+                "These config entries {} {} caused an error.".format(data, splits[-1])
+            )
+
+        if current_value is None:
+            if not create:
+                raise ConfigurationError("key {} not present and `create` is disabled".format(key))
+
+            if isinstance(value, str) and is_number(value, int):
+                value = int(value)
+            elif isinstance(value, str) and is_number(value, float):
+                value = float(value)
+        else:
+            if (
+                    isinstance(value, str)
+                    and isinstance(current_value, float)
+                    and is_number(value, float)
+            ):
+                value = float(value)
+            elif (
+                    isinstance(value, str)
+                    and isinstance(current_value, int)
+                    and is_number(value, int)
+            ):
+                value = int(value)
+            if type(value) != type(current_value):
+                raise ConfigurationError(
+                    "key {} has incorrect type (expected {}, found {})".format(
+                        key, type(current_value), type(value)
+                    )
+                )
+            if overwrite == Config.Overwrite.No:
+                return current_value
+            if overwrite == Config.Overwrite.Error and value != current_value:
+                raise ConfigurationError("key {} cannot be overwritten".format(key))
+
+        # all fine, set value
+        data[splits[-1]] = value
+        if log:
+            self.log("Set {}={}".format(key, value))
+        return value
+
+    def set_all(
+            self, new_options: Dict[str, Any], create=False, overwrite=Overwrite.Yes
+    ):
+        """Updates the configuration with new options and overwrites them for existing keys."""
+        for key, value in Config.flatten(new_options).items():
+            self.set(key, value, create, overwrite)
+
+    @staticmethod
+    def flatten(options: Dict[str, Any]) -> Dict[str, Any]:
+        """Returns a dictionary of flattened configuration options."""
+        result = {}
+        Config.__flatten(options, result)
+        return result
+
+    @staticmethod
+    def __flatten(options: Dict[str, Any], result: Dict[str, Any], prefix=""):
+        """Flattens a nested dictionary recursively by appending nested keys and separating them by '.'"""
+        for key, value in options.items():
+            fullkey = key if prefix == "" else prefix + "." + key
+            if type(value) is dict:
+                Config.__flatten(value, result, prefix=fullkey)
+            else:
+                result[fullkey] = value
+
+    # -- CONVENIENCE METHODS --------------------------------------------------
+
+    def _check(self, key: str, value, allowed_values) -> Any:
+        if value not in allowed_values:
+            raise ValueError(
+                "Illegal value {} for key {}; allowed values are {}".format(
+                    value, key, allowed_values
+                )
+            )
+        return value
+
+    def check(self, key: str, allowed_values) -> Any:
+        """Raise an error if value of key is not in allowed.
+
+        If fine, returns value.
+        """
+        return self._check(key, self.get(key), allowed_values)
+
+    def check_range(
+            self, key: str, min_value, max_value, min_inclusive=True, max_inclusive=True
+    ) -> Any:
+        value = self.get(key)
+        if (
+                value < min_value
+                or (value == min_value and not min_inclusive)
+                or value > max_value
+                or (value == max_value and not max_inclusive)
+        ):
+            raise ValueError(
+                "Illegal value {} for key {}; must be in range {}{},{}{}".format(
+                    value,
+                    key,
+                    "[" if min_inclusive else "(",
+                    min_value,
+                    max_value,
+                    "]" if max_inclusive else ")",
+                )
+            )
+        return value
+
+    def logdir(self) -> str:
+        folder = self.log_folder if self.log_folder else self.folder
+        return folder
+
+    def logfile(self) -> str:
+        folder = self.log_folder if self.log_folder else self.folder
+        return os.path.join(folder, "kge.log")
+
+    def tracefile(self) -> str:
+        folder = self.log_folder if self.log_folder else self.folder
+        return os.path.join(folder, "trace.yaml")
+
+
+class Config:
+    """
+    Configuration class for every experiment.
 
     All available options, their types, and their descriptions are defined in
     :file:`config_default.yaml`.

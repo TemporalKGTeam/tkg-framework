@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 
-from tkge.common.registry import Registrable
+from tkge.common.registrable import Registrable
 from tkge.common.config import Config
 from tkge.common.error import ConfigurationError
 

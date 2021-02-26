@@ -2,7 +2,7 @@ from typing import Optional
 import argparse
 
 from tkge.common.configurable import Configurable
-from tkge.common.registry import Registrable
+from tkge.common.registrable import Registrable
 from tkge.common.config import Config
 from tkge.data.dataset import DatasetProcessor
 

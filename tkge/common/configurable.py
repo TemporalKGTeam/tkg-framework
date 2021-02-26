@@ -8,7 +8,7 @@ T = TypeVar("T", bound="Configurable")
 class Configurable:
     """Mix-in class for adding configurations to objects.
 
-    Each configured object has access to a `config` and a `configuration_key` that
+    Each configured object that inherits from :class:`Configurable` has access to a `config` and a `configuration_key` that
     indicates where the object's options can be found in `config`.
     """
 

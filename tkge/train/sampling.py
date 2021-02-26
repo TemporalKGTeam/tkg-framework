@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 
 from tkge.common.configurable import Configurable
-from tkge.common.registry import Registrable
+from tkge.common.registrable import Registrable
 from tkge.common.config import Config
 from tkge.common.error import ConfigurationError
 from tkge.data.dataset import DatasetProcessor

@@ -4,7 +4,7 @@ import torch
 from torch import nn
 
 from tkge.common.config import Config
-from tkge.common.registry import Registrable
+from tkge.common.registrable import Registrable
 
 
 class Regularizer(nn.Module, Registrable):

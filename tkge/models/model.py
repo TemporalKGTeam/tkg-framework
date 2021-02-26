@@ -10,7 +10,7 @@ from collections import defaultdict
 from typing import Mapping, Dict
 import random
 
-from tkge.common.registry import Registrable
+from tkge.common.registrable import Registrable
 from tkge.common.config import Config
 from tkge.common.error import ConfigurationError
 from tkge.data.dataset import DatasetProcessor
