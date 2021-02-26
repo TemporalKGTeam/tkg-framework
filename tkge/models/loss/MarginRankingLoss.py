@@ -30,6 +30,7 @@ class MarginRankingLoss(Loss):
 
         positive_scores = positive_scores.repeat((ns, 1)).squeeze()
         negative_scores = negative_scores.reshape(-1)
+
         y = torch.ones_like(positive_scores)
 
         return self._loss(positive_scores, negative_scores, y)

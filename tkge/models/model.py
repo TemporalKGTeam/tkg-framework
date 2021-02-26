@@ -389,6 +389,10 @@ class HyTEModel(BaseModel):
     def __init__(self, config: Config, dataset: DatasetProcessor):
         super().__init__(config, dataset)
 
+    def forward(self, samples: torch.Tensor, **kwargs):
+        # TODO remember to negate the scores with torch.neg(scores)
+        raise NotImplementedError
+
 
 @BaseModel.register(name="atise")
 class ATiSEModel(BaseModel):
@@ -618,9 +622,9 @@ class TATransEModel(BaseModel):
         rseq_e = self.dropout(rseq_e)
 
         if self.l1_flag:
-            scores = torch.sum(torch.abs(h_e + rseq_e - t_e), 1)
+            scores = torch.neg(torch.sum(torch.abs(h_e + rseq_e - t_e), 1))
         else:
-            scores = torch.sum((h_e + rseq_e - t_e) ** 2, 1)
+            scores = torch.neg(torch.sum((h_e + rseq_e - t_e) ** 2, 1))
 
         factors = {
             "norm": (h_e,
@@ -789,9 +793,9 @@ class TTransEModel(BaseModel):
         tem_e = self.embedding['tem'](tem)
 
         if self.l1_flag:
-            scores = torch.sum(torch.abs(h_e + r_e + tem_e - t_e), dim=1)
+            scores = torch.neg(torch.sum(torch.abs(h_e + r_e + tem_e - t_e), dim=1))
         else:
-            scores = torch.sum((h_e + r_e + tem_e - t_e) ** 2, dim=1)
+            scores = torch.neg(torch.sum((h_e + r_e + tem_e - t_e) ** 2, dim=1))
 
         factors = {
             "norm": (h_e,
