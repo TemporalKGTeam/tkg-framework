@@ -12,28 +12,26 @@ from typing import Dict, Any, Optional, TypeVar
 T = TypeVar("T", bound="Loss")
 
 
-class Loss(metaclass=ABC, Registrable, Configurable):
+class Loss(ABC, Registrable, Configurable):
     def __init__(self, config: Config):
         Registrable.__init__()
         Configurable.__init__(config=config)
 
-        self.config = config
-        self._loss = None
+        self._parse_config()
+
 
     @classmethod
-    def create(config: Config, purge: bool= True) -> T:
+    def create(config: Config) -> T:
         """Factory method for loss"""
 
-        loss_type = config.get("train.loss.type")
-        load_default = config.get("train.loss.load_default")
+        loss_type: str = config.get("train.loss.type")
+        kwargs = config.get("train.loss.args")
 
 
         if loss_type in Loss.list_available():
             # kwargs = config.get("train.loss_arg")  # TODO: 需要改成key的格式
-            purged_config = Loss.by_name(loss_type)._parse_config(config, load_default) if purge else config
 
-
-            return Loss.by_name(loss_type)(config)
+            return Loss.by_name(loss_type)(config, **kwargs)
         else:
             raise ConfigurationError(
                 f"{loss_type} specified in configuration file is not supported"

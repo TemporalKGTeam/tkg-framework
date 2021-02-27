@@ -10,20 +10,24 @@ from typing import Dict, Any
 
 @Loss.register(name="log_rank_loss")
 class LogRankLoss(Loss):
-    device = DeviceParam('device')
-    gamma = FloatParam('gamma')
-    temp = FloatParam('temp')
+    _key_mapping: Dict[str, str] = {
+        "device": "task.device",
+        "gamma": "train.loss.gamma",
+        "temp": "train.loss.temp"
+    }
 
+    device = DeviceParam(name='device', default_value='cuda')
+    gamma = NumberParam(name='gamma', default_value=120)
+    temp = NumberParam(name='temp', default_value=0.5)
 
-    def __init__(self, config, reduction="sum", **kwargs):
+    @property
+    def key_mapping(self):
+        return self._key_mapping
+
+    def __init__(self, config, **kwargs):
         super().__init__(config)
 
-        self.device = config.get("task.device")
-
-        self._loss = torch.nn.SoftMarginLoss(reduction=reduction, **kwargs)
-
-        self.gamma = self.config.get("train.loss.args.gamma")
-        self.temp = self.config.get("train.loss.args.temp")
+        self._loss = torch.nn.SoftMarginLoss(**kwargs)
 
     def __call__(self, scores: torch.Tensor, labels: torch.Tensor, **kwargs):
         # TODO(gengyuan) kvsall not suppoorted
@@ -32,28 +36,18 @@ class LogRankLoss(Loss):
         # as matrix
         scores = self.gamma - scores
 
-
         scores_pos = scores[:, 0]
         scores_neg = scores[:, 1:]
 
-        p = F.softmax(self.temp * scores_neg, dim=1)    #TODO(gengyuan) why dim=1
+        p = F.softmax(self.temp * scores_neg, dim=1)  # TODO(gengyuan) why dim=1
         loss_pos = torch.sum(F.softplus(-1 * scores_pos))
         loss_neg = torch.sum(p * F.softplus(scores_neg))
         loss = (loss_pos + loss_neg) / 2 / batch_size
 
         return loss
 
-    @classmethod
-    def _parse_config(cls, config: Config, load_default: bool = False) -> Config:
-        mapping: Dict[str, str] = {
-            "device": "task.device",
-            "gamma": "train.loss.args.gamma",
-            "temp": "train.loss.args.temp"
-        }
-
-        parsed_config = {}
-
-        for k, v in mapping.items():
-            parsed_config[k] = config.get(mapping[k])
-
-
+    # def _parse_config(self):
+    #     load_default = self.config.get("global.load_default")
+    #
+    #     for k, v in self.fields_mapping.items():
+    #         setattr(self, k, self.config.get(v))

@@ -3,25 +3,27 @@ from typing import TypeVar, Any, Optional, Dict
 from tkge.common.config import Config
 
 import abc
-from abc import ABC, abstractmethod
+from abc import ABCMeta, abstractmethod, abstractproperty
 
 T = TypeVar("T", bound="Configurable")
 
 
-class Configurable(metaclass=ABC):
+class Configurable(metaclass=ABCMeta):
     """Mix-in class for adding configurations to objects.
 
     Each configured object that inherits from :class:`Configurable` has access to a `config` and a `configuration_key` that
     indicates where the object's options can be found in `config`.
     """
 
-    _params = []
-
     def __init__(self, config: Config, configuration_key: str = None):
         self._init_configuration(config, configuration_key)
 
+    @property
     @abstractmethod
-    def _parse_config(self, config: Config, load_default: bool = False, key_mapping: Dict[str, str] = None) -> Config:
+    def key_mapping(self):
+        raise NotImplementedError
+
+    def _parse_config(self):
         """Parsing :Class:`Config` instance to a new purified :Class:`Config` instance.
 
         Args:
@@ -29,7 +31,10 @@ class Configurable(metaclass=ABC):
         load_default: if true, load default parameters when absent; otherwise throw ConfigurationError
         key_mapping: mapping the old key in config instance to new key
         """
-        raise NotImplementedError
+        load_default = self.config.get("global.load_default")
+
+        for k, v in self.key_mapping.items():
+            setattr(self, k, self.config.get(v))
 
     def _init_configuration(self, config: Config, configuration_key: Optional[str]):
         """Initializes `self.config` and `self.configuration_key`.

@@ -1,0 +1,11 @@
+log_rank_loss1:
+  task:
+    device: cpu
+  train:
+    loss:
+      type: log_rank_loss
+      gamma: 130
+      temp: 0.5
+      args:
+        attr1: 0.4
+        attr2: True

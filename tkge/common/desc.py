@@ -1,7 +1,8 @@
 # Base class. Uses a descriptor to set a value
 class Descriptor:
-    def __init__(self, name: str = None, **kwargs):
+    def __init__(self, name: str, default_value=None, **kwargs):
         self.name = name
+        self.default_value = default_value
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -9,7 +10,7 @@ class Descriptor:
         if instance is None:
             return self
         else:
-            return instance.__dict__[self.name]
+            return instance.__dict__.get(self.name)
 
     def __set__(self, instance, value):
         instance.__dict__[self.name] = value
@@ -21,6 +22,13 @@ class Descriptor:
 # Descriptor for enforcing types
 class Typed(Descriptor):
     expected_type = type(None)
+
+    def __init__(self, name: str, default_value=None, **kwargs):
+        if not isinstance(default_value, self.expected_type):
+            raise TypeError('Expected ' + str(self.expected_type))
+
+        super(Typed, self).__init__(name=name, default_value=default_value)
+
 
     def __set__(self, instance, value):
         if not isinstance(value, self.expected_type):
@@ -54,6 +62,9 @@ class IntegerParam(Typed):
 
 class FloatParam(Typed):
     expected_type = float
+
+class NumberParam(Typed):
+    expected_type = (int, float)
 
 
 class BoolParam(Typed):
