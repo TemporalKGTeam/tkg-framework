@@ -13,6 +13,8 @@ class BinaryCrossEntropyLoss(Loss):
         self._train_type = config.get("train.type")
         self._loss = torch.nn.BCEWithLogitsLoss()
 
+
+
     def __call__(self, scores, labels, **kwargs):
         """Computes the loss given the scores and corresponding labels.
 
