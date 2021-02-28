@@ -16,9 +16,10 @@ SLOT_STR = ["s", "p", "o", "t"]
 S, P, O, T = SLOTS
 
 
-class NegativeSampler(Registrable):
+class NegativeSampler(Registrable, Configurable):
     def __init__(self, config: Config, dataset: DatasetProcessor, as_matrix: bool = True):
-        super(NegativeSampler, self).__init__(config, configuration_key="negative_sampling")
+        Registrable.__init__(self)
+        Configurable.__init__(self, config, configuration_key="negative_sampling")
 
         self.num_samples = self.config.get("negative_sampling.num_samples")
         self.filter = self.config.get("negative_sampling.filter")
@@ -26,11 +27,14 @@ class NegativeSampler(Registrable):
 
         self.dataset = dataset
 
-    @staticmethod
-    def create(config: Config, dataset: DatasetProcessor):
+    @classmethod
+    def create(cls, config: Config, dataset: DatasetProcessor):
         """Factory method for loss creation"""
 
-        ns_type = config.get("negative_sampling.name")
+        ns_type = config.get("negative_sampling.type")
+        kwargs = config.get(f"negative_sampling.args")
+
+        kwargs = kwargs if not isinstance(kwargs, type(None)) else {}
 
         if ns_type in NegativeSampler.list_available():
             as_matrix = config.get("negative_sampling.as_matrix")
