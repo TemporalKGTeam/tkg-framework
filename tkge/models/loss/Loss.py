@@ -14,19 +14,24 @@ T = TypeVar("T", bound="Loss")
 
 class Loss(ABC, Registrable, Configurable):
     def __init__(self, config: Config):
-        Registrable.__init__()
-        Configurable.__init__(config=config)
+        Registrable.__init__(self)
+        Configurable.__init__(self, config=config)
 
-        self._parse_config()
+        # self._parse_config()
 
+    @property
+    @abstractmethod
+    def device(self):
+        raise NotImplementedError
 
     @classmethod
-    def create(config: Config) -> T:
+    def create(cls, config: Config) -> T:
         """Factory method for loss"""
 
         loss_type: str = config.get("train.loss.type")
         kwargs = config.get("train.loss.args")
 
+        kwargs = kwargs if not isinstance(kwargs, type(None)) else {}
 
         if loss_type in Loss.list_available():
             # kwargs = config.get("train.loss_arg")  # TODO: 需要改成key的格式
@@ -37,7 +42,6 @@ class Loss(ABC, Registrable, Configurable):
                 f"{loss_type} specified in configuration file is not supported"
                 f"implement your loss class with `Loss.register(name)"
             )
-
 
     @abstractmethod
     def __call__(self, scores, labels, **kwargs):
@@ -62,7 +66,7 @@ class Loss(ABC, Registrable, Configurable):
             return labels
         else:
             x = torch.zeros(
-                scores.shape, device=self.config.get("task.device"), dtype=torch.float
+                scores.shape, device=self.device, dtype=torch.float
             )
             x[range(len(scores)), labels] = 1.0
             return x
@@ -79,7 +83,7 @@ class Loss(ABC, Registrable, Configurable):
         else:
             x = labels.nonzero()
             if not x[:, 0].equal(
-                    torch.arange(len(labels), device=self.config.get("job.device"))
+                    torch.arange(len(labels), device=self.device)
             ):
                 raise ValueError("exactly one 1 per row required")
             return x[:, 1]

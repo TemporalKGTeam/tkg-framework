@@ -1,31 +1,23 @@
 from tkge.models.loss import Loss
 from tkge.common.config import Config
-from tkge.common.desc import *
+from tkge.common.paramtype import *
 
 import torch
 import torch.nn.functional as F
 
-from typing import Dict, Any
-
 
 @Loss.register(name="log_rank_loss")
 class LogRankLoss(Loss):
-    _key_mapping: Dict[str, str] = {
-        "device": "task.device",
-        "gamma": "train.loss.gamma",
-        "temp": "train.loss.temp"
-    }
-
     device = DeviceParam(name='device', default_value='cuda')
     gamma = NumberParam(name='gamma', default_value=120)
     temp = NumberParam(name='temp', default_value=0.5)
 
-    @property
-    def key_mapping(self):
-        return self._key_mapping
-
-    def __init__(self, config, **kwargs):
+    def __init__(self, config: Config, **kwargs):
         super().__init__(config)
+
+        self.device = self.config.get('task.device')
+        self.gamma = self.config.get('train.loss.gamma')
+        self.temp = self.config.get('train.loss.temp')
 
         self._loss = torch.nn.SoftMarginLoss(**kwargs)
 

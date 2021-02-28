@@ -6,15 +6,23 @@ sys.path.append(BASE_DIR)
 
 import unittest
 
-from tkge.common.desc import *
+from tkge.common.paramtype import *
 
 
 class TestConfigurable(unittest.TestCase):
     def test_int(self):
         class Helper:
-            with self.assertRaises(TypeError):
-                i1 = IntegerParam('i1', 10)
-                i2 = IntegerParam('i2', 1.3)
+            i1 = IntegerParam('i1', 10)
+            # i2 = IntegerParam('i2', 1.3)
+            n1 = NumberParam('n1', 150)
+            device = DeviceParam('device', 'cuda')
+
+            def __init__(self):
+                self.i1 = 10
+
+        c = Helper()
+        # self.assertEqual(c.i1, 10)
+        print(c.device)
 
 
 if __name__ == '__main__':

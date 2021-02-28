@@ -10,7 +10,7 @@ class Descriptor:
         if instance is None:
             return self
         else:
-            return instance.__dict__.get(self.name)
+            return instance.__dict__[self.name]
 
     def __set__(self, instance, value):
         instance.__dict__[self.name] = value
@@ -27,12 +27,14 @@ class Typed(Descriptor):
         if not isinstance(default_value, self.expected_type):
             raise TypeError('Expected ' + str(self.expected_type))
 
-        super(Typed, self).__init__(name=name, default_value=default_value)
+        super().__init__(name=name, default_value=default_value)
 
 
     def __set__(self, instance, value):
         if not isinstance(value, self.expected_type):
             raise TypeError('Expected ' + str(self.expected_type))
+
+        super().__set__(instance, value)
 
 
 # Descriptor for enforcing values

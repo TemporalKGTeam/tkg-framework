@@ -18,23 +18,29 @@ class Configurable(metaclass=ABCMeta):
     def __init__(self, config: Config, configuration_key: str = None):
         self._init_configuration(config, configuration_key)
 
-    @property
-    @abstractmethod
-    def key_mapping(self):
-        raise NotImplementedError
 
-    def _parse_config(self):
-        """Parsing :Class:`Config` instance to a new purified :Class:`Config` instance.
-
-        Args:
-        config: Config instance with all needed params
-        load_default: if true, load default parameters when absent; otherwise throw ConfigurationError
-        key_mapping: mapping the old key in config instance to new key
-        """
-        load_default = self.config.get("global.load_default")
-
-        for k, v in self.key_mapping.items():
-            setattr(self, k, self.config.get(v))
+    # TODO(gengyuan) add load default
+    # @property
+    # @abstractmethod
+    # def key_mapping(self):
+    #     raise NotImplementedError
+    #
+    # def _parse_config(self):
+    #     """Parsing :Class:`Config` instance to a new purified :Class:`Config` instance.
+    #
+    #     Args:
+    #     config: Config instance with all needed params
+    #     load_default: if true, load default parameters when absent; otherwise throw ConfigurationError
+    #     key_mapping: mapping the old key in config instance to new key
+    #     """
+    #
+    #     # TODO(gengyuan) option to load default
+    #     # load_default = self.config.get("global.load_default")
+    #
+    #     for k, v in self.key_mapping.items():
+    #         setattr(self, k, self.config.get(v))
+    #
+    #         print(k, self.__dict__[k])
 
     def _init_configuration(self, config: Config, configuration_key: Optional[str]):
         """Initializes `self.config` and `self.configuration_key`.

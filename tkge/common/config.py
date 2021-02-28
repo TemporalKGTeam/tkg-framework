@@ -37,13 +37,10 @@ class Config:
 
     @classmethod
     def create_from_parent(cls, parent_config: T, child_key: str):
-        return parent_config.get(child_key)
+        return cls.create_from_dict(parent_config.get(child_key))
 
     def __repr__(self):
-
-        pp = pprint.PrettyPrinter(indent=4)
-
-        print(yaml.dump(self.options, default_flow_style=False, sort_keys=False))
+        return yaml.dump(self.options, default_flow_style=False, sort_keys=False)
 
     # Access Methods
     def get(self, key: str) -> Any:
