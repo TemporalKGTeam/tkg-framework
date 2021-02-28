@@ -6,6 +6,9 @@ import os
 import sys
 import re
 from enum import Enum
+import datetime
+import time
+import uuid
 import pprint
 
 from tkge.common.error import ConfigurationError
@@ -166,6 +169,107 @@ class Config:
                 Config.__flatten(value, result, prefix=fullkey)
             else:
                 result[fullkey] = value
+
+    # Logging and Tracing
+    def log(self, msg: str, echo=True, prefix=""):
+        """Add a message to the default log file.
+
+        Optionally also print on console. ``prefix`` is used to indent each
+        output line.
+
+        """
+        if not os.path.exists(self.logdir()):
+            os.makedirs(self.logdir(), 0o700)
+
+        with open(self.logfile(), "a") as file:
+            for line in msg.splitlines():
+                if prefix:
+                    line = prefix + line
+                if self.log_prefix:
+                    line = self.log_prefix + line
+                if echo:
+                    print(line)
+                file.write(str(datetime.datetime.now()) + " " + line + "\n")
+
+    def trace(
+            self, echo=False, echo_prefix="", echo_flow=False, log=False, **kwargs
+    ) -> Dict[str, Any]:
+        """Write a set of key-value pairs to the trace file.
+
+        The pairs are written as a single-line YAML record. Optionally, also
+        echo to console and/or write to log file.
+
+        And id and the current time is automatically added using key ``timestamp``.
+
+        Returns the written k/v pairs.
+        """
+        kwargs["timestamp"] = time.time()
+        kwargs["entry_id"] = str(uuid.uuid4())
+        line = yaml.dump(kwargs, width=float("inf"), default_flow_style=True).strip()
+        if echo or log:
+            msg = yaml.dump(kwargs, default_flow_style=echo_flow)
+            if log:
+                self.log(msg, echo, echo_prefix)
+            else:
+                for line in msg.splitlines():
+                    if echo_prefix:
+                        line = echo_prefix + line
+                        print(line)
+        with open(self.tracefile(), "a") as file:
+            file.write(line + "\n")
+        return kwargs
+
+    # -- FOLDERS AND CHECKPOINTS ----------------------------------------------
+
+    def init_folder(self):
+        """Initialize the output folder.
+
+        If the folder does not exists, create it, dump the configuration
+        there and return ``True``. Else do nothing and return ``False``.
+
+        """
+        if not os.path.exists(self.folder):
+            os.makedirs(self.folder)
+            os.makedirs(os.path.join(self.folder, "config"))
+            self.save(os.path.join(self.folder, "config.yaml"))
+            return True
+        return False
+
+    def checkpoint_file(self, cpt_id: Union[str, int]) -> str:
+        """Returns path of checkpoint file for given checkpoint id"""
+        from tkge.common.misc import is_number
+
+        if is_number(cpt_id, int):
+            return os.path.join(self.folder, "checkpoint_{:05d}.pt".format(int(cpt_id)))
+        else:
+            return os.path.join(self.folder, "checkpoint_{}.pt".format(cpt_id))
+
+    def last_checkpoint(self) -> Optional[int]:
+        """Returns epoch number of latest checkpoint"""
+        # stupid implementation, but works
+        tried_epoch = 0
+        found_epoch = 0
+        while tried_epoch < found_epoch + 500:
+            tried_epoch += 1
+            if os.path.exists(self.checkpoint_file(tried_epoch)):
+                found_epoch = tried_epoch
+        if found_epoch > 0:
+            return found_epoch
+        else:
+            return None
+
+    @staticmethod
+    def get_best_or_last_checkpoint(path: str) -> str:
+        """Returns best (if present) or last checkpoint path for a given folder path."""
+        config = Config(folder=path, load_default=False)
+        checkpoint_file = config.checkpoint_file("best")
+        if os.path.isfile(checkpoint_file):
+            return checkpoint_file
+        cpt_epoch = config.last_checkpoint()
+        if cpt_epoch:
+            return config.checkpoint_file(cpt_epoch)
+        else:
+    #             raise Exception("Could not find checkpoint in {}".format(path))
 
     # -- CONVENIENCE METHODS --------------------------------------------------
 
