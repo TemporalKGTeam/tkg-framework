@@ -10,19 +10,22 @@ from tkge.indexing import where_in
 
 import torch
 import numba
+from abc import ABC, abstractmethod
 
 SLOTS = [0, 1, 2, 3]
 SLOT_STR = ["s", "p", "o", "t"]
 S, P, O, T = SLOTS
 
 
-class NegativeSampler(Registrable, Configurable):
+class NegativeSampler(ABC, Registrable, Configurable):
     def __init__(self, config: Config, dataset: DatasetProcessor, as_matrix: bool = True):
         Registrable.__init__(self)
         Configurable.__init__(self, config, configuration_key="negative_sampling")
 
         self.num_samples = self.config.get("negative_sampling.num_samples")
         self.filter = self.config.get("negative_sampling.filter")
+
+        #TODO(gengyuan) as_matrix should be passed from config
         self.as_matrix = as_matrix
 
         self.dataset = dataset
@@ -46,12 +49,15 @@ class NegativeSampler(Registrable, Configurable):
                 f"implement your negative samping class with `NegativeSampler.register(name)"
             )
 
+    @abstractmethod
     def _sample(self, pos_batch: torch.Tensor, as_matrix: bool, sample_target: str):
         raise NotImplementedError
 
+    @abstractmethod
     def _label(self, pos_batch: torch.Tensor, as_matrix: bool, sample_target: str):
         raise NotImplementedError
 
+    @abstractmethod
     def _filtered_sample(self, neg_sample):
         raise NotImplementedError
 

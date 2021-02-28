@@ -119,7 +119,7 @@ model:
 
 
 negative_sampling:
-  name: 'pseudo_sampling'
+  type: 'pseudo_sampling'
   num_samples: -1 # should has no effect
   filter: False
   as_matrix: True

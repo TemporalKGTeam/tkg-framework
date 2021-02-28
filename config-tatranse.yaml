@@ -118,7 +118,7 @@ model:
 
 
 negative_sampling:
-  name: 'time_agnostic'
+  type: 'time_agnostic'
   num_samples: 500
   filter: False
   as_matrix: True

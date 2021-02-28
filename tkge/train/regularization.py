@@ -7,8 +7,10 @@ from tkge.common.config import Config
 from tkge.common.registrable import Registrable
 from tkge.common.configurable import Configurable
 
+from abc import ABC, abstractmethod
 
-class Regularizer(nn.Module, Registrable, Configurable):
+
+class Regularizer(ABC, nn.Module, Registrable, Configurable):
     def __init__(self, config: Config, name: str, **kwargs):
         Registrable.__init__(self)
         Configurable.__init__(self, config=config)
@@ -17,6 +19,7 @@ class Regularizer(nn.Module, Registrable, Configurable):
         self.device = self.config.get("task.device")
         self.name = name
 
+    @abstractmethod
     def forward(self, factors: Tuple[torch.Tensor], **kwargs):
         raise NotImplementedError
 
