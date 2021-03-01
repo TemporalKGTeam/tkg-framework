@@ -104,7 +104,7 @@ class TrainTask(Task):
         self.sampler = NegativeSampler.create(config=self.config, dataset=self.dataset)
         self.onevsall_sampler = NonNegativeSampler(config=self.config, dataset=self.dataset, as_matrix=True)
 
-        self.config.log(f"Creating model {self.config.get('model.name')}")
+        self.config.log(f"Creating model {self.config.get('model.type')}")
         self.model = BaseModel.create(config=self.config, dataset=self.dataset)
         self.model.to(self.device)
 
@@ -114,7 +114,7 @@ class TrainTask(Task):
         self.config.log(f"Initializing optimizer")
         optimizer_type = self.config.get("train.optimizer.type")
         optimizer_args = self.config.get("train.optimizer.args")
-        self.optimizer = get_optimizer(optimizer_type, optimizer_args)
+        self.optimizer = get_optimizer(self.model.parameters(), optimizer_type, optimizer_args)
 
         self.config.log(f"Initializing lr scheduler")
         if self.config.get("train.lr_scheduler"):

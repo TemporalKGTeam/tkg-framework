@@ -118,11 +118,12 @@ model:
 
 
 negative_sampling:
-  name: 'time_agnostic'
+  type: 'time_agnostic'
   num_samples: 10
   filter: False
   as_matrix: True
   target: both
+  args: ~
 
 
 ## TRAINING ####################################################################

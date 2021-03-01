@@ -4,7 +4,7 @@
 console:
   # If set, no console output is produced
   quiet: False
-  folder: "/mnt/data1/ma/gengyuan/logging/tcomplex"
+  folder: "~/workplace/logging/tcomplex"
 
   # Formatting of trace entries for console output after certain events, such as
   # finishing an epoch. Each entry is a key-value pair, where the key refers to
@@ -29,7 +29,7 @@ task:
   type: train
 
   # Main device to use for this job (e.g., 'cpu', 'cuda', 'cuda:0')
-  device: 'cuda'
+  device: 'cpu'
 
   reciprocal_relation: True
 
@@ -52,7 +52,7 @@ random_seed:
 
 dataset:
   # data folder includes train, val, test files
-  folder: '/mnt/data1/ma/gengyuan/tkge/data/icews14'
+  folder: '/Users/GengyuanMax/workspace/tkg-framework/data/icews14'
 
   # indexes mapping [false, true]
   # TODO 可以保存到cache
@@ -109,17 +109,18 @@ dataset:
 # "transe", or "conve". For available models, see the project homepage and/or
 # configuration files under kge/model.
 model:
-  name: 'tcomplex'
+  type: 'tcomplex'
   rank: 156
   no_time_emb: False
   init_size: 0.01
+  args: ~
 
 
 
 
 
 negative_sampling:
-  name: 'pseudo_sampling'
+  type: 'pseudo_sampling'
   num_samples: -1 # should has no effect
   filter: False
   as_matrix: True
@@ -173,6 +174,7 @@ train:
   # See kge/loss.py for details.
   loss:
     type: cross_entropy_loss
+    args: ~
 
   # Maximum number of epochs used for training
   max_epochs: 50
@@ -200,7 +202,6 @@ train:
     type: Adagrad
     args:
       lr: 0.1
-      reg_lambda: 0.0
 
     default:
       type: Adagrad           # sgd, adagrad, adam
@@ -271,7 +272,7 @@ train:
     # In addition the the checkpoint of the last epoch (which is transient),
     # create an additional checkpoint every this many epochs. Disable additional
     # checkpoints with 0.
-    folder: /mnt/data1/ma/gengyuan/ckpt
+    folder: ~/workplace/ckpt
     every: 10
 
     # Keep this many most recent additional checkpoints.

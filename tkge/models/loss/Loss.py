@@ -1,31 +1,49 @@
 import torch
 import torch.nn.functional as F
 
-from tkge.common.registry import Registrable
+from tkge.common.registrable import Registrable
+from tkge.common.configurable import Configurable
 from tkge.common.config import Config
 from tkge.common.error import ConfigurationError
 
+from abc import ABC, abstractmethod
+from typing import Dict, Any, Optional, TypeVar
 
-class Loss(Registrable):
+T = TypeVar("T", bound="Loss")
+
+
+class Loss(ABC, Registrable, Configurable):
     def __init__(self, config: Config):
-        self.config = config
-        self._loss = None
+        Registrable.__init__(self)
+        Configurable.__init__(self, config=config)
 
-    @staticmethod
-    def create(config: Config):
-        """Factory method for loss creation"""
+        # self._parse_config()
 
-        loss_type = config.get("train.loss.type")
+    @property
+    @abstractmethod
+    def device(self):
+        raise NotImplementedError
+
+    @classmethod
+    def create(cls, config: Config) -> T:
+        """Factory method for loss"""
+
+        loss_type: str = config.get("train.loss.type")
+        kwargs = config.get("train.loss.args")
+
+        kwargs = kwargs if not isinstance(kwargs, type(None)) else {}
 
         if loss_type in Loss.list_available():
             # kwargs = config.get("train.loss_arg")  # TODO: 需要改成key的格式
-            return Loss.by_name(loss_type)(config)
+
+            return Loss.by_name(loss_type)(config, **kwargs)
         else:
             raise ConfigurationError(
                 f"{loss_type} specified in configuration file is not supported"
                 f"implement your loss class with `Loss.register(name)"
             )
 
+    @abstractmethod
     def __call__(self, scores, labels, **kwargs):
         """Computes the loss given the scores and corresponding labels.
 
@@ -48,7 +66,7 @@ class Loss(Registrable):
             return labels
         else:
             x = torch.zeros(
-                scores.shape, device=self.config.get("job.device"), dtype=torch.float
+                scores.shape, device=self.device, dtype=torch.float
             )
             x[range(len(scores)), labels] = 1.0
             return x
@@ -65,7 +83,7 @@ class Loss(Registrable):
         else:
             x = labels.nonzero()
             if not x[:, 0].equal(
-                    torch.arange(len(labels), device=self.config.get("job.device"))
+                    torch.arange(len(labels), device=self.device)
             ):
                 raise ValueError("exactly one 1 per row required")
             return x[:, 1]

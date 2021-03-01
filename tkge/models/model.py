@@ -4,13 +4,12 @@ from torch.nn import functional as F
 
 import numpy as np
 
-from enum import Enum
-import os
 from collections import defaultdict
-from typing import Mapping, Dict
-import random
+from typing import Dict
+from abc import ABC, abstractmethod
 
-from tkge.common.registry import Registrable
+from tkge.common.registrable import Registrable
+from tkge.common.configurable import Configurable
 from tkge.common.config import Config
 from tkge.common.error import ConfigurationError
 from tkge.data.dataset import DatasetProcessor
@@ -18,10 +17,11 @@ from tkge.models.layers import LSTMModel
 from tkge.models.utils import *
 
 
-class BaseModel(nn.Module, Registrable):
+class BaseModel(ABC, nn.Module, Registrable, Configurable):
     def __init__(self, config: Config, dataset: DatasetProcessor):
         nn.Module.__init__(self)
-        Registrable.__init__(self, config=config)
+        Registrable.__init__(self)
+        Configurable.__init__(self, config=config)
 
         self.dataset = dataset
 
@@ -29,11 +29,14 @@ class BaseModel(nn.Module, Registrable):
     def create(config: Config, dataset: DatasetProcessor):
         """Factory method for sampler creation"""
 
-        model_type = config.get("model.name")
+        model_type = config.get("model.type")
+        kwargs = config.get("model.args")
+
+        kwargs = kwargs if not isinstance(kwargs, type(None)) else {}
 
         if model_type in BaseModel.list_available():
             # kwargs = config.get("model.args")  # TODO: get all args params
-            return BaseModel.by_name(model_type)(config, dataset)
+            return BaseModel.by_name(model_type)(config, dataset, **kwargs)
         else:
             raise ConfigurationError(
                 f"{model_type} specified in configuration file is not supported"
@@ -50,9 +53,11 @@ class BaseModel(nn.Module, Registrable):
     def get_embedding(self, **kwargs):
         raise NotImplementedError
 
+    @abstractmethod
     def forward(self, samples, **kwargs):
         raise NotImplementedError
 
+    @abstractmethod
     def predict(self, queries: torch.Tensor):
         """
         Should be a wrapper of method forward or a computation flow same as that in forward.
@@ -61,6 +66,7 @@ class BaseModel(nn.Module, Registrable):
         """
         raise NotImplementedError
 
+    @abstractmethod
     def fit(self, samples: torch.Tensor):
         # TODO(gengyuan): wrapping all the models
         """
@@ -75,7 +81,7 @@ class BaseModel(nn.Module, Registrable):
 
 @BaseModel.register(name='de_simple')
 class DeSimplEModel(BaseModel):
-    def __init__(self, config: Config, dataset: DatasetProcessor):
+    def __init__(self, config: Config, dataset: DatasetProcessor, **kwargs):
         super().__init__(config, dataset)
 
         self.prepare_embedding()
@@ -278,7 +284,7 @@ class DeSimplEModel(BaseModel):
 
 @BaseModel.register(name="tcomplex")
 class TComplExModel(BaseModel):
-    def __init__(self, config: Config, dataset: DatasetProcessor):
+    def __init__(self, config: Config, dataset: DatasetProcessor, **kwargs):
         super().__init__(config, dataset)
 
         self.rank = self.config.get("model.rank")
@@ -386,7 +392,7 @@ class TComplExModel(BaseModel):
 
 @BaseModel.register(name="hyte")
 class HyTEModel(BaseModel):
-    def __init__(self, config: Config, dataset: DatasetProcessor):
+    def __init__(self, config: Config, dataset: DatasetProcessor, **kwargs):
         super().__init__(config, dataset)
 
     def forward(self, samples: torch.Tensor, **kwargs):
@@ -396,7 +402,7 @@ class HyTEModel(BaseModel):
 
 @BaseModel.register(name="atise")
 class ATiSEModel(BaseModel):
-    def __init__(self, config: Config, dataset: DatasetProcessor):
+    def __init__(self, config: Config, dataset: DatasetProcessor, **kwargs):
         super().__init__(config, dataset)
 
         # TODO(gengyuan) load params before initialize
@@ -561,7 +567,7 @@ class ATiSEModel(BaseModel):
 # reference: https://github.com/jimmywangheng/knowledge_representation_pytorch
 @BaseModel.register(name="ta_transe")
 class TATransEModel(BaseModel):
-    def __init__(self, config: Config, dataset: DatasetProcessor):
+    def __init__(self, config: Config, dataset: DatasetProcessor, **kwargs):
         super().__init__(config, dataset)
 
         # model params from files
@@ -662,7 +668,7 @@ class TATransEModel(BaseModel):
 # reference: https://github.com/bsantraigi/TA_TransE/blob/master/model.py
 @BaseModel.register(name="ta_distmult")
 class TADistmultModel(BaseModel):
-    def __init__(self, config: Config, dataset: DatasetProcessor):
+    def __init__(self, config: Config, dataset: DatasetProcessor, **kwargs):
         super().__init__(config, dataset)
 
         # model params from files
@@ -759,7 +765,7 @@ class TADistmultModel(BaseModel):
 
 @BaseModel.register(name="ttranse")
 class TTransEModel(BaseModel):
-    def __init__(self, config: Config, dataset: DatasetProcessor):
+    def __init__(self, config: Config, dataset: DatasetProcessor, **kwargs):
         super().__init__(config, dataset)
 
         # model params from files

@@ -5,7 +5,8 @@ import numpy as np
 from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 
-from tkge.common.registry import Registrable
+from tkge.common.registrable import Registrable
+from tkge.common.configurable import Configurable
 from tkge.common.config import Config
 from tkge.common.error import ConfigurationError
 from tkge.data.utils import get_all_days_of_year
@@ -13,12 +14,15 @@ from tkge.data.utils import get_all_days_of_year
 import enum
 import arrow
 
+from abc import ABC, abstractmethod
+
 SPOT = enum.Enum('spot', ('s', 'p', 'o', 't'))
 
 
-class DatasetProcessor(Registrable):
+class DatasetProcessor(ABC, Registrable, Configurable):
     def __init__(self, config: Config):
-        super().__init__(config)
+        Registrable.__init__(self)
+        Configurable.__init__(self, config=config)
 
         self.folder = self.config.get("dataset.folder")
         self.resolution = self.config.get("dataset.temporal.resolution")
@@ -47,8 +51,8 @@ class DatasetProcessor(Registrable):
         self.process()
         self.filter()
 
-    @staticmethod
-    def create(config: Config):
+    @classmethod
+    def create(cls, config: Config):
         """Factory method for data creation"""
 
         ds_type = config.get("dataset.name")
@@ -62,6 +66,7 @@ class DatasetProcessor(Registrable):
                 f"implement your data class with `DatasetProcessor.register(name)"
             )
 
+    @abstractmethod
     def process(self):
         raise NotImplementedError
 
@@ -114,6 +119,7 @@ class DatasetProcessor(Registrable):
 
             self.test_size = len(self.test_raw)
 
+    @abstractmethod
     def process_time(self, origin: str):
         # TODO(gengyuan) use datetime
         raise NotImplementedError
@@ -288,7 +294,6 @@ class ICEWS14DatasetProcessor(DatasetProcessor):
             self.all_triples.append([head, rel, tail])
             self.all_quadruples.append([head, rel, tail, ts_id])
 
-
     def process_time(self, origin: str):
         all_resolutions = ['year', 'month', 'day', 'hour', 'minute', 'second']
         assert self.resolution in all_resolutions, f"Time granularity should be {all_resolutions}"
@@ -387,4 +392,3 @@ class SplitDataset(torch.utils.data.Dataset):
                 raise NotImplementedError
 
         return sample
-
