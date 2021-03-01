@@ -15,11 +15,11 @@ from tkge.models.loss import Loss
 from tkge.eval.metrics import Evaluation
 
 
-class TestTask(Task):
+class SearchTask(Task):
     @staticmethod
     def parse_arguments(parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
-        description = """Eval a model"""
-        subparser = parser.add_parser("eval", description=description, help="evaluate a model.")
+        description = """Search a model"""
+        subparser = parser.add_parser("search", description=description, help="search a model architecture.")
 
         subparser.add_argument(
             "-c",
@@ -31,7 +31,7 @@ class TestTask(Task):
         return subparser
 
     def __init__(self, config: Config):
-        super(TestTask, self).__init__(config=config)
+        super(SearchTask, self).__init__(config=config)
 
         self.dataset = self.config.get("dataset.name")
         self.test_loader = None

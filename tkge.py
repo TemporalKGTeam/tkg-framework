@@ -3,6 +3,7 @@ import argparse
 from tkge.task.task import Task
 from tkge.task.trainer import TrainTask
 from tkge.task.tester import TestTask
+from tkge.task.search import SearchTask
 from tkge.common.config import Config
 
 desc = 'Temporal KG Completion methods'
@@ -31,10 +32,11 @@ args = parser.parse_args()
 
 task_dict = {
     'train': TrainTask,
-    'eval': TestTask
+    'eval': TestTask,
+    'search': SearchTask
 }
 
-config = Config(folder=args.config, load_default=False)  # TODO load_default is false
+config = Config.create_from_yaml(args.config)  # TODO load_default is false
 task = task_dict[args.task](config)
 
 task.main()

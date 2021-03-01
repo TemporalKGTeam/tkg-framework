@@ -5,7 +5,7 @@ console:
   # If set, no console output is produced
   quiet: False
 #  folder: "/Users/GengyuanMax/workspace/tkge/"
-  folder: /mnt/data1/ma/gengyuan/tkge
+  folder: /Users/GengyuanMax/workplace/logging/tcomplex
 
 
   # Formatting of trace entries folsr console output after certain events, such as
@@ -31,7 +31,7 @@ task:
   type: train
 
   # Main device to use for this job (e.g., 'cpu', 'cuda', 'cuda:0')
-  device: 'cuda'
+  device: 'cpu'
 
   reciprocal_relation: False
 
@@ -56,7 +56,7 @@ random_seed:
 dataset:
   # data folder includes train, val, test files
 #  folder: '/Users/GengyuanMax/workspace/tkge/data/icews14'
-  folder: /mnt/data1/ma/gengyuan/tkge/data/icews14
+  folder: '/Users/GengyuanMax/workspace/tkg-framework/data/icews14'
 
   # indexes mapping [false, true]
   # TODO 可以保存到cache
@@ -113,7 +113,7 @@ dataset:
 # "transe", or "conve". For available models, see the project homepage and/or
 # configuration files under kge/model.
 model:
-  name: 'de_simple'
+  type: 'de_simple'
   embedding:
     emb_dim: 100
     se_prop: 0.68
@@ -140,7 +140,10 @@ train:
 
   loss:
     type: cross_entropy_loss
+    args: ~
+
   max_epochs: 500
+
 
   loader:
     num_workers: 0
@@ -161,9 +164,8 @@ train:
   subbatch_auto_tune: False
   optimizer:
     type: Adam
-    ars:
+    args:
       lr: 0.001
-      reg_lambda: 0.0
 
     default:
       type: Adam           # sgd, adagrad, adam
@@ -191,7 +193,7 @@ train:
     # In addition the the checkpoint of the last epoch (which is transient),
     # create an additional checkpoint every this many epochs. Disable additional
     # checkpoints with 0.
-    folder: /mnt/data1/ma/gengyuan/ckpt/
+    folder: /Users/GengyuanMax/workplace/ckpt/
     every: 1
 
     # Keep this many most recent additional checkpoints.

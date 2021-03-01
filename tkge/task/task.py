@@ -9,7 +9,6 @@ from tkge.data.dataset import DatasetProcessor
 
 class Task:
     @staticmethod
-
     def parse_arguments(parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
         raise NotImplementedError
 

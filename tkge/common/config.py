@@ -9,7 +9,6 @@ from enum import Enum
 import datetime
 import time
 import uuid
-import pprint
 
 from tkge.common.error import ConfigurationError
 
@@ -26,6 +25,10 @@ class Config:
 
     def __init__(self, options: Dict[str, Any]):
         self.options = options
+
+        self.folder = self.get("train.checkpoint.folder")  # main folder (config file, checkpoints, ...)
+        self.log_folder = self.get("console.folder")  # None means use self.folder; used for kge.log, trace.yaml
+        self.log_prefix: str = None
 
     @classmethod
     def create_from_yaml(cls, filepath: str):
@@ -258,17 +261,17 @@ class Config:
         else:
             return None
 
-    @staticmethod
-    def get_best_or_last_checkpoint(path: str) -> str:
-        """Returns best (if present) or last checkpoint path for a given folder path."""
-        config = Config(folder=path, load_default=False)
-        checkpoint_file = config.checkpoint_file("best")
-        if os.path.isfile(checkpoint_file):
-            return checkpoint_file
-        cpt_epoch = config.last_checkpoint()
-        if cpt_epoch:
-            return config.checkpoint_file(cpt_epoch)
-        else:
+    # @staticmethod
+    # def get_best_or_last_checkpoint(path: str) -> str:
+    #     """Returns best (if present) or last checkpoint path for a given folder path."""
+    #     config = Config(folder=path, load_default=False)
+    #     checkpoint_file = config.checkpoint_file("best")
+    #     if os.path.isfile(checkpoint_file):
+    #         return checkpoint_file
+    #     cpt_epoch = config.last_checkpoint()
+    #     if cpt_epoch:
+    #         return config.checkpoint_file(cpt_epoch)
+    #     else:
     #             raise Exception("Could not find checkpoint in {}".format(path))
 
     # -- CONVENIENCE METHODS --------------------------------------------------
