@@ -10,9 +10,14 @@ from tkge.data.dataset import DatasetProcessor, SplitDataset
 from tkge.train.sampling import NegativeSampler, NonNegativeSampler
 from tkge.train.regularization import Regularizer, InplaceRegularizer
 from tkge.common.config import Config
+from tkge.common.utils import LocalConfig
 from tkge.models.model import BaseModel
 from tkge.models.loss import Loss
+from tkge.models.fusion import TemporalFusion
+from tkge.models.transformation import Transformation
 from tkge.eval.metrics import Evaluation
+
+from typing import Dict
 
 
 class SearchTask(Task):
@@ -34,6 +39,81 @@ class SearchTask(Task):
         super(SearchTask, self).__init__(config=config)
 
         self.dataset = self.config.get("dataset.name")
+        self.train_loader: torch.utils.data.DataLoader = None
+        self.valid_loader: torch.utils.data.DataLoader = None
+
+        self.sampler: NegativeSampler = None
+
+        self.loss: Loss = None
+
+        self.optimizer: torch.optim.optimizer.Optimizer = None
+        self.lr_scheduler = None
+        self.evaluation: Evaluation = None
+
+        # self.train_bs = self.config.get("train.batch_size")
+        # self.valid_bs = self.config.get("train.valid.batch_size")
+        # self.datatype = (['timestamp_id'] if self.config.get("dataset.temporal.index") else []) + (
+        #     ['timestamp_float'] if self.config.get("dataset.temporal.float") else [])
+
+        self.device = self.config.get("task.device")
+
+    def _prepare(self):
+        pass
+
+    def main(self):
+        fusion: Dict[str, Dict] = self.config.get("search.fusion")
+        transformation: Dict[str, Dict] = self.config.get("search.transformation")
+
+        # TODO(gengyuan) use a context manager for logging and model configuration
+        for f_k, f_v in fusion.items():
+            for t_k, t_v in transformation.items():
+
+                with LocalConfig(self.config, fusion=f_k, transformation=t_k) as local_config:
+                    # constrain the embedding space based on the fusion and transformation types
+                    target = local_config.get('fusion.target')
+
+                    in_fusion_constraints, out_fusion_constraints = TemporalFusion.by_name(f_k).embedding_constraints()
+                    in_tf_constraints = Transformation.by_name(t_k).embedding_constraints()
+
+                    # Currently only support temporal encoded to either ent or rel
+                    if 'ent+temp' in target:
+                        ent_keys = in_fusion_constraints['operand1']
+                        temp_keys = in_fusion_constraints['operand2']
+
+                        fused_ent_keys = out_fusion_constraints['result']
+
+                        if fused_ent_keys != in_tf_constraints['entity']:
+                            # end this loop
+                            continue
+                        rel_keys = in_tf_constraints['relation']
+
+                    if 'rel+temp' in target:
+                        rel_keys = in_fusion_constraints['operand1']
+                        temp_keys = in_fusion_constraints['operand2']
+
+                        fused_rel_keys = out_fusion_constraints['result']
+
+                        if fused_rel_keys != in_tf_constraints['relation']:
+                            # end this loop
+                            continue
+                        ent_keys = in_tf_constraints['entity']
+
+                    # update the local config file:
+                    # dataset
+                    # embedding
+
+                    # create a new pipeline model
+
+
+                    # save the model and all the metadata
+
+                    # close the model
+
+
+    def dep__init__(self, config: Config):
+        super(SearchTask, self).__init__(config=config)
+
+        self.dataset = self.config.get("dataset.name")
         self.test_loader = None
         self.sampler = None
         self.model = None
@@ -50,7 +130,7 @@ class SearchTask(Task):
 
         self.test()
 
-    def _prepare(self):
+    def dep_prepare(self):
         self.config.log(f"Preparing datasets {self.dataset} in folder {self.config.get('dataset.folder')}")
         self.dataset = DatasetProcessor.create(config=self.config)
 
@@ -78,7 +158,7 @@ class SearchTask(Task):
         self.config.log(f"Initializing evaluation")
         self.evaluation = Evaluation(config=self.config, dataset=self.dataset)
 
-    def test(self):
+    def dep_test(self):
         self.config.log("BEGIN TESTING")
 
         with torch.no_grad():

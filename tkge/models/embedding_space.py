@@ -12,7 +12,7 @@ from tkge.train.regularization import Regularizer
 from tkge.models.embedding import *
 
 
-class EmbeddingSpace(Registrable, nn.Module):
+class EmbeddingSpace(nn.Module, Registrable, Configurable):
     r"""EmbeddingSpace retrieves embeddings by index from a bundle of heterogeneous embeddings.
 
     Args:
@@ -27,9 +27,10 @@ class EmbeddingSpace(Registrable, nn.Module):
         temporal:
     """
 
-    def __init__(self):
-        Registrable.__init__()
-        nn.Module.__init__()
+    def __init__(self, config):
+        nn.Module.__init__(self)
+        Registrable.__init__(self)
+        Configurable.__init__(self, config=config)
 
         self._entity: EntityEmbedding = None
         self._relation: RelationEmbedding = None
@@ -52,14 +53,12 @@ class EmbeddingSpace(Registrable, nn.Module):
         """
         raise NotImplementedError
 
-
     @classmethod
     def from_params(cls, **params) -> 'EmbeddingSpace':
         r"""Creates new EmbeddingSpace defined by params
 
         """
         raise NotImplementedError
-
 
     @property
     def entity(self):
@@ -97,7 +96,8 @@ class EmbeddingSpace(Registrable, nn.Module):
         args:
             index_inputs (torch.LongTensor): organized as SPOT
         """
-        return {'s': self.get_ent_emb(index_inputs, 'head'), 'p': self.get_rel_emb(index_inputs), 'o': self.get_ent_emb(index_inputs, 'tail'), 't': self.get_temp_emb(index_inputs)}
+        return {'s': self.get_ent_emb(index_inputs, 'head'), 'p': self.get_rel_emb(index_inputs),
+                'o': self.get_ent_emb(index_inputs, 'tail'), 't': self.get_temp_emb(index_inputs)}
 
 
 @EmbeddingSpace.register(name='static_embedding_space')

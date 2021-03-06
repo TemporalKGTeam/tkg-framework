@@ -27,8 +27,6 @@ class BaseModel(ABC, nn.Module, Registrable, Configurable):
 
     @staticmethod
     def create(config: Config, dataset: DatasetProcessor):
-        """Factory method for sampler creation"""
-
         model_type = config.get("model.type")
         kwargs = config.get("model.args")
 
