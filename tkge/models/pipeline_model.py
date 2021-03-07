@@ -39,6 +39,8 @@ class PipelineModel(BaseModel):
 
         self._fusion_operand: List = []
 
+        self._inverse_scorer = self.config.get("model.scorer.inverse")
+
         # import pprint
         #
         # pprint.pprint({n: p.size() for n, p in self.named_parameters()})
@@ -65,14 +67,20 @@ class PipelineModel(BaseModel):
             temp.update(self._temporal_embeddings(temp_index.long()))
 
         if self.config.get('dataset.temporal.float'):
-            temp_float = samples[:, 3:-1]
+            temp_float = samples[:, 3:-1] if self.config.get('dataset.temporal.index') else samples[:, 3:]
             for i in range(temp_float.size(1)):
-                temp.update({f"level{i}": temp_float[:, i]})
+                temp.update({f"level{i}": temp_float[:, i:i+1]})
 
         spot_emb = {'s': self._entity_embeddings(head, 'head'),
-                    'p': self._relation_embeddings(rel),
+                    'p': self._relation_embeddings(rel, inverse_relation=False),
                     'o': self._entity_embeddings(tail, 'tail'),
                     't': temp}
+
+        if self._inverse_scorer:
+            spot_emb_inv = {'s': self._entity_embeddings(tail, 'head'),
+                            'p': self._relation_embeddings(rel, inverse_relation=True),
+                            'o': self._entity_embeddings(head, 'tail'),
+                            't': temp}
 
         # fusion
 
@@ -82,6 +90,24 @@ class PipelineModel(BaseModel):
         #  'o': embeddings of tail embeddings}
 
         fuse_target: List = self.config.get('model.fusion.target')
+        fused_spo_emb = self._fuse(spot_emb, fuse_target)
+
+        if self._inverse_scorer:
+            fused_spo_emb_inv = self._fuse(spot_emb_inv, fuse_target)
+
+        # transformation
+        # scores are vectors of input sample size
+
+        scores = self._transformation(fused_spo_emb['s'], fused_spo_emb['p'], fused_spo_emb['o'])
+
+        if self._inverse_scorer:
+            scores_inv = self._transformation(fused_spo_emb_inv['s'], fused_spo_emb_inv['p'], fused_spo_emb_inv['o'])
+
+            scores = (scores + scores_inv) / 2
+
+        return scores, None
+
+    def _fuse(self, spot_emb, fuse_target):
         fused_spo_emb = dict()
         if 'ent+temp' in fuse_target:
             fused_spo_emb['s'] = self._fusion(spot_emb['s'], spot_emb['t'])
@@ -89,18 +115,11 @@ class PipelineModel(BaseModel):
         else:
             fused_spo_emb['s'] = spot_emb['s']
             fused_spo_emb['o'] = spot_emb['o']
-
         if 'rel+temp' in fuse_target:
             fused_spo_emb['p'] = self._fusion(spot_emb['p'], spot_emb['t'])
         else:
             fused_spo_emb['p'] = spot_emb['p']
-
-        # transformation
-        # scores are vectors of input sample size
-
-        scores = self._transformation(fused_spo_emb['s'], fused_spo_emb['p'], fused_spo_emb['o'])
-
-        return scores, None
+        return fused_spo_emb
 
     def predict(self, queries: torch.Tensor):
         assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."

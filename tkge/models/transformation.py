@@ -127,10 +127,10 @@ class DistMult(Transformation):
     def __init__(self, config):
         super(DistMult, self).__init__(config=config)
 
-        self.dropout = config.get('dropout')
+        # self.dropout = config.get('dropout')
 
     def forward(self, head, rel, tail, summation='True'):
-        scores = head * rel * tail
+        scores = head['real'] * rel['real'] * tail['real']
 
         if summation:
             scores = scores.sum(dim=-1)

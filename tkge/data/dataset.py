@@ -29,7 +29,7 @@ class DatasetProcessor(ABC, Registrable, Configurable):
         self.index = self.config.get("dataset.temporal.index")
         self.float = self.config.get("dataset.temporal.float")
 
-        self.reciprocal_training = self.config.get("task.reciprocal_relation")
+        self.reciprocal_training = self.config.get("task.reciprocal_training")
         # self.filter_method = self.config.get("data.filter")
 
         self.train_raw: List[str] = []

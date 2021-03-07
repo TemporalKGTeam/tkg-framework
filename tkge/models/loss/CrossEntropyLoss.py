@@ -2,7 +2,6 @@ from tkge.models.loss import Loss
 from tkge.common.config import Config
 from tkge.common.paramtype import *
 
-
 import torch
 
 
@@ -33,8 +32,8 @@ class CrossEntropyLoss(Loss):
 
         # TODO(gengyuan) make sure each row has one and only one label
 
-        if labels.dim()!=1:
-            labels = labels.nonzero()
+        if labels.dim() != 1:
+            labels = torch.nonzero(labels)
             labels = labels[:, 1]
         else:
             labels = labels.long()

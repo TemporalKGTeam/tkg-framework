@@ -37,8 +37,14 @@ class BaseEmbedding(ABC, nn.Module, Configurable):
     # def embedding_dim(self):
     #     return self.weight.size(1)
 
-    def norm(self):
-        pass
+    def initialize(self, type):
+        init_dict = {
+            'xavier_uniform': nn.init.xavier_uniform_,
+            'xavier_normal': nn.init.xavier_normal_
+        }
+
+        return init_dict[type]
+
 
 
 class EntityEmbedding(BaseEmbedding):
@@ -65,28 +71,33 @@ class EntityEmbedding(BaseEmbedding):
     def register_embedding(self):
         for k in self.config.get('model.embedding.entity.keys'):
             self._head[k] = nn.Embedding(num_embeddings=self.dataset.num_entities(),
-                                         embedding_dim=self.config.get(f"model.embedding.entity.keys.{k}"))
+                                         embedding_dim=self.config.get(f"model.embedding.entity.keys.{k}.dim"))
+            self.initialize(self.config.get(f"model.embedding.entity.keys.{k}.init"))(self._head[k].weight)
+
 
             if self._pos_aware:
                 self._tail[k] = nn.Embedding(num_embeddings=self.dataset.num_entities(),
-                                             embedding_dim=self.config.get(f"model.embedding.entity.keys.{k}"))
+                                             embedding_dim=self.config.get(f"model.embedding.entity.keys.{k}.dim"))
+                self.initialize(self.config.get(f"model.embedding.entity.keys.{k}.init"))(self._tail[k].weight)
 
             self._head = nn.ModuleDict(self._head)
             self._tail = nn.ModuleDict(self._tail)
 
-    def __call__(self, index:torch.Tensor, pos:str):
+    def __call__(self, index: torch.Tensor, pos: str):
         assert pos in ['head', 'tail'], f"pos should be either head or tail"
 
-        if pos=='head':
+        if pos == 'head':
             return {k: v(index) for k, v in self._head.items()}
         else:
             return {k: v(index) for k, v in self._tail.items()}
+
 
 class RelationEmbedding(BaseEmbedding):
     def __init__(self, config: Config, dataset: DatasetProcessor):
         super(RelationEmbedding, self).__init__(config=config, dataset=dataset)
 
         self._relation = {}
+        self._inverse_relation = {}
 
         self.register_embedding()
 
@@ -94,19 +105,34 @@ class RelationEmbedding(BaseEmbedding):
     def relation(self):
         return self._relation
 
+    @property
+    def inverse_relation(self):
+        return self._relation
+
     def register_embedding(self):
+        num_emb = self.dataset.num_relations() // 2 if self.config.get(
+            'task.reciprocal_training') else self.dataset.num_relations()
+        num_emb = num_emb * 2 if self.config.get("model.scorer.inverse") or self.config.get(
+            "task.reciprocal_training") else num_emb
+
         for k in self.config.get('model.embedding.relation.keys'):
-            self._relation[k] = nn.Embedding(num_embeddings=self.dataset.num_relations(),
-                                         embedding_dim=self.config.get(f"model.embedding.relation.keys.{k}"))
+            self._relation[k] = nn.Embedding(num_embeddings=num_emb,
+                                             embedding_dim=self.config.get(f"model.embedding.relation.keys.{k}.dim"))
+
+            self.initialize(self.config.get(f"model.embedding.relation.keys.{k}.init"))(self._relation[k].weight)
 
         self._relation = nn.ModuleDict(self._relation)
+        self._num_emb = num_emb
 
-
-    def __call__(self, index: torch.Tensor):
-        return {k: v(index) for k, v in self._relation.items()}
-
-
-
+    def __call__(self, index: torch.Tensor, inverse_relation: bool = False):
+        if not inverse_relation:
+            return {k: v(index) for k, v in self._relation.items()}
+        else:
+            if not self.config.get("model.scorer.inverse"):
+                raise NotImplementedError('Inverse relations are disabled')
+            else:
+                inv_index = index - index % 2 + (index + 1) % 2
+                return {k: v((inv_index)) for k, v in self._relation.items()}
 
 
 class TemporalEmbedding(BaseEmbedding):
@@ -120,20 +146,14 @@ class TemporalEmbedding(BaseEmbedding):
     def register_embedding(self):
         for k in self.config.get('model.embedding.temporal.keys'):
             self._temporal[k] = nn.Embedding(num_embeddings=self.dataset.num_timestamps(),
-                                             embedding_dim=self.config.get(f"model.embedding.temporal.keys.{k}"))
+                                             embedding_dim=self.config.get(f"model.embedding.temporal.keys.{k}.dim"))
+            self.initialize(self.config.get(f"model.embedding.temporal.keys.{k}.init"))(self._temporal[k].weight)
+
 
         self._temporal = nn.ModuleDict(self._temporal)
 
     def __call__(self, index: torch.Tensor):
         return {k: v(index) for k, v in self._temporal.items()}
-
-
-
-
-
-
-
-
 
 # class EntityEmbedding(BaseEmbedding):
 #     def __init__(self, num: int, dim: int, pos_aware: bool = False, interleave: bool = False,

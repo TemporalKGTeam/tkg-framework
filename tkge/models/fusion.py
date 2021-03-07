@@ -172,6 +172,12 @@ class HiddenRepresentationCombination(TemporalFusion):
 
 @TemporalFusion.register(name="diachronic_entity_fusion")
 class DiachronicEntityFusion(HiddenRepresentationCombination):
+    def __init__(self, config: Config):
+        super(DiachronicEntityFusion, self).__init__(config=config)
+
+        self.time_nl = torch.sin
+
+
     def forward(self, operand1, operand2):
         """
         operand1 are entity embedding
@@ -179,22 +185,27 @@ class DiachronicEntityFusion(HiddenRepresentationCombination):
 
         return a batch_size * dim embedding
         """
-        time_emb = operand1['y_amps_h'] * self.time_nl(
-            operand1['y_freq_h'] * operand2['year'] + operand1['y_phi_h'])
-        time_emb += operand1['m_amps_h'] * self.time_nl(
-            operand1['m_freq_h'] * operand2['month'] + operand1['m_phi_h'])
-        time_emb += operand1['d_amps_h'] * self.time_nl(
-            operand1['d_freq_h'] * operand2['day'] + operand1['d_phi_h'])
+        import pprint
+        pprint.pprint({k:v.size() for k, v in operand1.items()})
+        pprint.pprint({k:v.size() for k, v in operand2.items()})
+
+        time_emb = operand1['amps_y'] * self.time_nl(
+            operand1['freq_y'] * operand2['level0'] + operand1['phi_y'])
+        time_emb += operand1['amps_m'] * self.time_nl(
+            operand1['freq_m'] * operand2['level1'] + operand1['phi_m'])
+        time_emb += operand1['amps_d'] * self.time_nl(
+            operand1['freq_d'] * operand2['level2'] + operand1['phi_d'])
 
         emb = torch.cat((operand1['ent_embs'], time_emb), 1)
+        res = {'real': emb}
 
-        return emb
+        return res
 
     @staticmethod
     def embedding_constraint():
         in_constraints = {
-            'operand1': ['ent_embs', 'amp_y', 'amp_m', 'amp_d', 'freq_y', 'freq_m', 'freq_d', 'phas_y', 'phas_m',
-                         'phas_d'],
+            'operand1': ['ent_embs', 'amps_y', 'amps_m', 'amps_d', 'freq_y', 'freq_m', 'freq_d', 'phi_y', 'phi_m',
+                         'phi_d'],
             'operand2': ['year', 'month', 'day']}
 
         out_constraints = {'result': ['real']}
