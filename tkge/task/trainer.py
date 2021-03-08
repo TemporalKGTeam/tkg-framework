@@ -211,7 +211,7 @@ class TrainTask(Task):
             stop = time.time()
             avg_loss = total_loss / train_size
 
-            if not self.lr_scheduler:
+            if self.lr_scheduler:
                 if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
                     self.lr_scheduler.step(avg_loss)
                 else:
