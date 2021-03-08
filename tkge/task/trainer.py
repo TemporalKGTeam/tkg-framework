@@ -18,6 +18,8 @@ from tkge.models.pipeline_model import PipelineModel
 from tkge.models.loss import Loss
 from tkge.eval.metrics import Evaluation
 
+from torch.nn import DataParallel
+
 
 class TrainTask(Task):
     @staticmethod
@@ -69,6 +71,7 @@ class TrainTask(Task):
 
         # TODO(gengyuan): passed to all modules
         self.device = self.config.get("task.device")
+        self.devices = self.config.get("task.devices")
 
         self._prepare()
 
@@ -106,7 +109,7 @@ class TrainTask(Task):
         self.onevsall_sampler = NonNegativeSampler(config=self.config, dataset=self.dataset, as_matrix=True)
 
         self.config.log(f"Creating model {self.config.get('model.type')}")
-        self.model = BaseModel.create(config=self.config, dataset=self.dataset)
+        self.model = DataParallel(BaseModel.create(config=self.config, dataset=self.dataset), device_ids=self.devices)
         self.model.to(self.device)
 
         self.config.log(f"Initializing loss function")
@@ -166,7 +169,7 @@ class TrainTask(Task):
                 samples = samples.to(self.device)
                 labels = labels.to(self.device)
 
-                scores, factors = self.model.fit(samples)
+                scores, factors = self.model.train(samples)
 
                 # TODO (gengyuan) assertion: size of scores and labels should be matched
                 assert scores.size() == labels.size(), f"Score's size {scores.shape} should match label's size {labels.shape}"
@@ -211,7 +214,7 @@ class TrainTask(Task):
             stop = time.time()
             avg_loss = total_loss / train_size
 
-            if not self.lr_scheduler:
+            if self.lr_scheduler:
                 if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
                     self.lr_scheduler.step(avg_loss)
                 else:

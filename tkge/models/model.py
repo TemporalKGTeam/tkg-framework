@@ -53,6 +53,23 @@ class BaseModel(ABC, nn.Module, Registrable, Configurable):
 
     @abstractmethod
     def forward(self, samples, **kwargs):
+        """
+        Should call the fit function first and then the forward_model function.
+        This is a workaround for using torch.nn.DataParallel because of its incompatibility
+        with custom attributes and functions.
+        There are workarounds to call custom functions like fit() (e.g. with a wrapper class of DataParallel and a
+        implementation of __getattr__()), but these result in non-parallel execution and usage of only one GPU.
+        TODO(max): Use DistributedDataParallel instead (see branch parallelization)
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def forward_model(self, samples, **kwargs):
+        """
+        Should do the classical model forwarding logic with no need to care about fitting (because its called in the
+        forward() function after the call of the fit() function.
+        TODO(max): Use DistributedDateParallel instead and call this method forward again (see branch parallelization)
+        """
         raise NotImplementedError
 
     @abstractmethod
