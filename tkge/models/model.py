@@ -806,7 +806,7 @@ class TTransEModel(BaseModel):
             emb.weight.data.renorm(p=2, dim=1, maxnorm=1)
 
     def forward(self, samples, **kwargs):
-        self.fit(samples)
+        return self.fit(samples)
 
     def fit(self, samples: torch.Tensor):
         bs = samples.size(0)
