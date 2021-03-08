@@ -845,11 +845,10 @@ class TTransEModel(BaseModel):
         assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
 
         bs = queries.size(0)
-        dim = queries.size(0)
 
         candidates = all_candidates_of_ent_queries(queries, self.dataset.num_entities())
 
-        scores, _ = self.forward(candidates)
+        scores, _ = self.forward_model(candidates)
         scores = scores.view(bs, -1)
 
         return scores
