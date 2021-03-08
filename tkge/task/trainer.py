@@ -311,7 +311,7 @@ class TrainTask(Task):
         raise NotImplementedError
 
     def save_ckpt(self, epoch):
-        model = self.config.get("model.name")
+        model = self.config.get("model.type")
         dataset = self.config.get("dataset.name")
         folder = self.config.get("train.checkpoint.folder")
         filename = f"epoch_{epoch}_model_{model}_dataset_{dataset}.ckpt"
