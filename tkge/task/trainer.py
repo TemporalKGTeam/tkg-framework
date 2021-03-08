@@ -169,7 +169,7 @@ class TrainTask(Task):
                 samples = samples.to(self.device)
                 labels = labels.to(self.device)
 
-                scores, factors = self.model.train(samples)
+                scores, factors = self.model.forward(samples)
 
                 # TODO (gengyuan) assertion: size of scores and labels should be matched
                 assert scores.size() == labels.size(), f"Score's size {scores.shape} should match label's size {labels.shape}"
