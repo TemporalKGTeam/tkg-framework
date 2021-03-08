@@ -806,6 +806,20 @@ class TTransEModel(BaseModel):
             emb.weight.data.renorm(p=2, dim=1, maxnorm=1)
 
     def forward(self, samples, **kwargs):
+        self.fit(samples)
+
+    def fit(self, samples: torch.Tensor):
+        bs = samples.size(0)
+        dim = samples.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
+
+        samples = samples.view(-1, dim)
+
+        scores, factor = self.forward_model(samples)
+        scores = scores.view(bs, -1)
+
+        return scores, factor
+
+    def forward_model(self, samples, **kwargs):
         h, r, t, tem = samples[:, 0].long(), samples[:, 1].long(), samples[:, 2].long(), samples[:, 3].long()
 
         h_e = self.embedding['ent'](h)
@@ -826,17 +840,6 @@ class TTransEModel(BaseModel):
         }
 
         return scores, factors
-
-    def fit(self, samples: torch.Tensor):
-        bs = samples.size(0)
-        dim = samples.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
-
-        samples = samples.view(-1, dim)
-
-        scores, factor = self.forward(samples)
-        scores = scores.view(bs, -1)
-
-        return scores, factor
 
     def predict(self, queries: torch.Tensor):
         assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
