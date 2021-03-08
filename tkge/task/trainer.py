@@ -318,12 +318,19 @@ class TrainTask(Task):
 
         self.config.log(f"Save the model to {folder} as file {filename}")
 
-        checkpoint = {
-            'last_epoch': epoch,
-            'state_dict': self.model.state_dict(),
-            'optimizer': self.optimizer.state_dict(),
-            'lr_scheduler': self.lr_scheduler.state_dict()
-        }
+        if self.lr_scheduler:
+            checkpoint = {
+                'last_epoch': epoch,
+                'state_dict': self.model.state_dict(),
+                'optimizer': self.optimizer.state_dict(),
+                'lr_scheduler': self.lr_scheduler.state_dict()
+            }
+        else:
+            checkpoint = {
+                'last_epoch': epoch,
+                'state_dict': self.model.state_dict(),
+                'optimizer': self.optimizer.state_dict()
+            }
 
         torch.save(checkpoint, os.path.join(folder, filename))  # os.path.join(model, dataset, folder, filename))
 
