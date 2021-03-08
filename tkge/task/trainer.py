@@ -257,11 +257,11 @@ class TrainTask(Task):
                         queries_head[:, 0] = float('nan')
                         queries_tail[:, 2] = float('nan')
 
-                        batch_scores_head = self.model.predict(queries_head)
+                        batch_scores_head = self.model.module.predict(queries_head)
                         assert list(batch_scores_head.shape) == [bs,
                                                            self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
 
-                        batch_scores_tail = self.model.predict(queries_tail)
+                        batch_scores_tail = self.model.module.predict(queries_tail)
                         assert list(batch_scores_tail.shape) == [bs,
                                                            self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
 
