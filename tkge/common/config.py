@@ -6,6 +6,7 @@ import os
 import sys
 import re
 from enum import Enum
+from datetime import datetime
 import datetime
 import time
 import uuid
@@ -30,6 +31,7 @@ class Config:
         self.folder = self.get("train.checkpoint.folder")  # main folder (config file, checkpoints, ...)
         self.log_folder = self.get("console.folder")  # None means use self.folder; used for kge.log, trace.yaml
         self.log_prefix: str = None
+        self.start_time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
 
     @classmethod
     def create_from_yaml(cls, filepath: str):
@@ -318,12 +320,12 @@ class Config:
         return value
 
     def logdir(self) -> str:
-        folder = self.log_folder if self.log_folder else self.folder
+        overall_folder = self.log_folder if self.log_folder else self.folder
+        folder = os.path.join(overall_folder, self.get("model.type"))
         return folder
 
     def logfile(self) -> str:
-        folder = self.log_folder if self.log_folder else self.folder
-        return os.path.join(folder, "kge.log")
+        return os.path.join(self.logdir(), f"{self.train_config_name(epoch=0)}_started_{self.start_time}.log")
 
     def tracefile(self) -> str:
         folder = self.log_folder if self.log_folder else self.folder
