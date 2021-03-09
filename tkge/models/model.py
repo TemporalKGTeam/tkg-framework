@@ -321,14 +321,14 @@ class TComplExModel(BaseModel):
         for emb in self.embeddings:
             emb.weight.data *= self.init_size
 
-    def forward(self, x):
-        """
-        x is spot
-        """
-        lhs = self.embeddings[0](x[:, 0].long())
-        rel = self.embeddings[1](x[:, 1].long())
-        rhs = self.embeddings[0](x[:, 2].long())
-        time = self.embeddings[2](x[:, 3].long())
+    def forward(self, samples, **kwargs):
+        return self.fit(samples)
+
+    def forward_model(self, samples: torch.Tensor, **kwargs):
+        lhs = self.embeddings[0](samples[:, 0].long())
+        rel = self.embeddings[1](samples[:, 1].long())
+        rhs = self.embeddings[0](samples[:, 2].long())
+        time = self.embeddings[2](samples[:, 3].long())
 
         lhs = lhs[:, :self.rank], lhs[:, self.rank:]
         rel = rel[:, :self.rank], rel[:, self.rank:]
@@ -355,6 +355,10 @@ class TComplExModel(BaseModel):
         }
 
         return scores, factors
+
+    def fit(self, samples: torch.Tensor):
+        # TODO fit the samples
+        return self.forward_model(samples)
 
     def predict(self, x):
         assert torch.isnan(x).sum(1).byte().all(), "Either head or tail should be absent."
