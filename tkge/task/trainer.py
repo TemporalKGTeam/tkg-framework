@@ -211,7 +211,7 @@ class TrainTask(Task):
             stop = time.time()
             avg_loss = total_loss / train_size
 
-            if not self.lr_scheduler:
+            if self.lr_scheduler:
                 if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
                     self.lr_scheduler.step(avg_loss)
                 else:
@@ -309,7 +309,7 @@ class TrainTask(Task):
 
     def save_ckpt(self, epoch):
         overall_ckpt_folder = self.config.get("train.checkpoint.folder")
-        ckpt_folder = os.path.join(overall_ckpt_folder, self.config.get("model.name"))
+        ckpt_folder = os.path.join(overall_ckpt_folder, self.config.get("model.type"))
         filename = f"{self.config.train_config_name(epoch)}.ckpt"
 
         self.config.log(f"Save the model to {ckpt_folder} as file {filename}")
