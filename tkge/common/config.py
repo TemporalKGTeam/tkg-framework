@@ -26,6 +26,7 @@ class Config:
     def __init__(self, options: Dict[str, Any]):
         self.options = options
 
+        self.file = self.get("file")
         self.folder = self.get("train.checkpoint.folder")  # main folder (config file, checkpoints, ...)
         self.log_folder = self.get("console.folder")  # None means use self.folder; used for kge.log, trace.yaml
         self.log_prefix: str = None
@@ -34,6 +35,8 @@ class Config:
     def create_from_yaml(cls, filepath: str):
         with open(filepath, "r") as file:
             options: Dict[str, Any] = yaml.load(file, Loader=yaml.SafeLoader)
+
+        options["file"] = filepath
 
         return cls(options=options)
 
@@ -332,7 +335,7 @@ class Config:
         """
         model = self.get("model.type")
         dataset = self.get("dataset.name")
-        config = self.folder[:-5]
+        config = self.file[:-5]
 
         epoch_prefix = f"epoch_{epoch}_"
         config_name = f"model_{model}_dataset_{dataset}_config_{config}"
