@@ -255,6 +255,9 @@ class DeSimplEModel(BaseModel):
         return h_emb1, r_emb1, t_emb1, h_emb2, r_emb2, t_emb2
 
     def forward(self, samples, **kwargs):
+        return self.fit(samples)
+
+    def forward_model(self, samples, **kwargs):
         head = samples[:, 0].long()
         rel = samples[:, 1].long()
         tail = samples[:, 2].long()
@@ -278,7 +281,7 @@ class DeSimplEModel(BaseModel):
 
         samples = samples.view(-1, dim)
 
-        scores, factor = self.forward(samples)
+        scores, factor = self.forward_model(samples)
         scores = scores.view(bs, -1)
 
         return scores, factor
@@ -291,7 +294,7 @@ class DeSimplEModel(BaseModel):
 
         candidates = all_candidates_of_ent_queries(queries, self.dataset.num_entities())
 
-        scores, _ = self.forward(candidates)
+        scores, _ = self.forward_model(candidates)
         scores = scores.view(bs, -1)
 
         return scores
