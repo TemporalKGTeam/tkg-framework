@@ -86,7 +86,7 @@ class BaseModel(ABC, nn.Module, Registrable, Configurable):
         # TODO(gengyuan): wrapping all the models
         """
         Should be a wrapper of forward or a computation flow same as that in forward.
-        This method is intended to handle arbitrarily-shaped samples due to negative sampling, either matrix or flatteded.
+        This method is intended to handle arbitrarily-shaped samples due to negative sampling, either matrix or flattened.
         Especially when training procedure and prediction procedure are different.
         Samples should be processed in this method and then passed to forward.
         Input samples are the direct output of the negative sampling.
@@ -411,7 +411,15 @@ class HyTEModel(BaseModel):
         super().__init__(config, dataset)
 
     def forward(self, samples: torch.Tensor, **kwargs):
+        # TODO wrapper for fit (see other models)
+        raise NotImplementedError
+
+    def forward_model(self, samples, **kwargs):
         # TODO remember to negate the scores with torch.neg(scores)
+        raise NotImplementedError
+
+    def fit(self, samples: torch.Tensor):
+        # TODO fit the samples
         raise NotImplementedError
 
 
