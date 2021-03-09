@@ -6,7 +6,6 @@ import os
 import sys
 import re
 from enum import Enum
-from datetime import datetime
 import datetime
 import time
 import uuid
