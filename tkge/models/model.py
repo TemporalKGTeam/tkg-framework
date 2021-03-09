@@ -471,7 +471,10 @@ class ATiSEModel(BaseModel):
         self.embedding['emb_TE'].weight.data.renorm_(p=2, dim=0, maxnorm=1)
         self.embedding['emb_TR'].weight.data.renorm_(p=2, dim=0, maxnorm=1)
 
-    def forward(self, sample: torch.Tensor):
+    def forward(self, sample: torch.Tensor, **kwargs):
+        return self.fit(sample)
+
+    def forward_model(self, sample: torch.Tensor, **kwargs):
         bs = sample.size(0)
         # TODO(gengyuan)
         dim = sample.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
@@ -523,11 +526,17 @@ class ATiSEModel(BaseModel):
 
         return scores, factors
 
+    def fit(self, samples: torch.Tensor):
+        # TODO seems like fit logic is currently implemented at the beginning of forward_model
+        return self.forward_model(samples)
+
+
     # TODO(gengyaun):
     # walkaround
     def predict(self, sample: torch.Tensor):
         bs = sample.size(0)
         # TODO(gengyuan)
+        # TODO since parallelization a RuntimeError occurs here, I don't know why (maybe that's why there's your TODO)
         dim = sample.size(1) // (self.dataset.num_entities())
         sample = sample.view(-1, dim)
 
