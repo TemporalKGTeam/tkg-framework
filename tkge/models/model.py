@@ -631,7 +631,10 @@ class TATransEModel(BaseModel):
 
         return rseq_e
 
-    def forward(self, samples: torch.Tensor):
+    def forward(self, samples: torch.Tensor, **kwargs):
+        return self.fit(samples)
+
+    def forward_model(self, samples: torch.Tensor, **kwargs):
         h, r, t, tem = samples[:, 0].long(), samples[:, 1].long(), samples[:, 2].long(), samples[:, 3:].long()
 
         h_e = self.embedding['ent'](h)
@@ -661,7 +664,7 @@ class TATransEModel(BaseModel):
 
         samples = samples.view(-1, dim)
 
-        scores, factor = self.forward(samples)
+        scores, factor = self.forward_model(samples)
         scores = scores.view(bs, -1)
 
         return scores, factor
@@ -674,7 +677,7 @@ class TATransEModel(BaseModel):
 
         candidates = all_candidates_of_ent_queries(queries, self.dataset.num_entities())
 
-        scores, _ = self.forward(candidates)
+        scores, _ = self.forward_model(candidates)
         scores = scores.view(bs, -1)
 
         return scores
