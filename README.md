@@ -85,7 +85,7 @@ console:
   execution_dir: ~
 ```
 If you execute a train task with a given configuration for the first time, you'll find the results in:<br><br>
-`path/to/<execution_directory>/<execution-type>/<model-type>/<execution-id>/log`
+`path/to/<execution_directory>/<execution-type>/<model-type>/<execution-id>/log`<br>
 `path/to/<execution_directory>/<execution-type>/<model-type>/<execution-id>/ckpt`
 - `<execution-directory>` is the specified (or default) execution directory.
 - `<execution-type>` is the specified task (train, eval, search).
