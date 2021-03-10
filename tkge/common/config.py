@@ -26,11 +26,15 @@ class Config:
     def __init__(self, options: Dict[str, Any]):
         self.options = options
 
-        self.file = self.get("file")
-        self.folder = self.get("train.checkpoint.folder")  # main folder (config file, checkpoints, ...)
-        self.log_folder = self.get("console.folder")  # None means use self.folder; used for kge.log, trace.yaml
-        self.log_prefix: str = None
+        self.config_file = self.get("file")
+        self.execution_dir = self.get("console.execution_dir") if self.get("console.execution_dir") else "./execution"
+        self.execution_id = self.next_execution_id()
+        self.log_folder = os.path.join(self.execution_dir, self.get("task.type"), self.get("model.type"),
+                                       self.config_file[:-5], "exec-" + str(self.execution_id), "log")
+        self.ckpt_folder = os.path.join(self.execution_dir, self.get("task.type"), self.get("model.type"),
+                                        self.config_file[:-5], "exec-" + str(self.execution_id), "ckpt")
         self.start_time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        self.log_file = os.path.join(self.log_folder, f"{self.start_time}.log")
 
     @classmethod
     def create_from_yaml(cls, filepath: str):
@@ -185,15 +189,13 @@ class Config:
         output line.
 
         """
-        if not os.path.exists(self.logdir()):
-            os.makedirs(self.logdir(), 0o700)
+        if not os.path.exists(self.log_folder):
+            os.makedirs(self.log_folder, 0o700)
 
-        with open(self.logfile(), "a") as file:
+        with open(self.log_file, "a") as file:
             for line in msg.splitlines():
                 if prefix:
                     line = prefix + line
-                if self.log_prefix:
-                    line = self.log_prefix + line
                 if echo:
                     print(line)
                 file.write(str(datetime.datetime.now()) + " " + line + "\n")
@@ -222,7 +224,7 @@ class Config:
                     if echo_prefix:
                         line = echo_prefix + line
                         print(line)
-        with open(self.tracefile(), "a") as file:
+        with open(os.path.join(self.log_folder, "trace.yaml"), "a") as file:
             file.write(line + "\n")
         return kwargs
 
@@ -235,10 +237,10 @@ class Config:
         there and return ``True``. Else do nothing and return ``False``.
 
         """
-        if not os.path.exists(self.folder):
-            os.makedirs(self.folder)
-            os.makedirs(os.path.join(self.folder, "config"))
-            self.save(os.path.join(self.folder, "config.yaml"))
+        if not os.path.exists(self.execution_dir):
+            os.makedirs(self.execution_dir)
+            os.makedirs(os.path.join(self.execution_dir, "config"))
+            self.save(os.path.join(self.execution_dir, "config.yaml"))
             return True
         return False
 
@@ -247,9 +249,9 @@ class Config:
         from tkge.common.misc import is_number
 
         if is_number(cpt_id, int):
-            return os.path.join(self.folder, "checkpoint_{:05d}.pt".format(int(cpt_id)))
+            return os.path.join(self.execution_dir, "checkpoint_{:05d}.pt".format(int(cpt_id)))
         else:
-            return os.path.join(self.folder, "checkpoint_{}.pt".format(cpt_id))
+            return os.path.join(self.execution_dir, "checkpoint_{}.pt".format(cpt_id))
 
     def last_checkpoint(self) -> Optional[int]:
         """Returns epoch number of latest checkpoint"""
@@ -318,30 +320,18 @@ class Config:
             )
         return value
 
-    def logdir(self) -> str:
-        overall_folder = self.log_folder if self.log_folder else self.folder
-        folder = os.path.join(overall_folder, self.get("model.type"))
-        return folder
+    def next_execution_id(self) -> int:
+        # Lookup for latest/greatest id (suffix of folder name) in the corresponding target directory
+        # TODO(max) handle resumption of training, i.e. get the corresponding id of the training to resume
+        target = os.path.join(self.execution_dir, self.get("task.type"), self.get("model.type"), self.config_file[:-5])
 
-    def logfile(self) -> str:
-        return os.path.join(self.logdir(), f"{self.train_config_name(epoch=0)}_started_{self.start_time}.log")
+        if not os.path.exists(target):
+            return 1
 
-    def tracefile(self) -> str:
-        folder = self.log_folder if self.log_folder else self.folder
-        return os.path.join(folder, "trace.yaml")
+        folders = [folder for folder in os.listdir(target)]
+        ids = [int(re.findall(r'\d+', str(folder))[-1]) for folder in folders]
 
-    def train_config_name(self, epoch=0) -> str:
-        """
-        Returns an unique config name with the epoch prefix if epoch is given greater than 0.
-        """
-        model = self.get("model.type")
-        dataset = self.get("dataset.name")
-        config = self.file[:-5]
-
-        epoch_prefix = f"epoch_{epoch}_"
-        config_name = f"model_{model}_dataset_{dataset}_config_{config}"
-
-        return epoch_prefix + config_name if epoch > 0 else config_name
+        return max(ids) + 1
 
 
 # class Config:

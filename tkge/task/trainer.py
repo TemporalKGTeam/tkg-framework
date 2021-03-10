@@ -308,11 +308,8 @@ class TrainTask(Task):
         raise NotImplementedError
 
     def save_ckpt(self, epoch):
-        overall_ckpt_folder = self.config.get("train.checkpoint.folder")
-        ckpt_folder = os.path.join(overall_ckpt_folder, self.config.get("model.type"))
-        filename = f"{self.config.train_config_name(epoch)}.ckpt"
-
-        self.config.log(f"Save the model to {ckpt_folder} as file {filename}")
+        filename = f"epoch-{epoch}.ckpt"
+        self.config.log(f"Save the model to {self.config.ckpt_folder} as file {filename}")
 
         if self.lr_scheduler:
             checkpoint = {
@@ -328,10 +325,10 @@ class TrainTask(Task):
                 'optimizer': self.optimizer.state_dict()
             }
 
-        if not os.path.exists(ckpt_folder):
-            os.makedirs(ckpt_folder, 0o700)
+        if not os.path.exists(self.config.ckpt_folder):
+            os.makedirs(self.config.ckpt_folder, 0o700)
 
-        torch.save(checkpoint, os.path.join(ckpt_folder, filename))  # os.path.join(model, dataset, folder, filename))
+        torch.save(checkpoint, os.path.join(self.config.ckpt_folder, filename))  # os.path.join(model, dataset, folder, filename))
 
     def load_ckpt(self, ckpt_path):
         raise NotImplementedError
