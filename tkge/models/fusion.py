@@ -185,9 +185,6 @@ class DiachronicEntityFusion(HiddenRepresentationCombination):
 
         return a batch_size * dim embedding
         """
-        import pprint
-        pprint.pprint({k:v.size() for k, v in operand1.items()})
-        pprint.pprint({k:v.size() for k, v in operand2.items()})
 
         time_emb = operand1['amps_y'] * self.time_nl(
             operand1['freq_y'] * operand2['level0'] + operand1['phi_y'])

@@ -90,6 +90,7 @@ class PipelineModel(BaseModel):
         #  'o': embeddings of tail embeddings}
 
         fuse_target: List = self.config.get('model.fusion.target')
+
         fused_spo_emb = self._fuse(spot_emb, fuse_target)
 
         if self._inverse_scorer:

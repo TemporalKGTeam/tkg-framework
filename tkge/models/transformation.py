@@ -79,8 +79,8 @@ class RotationTransformation(Transformation):
     def __init__(self, config):
         super(RotationTransformation, self).__init__(config=config)
 
-        self.gamma = self.config.get('gamma')
-        self.range = self.config.get('range')
+        self.gamma = self.config.get('model.transformation.gamma')
+        self.range = self.config.get('model.transformation.range')
 
     def forward(self, head: Dict[str, torch.Tensor], rel: Dict[str, torch.Tensor], tail: Dict[str, torch.Tensor]):
         """
@@ -150,7 +150,7 @@ class ComplexFactorizationTransformation(Transformation):
     def __init__(self, config):
         super(ComplexFactorizationTransformation, self).__init__(config=config)
 
-        self.flatten = config.get('flatten')
+        self.flatten = True
 
     def _forward(self, input: Dict):
         assert 'head' in input
@@ -164,14 +164,14 @@ class ComplexFactorizationTransformation(Transformation):
         assert isinstance(U, dict)
         assert isinstance(V, dict)
         assert isinstance(W, dict)
-
-        assert ['real', 'imag'] in U.keys()
-        assert ['real', 'imag'] in V.keys()
-        assert ['real', 'imag'] in W.keys()
+        #
+        # assert ['real', 'imag'] in U.keys()
+        # assert ['real', 'imag'] in V.keys()
+        # assert ['real', 'imag'] in W.keys()
 
         if self.flatten:
-            scores = (U['real'] * V['real'] - U['imag'] * V['imag']) * W['real'].t() + \
-                     (U['imag'] * V['real'] + U['real'] * V['imag']) * W['imag'].t()
+            scores = (U['real'] * V['real'] - U['imag'] * V['imag']) * W['real'] + \
+                     (U['imag'] * V['real'] + U['real'] * V['imag']) * W['imag']
 
         else:
             scores = (U['real'] * V['real'] - U['imag'] * V['imag']) @ W['real'].t() + \

@@ -211,7 +211,7 @@ class TrainTask(Task):
             stop = time.time()
             avg_loss = total_loss / train_size
 
-            if not self.lr_scheduler:
+            if self.lr_scheduler:
                 if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
                     self.lr_scheduler.step(avg_loss)
                 else:
@@ -236,14 +236,12 @@ class TrainTask(Task):
                         bs = batch.size(0)
                         dim = batch.size(1)
 
-
                         batch = batch.to(self.device)
 
                         counter += bs
 
                         queries_head = batch.clone()[:, :-1]
                         queries_tail = batch.clone()[:, :-1]
-
 
                         # samples_head, _ = self.onevsall_sampler.sample(queries, "head")
                         # samples_tail, _ = self.onevsall_sampler.sample(queries, "tail")
@@ -256,11 +254,11 @@ class TrainTask(Task):
 
                         batch_scores_head = self.model.predict(queries_head)
                         assert list(batch_scores_head.shape) == [bs,
-                                                           self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
+                                                                 self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
 
                         batch_scores_tail = self.model.predict(queries_tail)
                         assert list(batch_scores_tail.shape) == [bs,
-                                                           self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
+                                                                 self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
 
                         # TODO (gengyuan): reimplement ATISE eval
 
@@ -299,8 +297,12 @@ class TrainTask(Task):
                         for key in metrics[pos].keys():
                             metrics[pos][key] /= counter
 
+                    avg = {k: (metrics['head'][k] + metrics['tail'][k]) / 2 for k in metrics['head'].keys()}
+
                     self.config.log(f"Metrics(head prediction) in iteration {epoch} : {metrics['head'].items()}")
                     self.config.log(f"Metrics(tail prediction) in iteration {epoch} : {metrics['tail'].items()}")
+                    self.config.log(
+                        f"Metrics(both prediction) in iteration {epoch} : {avg} ")
 
     def eval(self):
         # TODO early stopping
@@ -308,10 +310,14 @@ class TrainTask(Task):
         raise NotImplementedError
 
     def save_ckpt(self, epoch):
-        model = self.config.get("model.name")
+        model = self.config.get("model.type")
         dataset = self.config.get("dataset.name")
         folder = self.config.get("train.checkpoint.folder")
         filename = f"epoch_{epoch}_model_{model}_dataset_{dataset}.ckpt"
+
+        import os
+        if not os.path.exists(folder):
+            os.makedirs(folder, exist_ok=True)
 
         self.config.log(f"Save the model to {folder} as file {filename}")
 
@@ -319,7 +325,7 @@ class TrainTask(Task):
             'last_epoch': epoch,
             'state_dict': self.model.state_dict(),
             'optimizer': self.optimizer.state_dict(),
-            'lr_scheduler': self.lr_scheduler.state_dict()
+            'lr_scheduler': self.lr_scheduler.state_dict() if self.lr_scheduler else None
         }
 
         torch.save(checkpoint, os.path.join(folder, filename))  # os.path.join(model, dataset, folder, filename))
