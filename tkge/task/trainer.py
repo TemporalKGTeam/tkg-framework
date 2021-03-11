@@ -64,8 +64,10 @@ class TrainTask(Task):
 
         self.train_bs = self.config.get("train.batch_size")
         self.valid_bs = self.config.get("train.valid.batch_size")
-        self.train_sub_bs = self.config.get("train.sub_batch_size") if self.config.get("train.sub_batch_size") else self.train_bs
-        self.valid_sub_bs = self.config.get("train.valid.sub_batch_size") if self.config.get("train.valid.sub_batch_size") else self.valid_bs
+        self.train_sub_bs = self.config.get("train.sub_batch_size") if self.config.get(
+            "train.sub_batch_size") else self.train_bs
+        self.valid_sub_bs = self.config.get("train.valid.sub_batch_size") if self.config.get(
+            "train.valid.sub_batch_size") else self.valid_bs
         self.datatype = (['timestamp_id'] if self.config.get("dataset.temporal.index") else []) + (
             ['timestamp_float'] if self.config.get("dataset.temporal.float") else [])
 
@@ -158,17 +160,28 @@ class TrainTask(Task):
 
             start = time.time()
 
+            i = 0
             for pos_batch in self.train_loader:
+                i += 1
+                self.config.log(f"positive batch {i}")
                 self.optimizer.zero_grad()
 
+                self.config.log(f"Batch size\n{pos_batch.size(0)}")
+
+                # may be smaller than the specified batch size in last iteration
+                current_bs = pos_batch.size(0)
+
                 loss = 0.0
-                for start in range(0, self.train_bs, self.train_sub_bs):
-                    stop = min(start + self.train_sub_bs, self.train_bs)
+                j = 0
+                for start in range(0, current_bs, self.train_sub_bs):
+                    j += 1
+                    self.config.log(f"  sub batch {j} of {self.train_bs / self.train_sub_bs}")
+                    stop = min(start + self.train_sub_bs, current_bs)
                     loss += self._forward_pass(pos_batch, start, stop)
 
                 self.optimizer.step()
 
-                total_loss += loss.cpu().item()
+                total_loss += loss
 
                 # empty caches
                 # del samples, labels, scores, factors
@@ -203,14 +216,12 @@ class TrainTask(Task):
                         bs = batch.size(0)
                         dim = batch.size(1)
 
-
                         batch = batch.to(self.device)
 
                         counter += bs
 
                         queries_head = batch.clone()[:, :-1]
                         queries_tail = batch.clone()[:, :-1]
-
 
                         # samples_head, _ = self.onevsall_sampler.sample(queries, "head")
                         # samples_tail, _ = self.onevsall_sampler.sample(queries, "tail")
@@ -274,14 +285,24 @@ class TrainTask(Task):
 
         samples, labels = self.sampler.sample(pos_batch, sample_target)
 
-        samples = samples.to(self.device)
-        labels = labels.to(self.device)
+        # self.config.log(f"    Samples shape: {samples}")
+        self.config.log(f"    Start: {start}")
+        self.config.log(f"    Stop: {stop}")
+        self.config.log(f"    Samples size: {samples.size()}")
+        self.config.log(f"    Labels size: {labels.size()}")
 
-        scores, factors = self.model.fit(samples)
+        # TODO fix
+        sub_samples = samples[start:stop].to(self.device)
+        sub_labels = labels[start:stop].to(self.device)
+
+        self.config.log(f"    Sub samples size: {sub_samples.size()}")
+        self.config.log(f"    Sub labels size: {sub_labels.size()}")
+
+        scores, factors = self.model.fit(sub_samples)
 
         # TODO (gengyuan) assertion: size of scores and labels should be matched
-        assert scores.size() == labels.size(), f"Score's size {scores.shape} should match label's size {labels.shape}"
-        loss = self.loss(scores, labels)
+        assert scores.size() == sub_labels.size(), f"Score's size {scores.shape} should match label's size {sub_labels.shape}"
+        loss = self.loss(scores, sub_labels)
 
         # TODO (gengyuan) assert that regularizer and inplace-regularizer don't share same name
         assert not (factors and set(factors.keys()) - (set(self.regularizer) | set(
@@ -310,7 +331,8 @@ class TrainTask(Task):
                 self.inplace_regularizer[name](tensors)
 
         loss.backward()
-        return loss
+
+        return loss.item()
 
     def eval(self):
         # TODO early stopping
@@ -325,12 +347,19 @@ class TrainTask(Task):
 
         self.config.log(f"Save the model to {folder} as file {filename}")
 
-        checkpoint = {
-            'last_epoch': epoch,
-            'state_dict': self.model.state_dict(),
-            'optimizer': self.optimizer.state_dict(),
-            'lr_scheduler': self.lr_scheduler.state_dict()
-        }
+        if self.lr_scheduler:
+            checkpoint = {
+                'last_epoch': epoch,
+                'state_dict': self.model.state_dict(),
+                'optimizer': self.optimizer.state_dict(),
+                'lr_scheduler': self.lr_scheduler.state_dict()
+            }
+        else:
+            checkpoint = {
+                'last_epoch': epoch,
+                'state_dict': self.model.state_dict(),
+                'optimizer': self.optimizer.state_dict()
+            }
 
         torch.save(checkpoint, os.path.join(folder, filename))  # os.path.join(model, dataset, folder, filename))
 
