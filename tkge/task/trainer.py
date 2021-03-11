@@ -64,6 +64,8 @@ class TrainTask(Task):
 
         self.train_bs = self.config.get("train.batch_size")
         self.valid_bs = self.config.get("train.valid.batch_size")
+        self.train_sub_bs = self.config.get("train.sub_batch_size") if self.config.get("train.sub_batch_size") else self.train_bs
+        self.valid_sub_bs = self.config.get("train.valid.sub_batch_size") if self.config.get("train.valid.sub_batch_size") else self.valid_bs
         self.datatype = (['timestamp_id'] if self.config.get("dataset.temporal.index") else []) + (
             ['timestamp_float'] if self.config.get("dataset.temporal.float") else [])
 
@@ -139,12 +141,10 @@ class TrainTask(Task):
         self.evaluation = Evaluation(config=self.config, dataset=self.dataset)
 
     def main(self):
-        self.config.log("BEGIN TRANING")
+        self.config.log("BEGIN TRAINING")
 
         save_freq = self.config.get("train.checkpoint.every")
         eval_freq = self.config.get("train.valid.every")
-
-        sample_target = self.config.get("negative_sampling.target")
 
         for epoch in range(1, self.config.get("train.max_epochs") + 1):
             self.model.train()
@@ -161,47 +161,14 @@ class TrainTask(Task):
             for pos_batch in self.train_loader:
                 self.optimizer.zero_grad()
 
-                samples, labels = self.sampler.sample(pos_batch, sample_target)
+                loss = 0.0
+                for start in range(0, self.train_bs, self.train_sub_bs):
+                    stop = min(start + self.train_sub_bs, self.train_bs)
+                    loss += self._forward_pass(pos_batch, start, stop)
 
-                samples = samples.to(self.device)
-                labels = labels.to(self.device)
-
-                scores, factors = self.model.fit(samples)
-
-                # TODO (gengyuan) assertion: size of scores and labels should be matched
-                assert scores.size() == labels.size(), f"Score's size {scores.shape} should match label's size {labels.shape}"
-                loss = self.loss(scores, labels)
-
-                # TODO (gengyuan) assert that regularizer and inplace-regularizer don't share same name
-                assert not (factors and set(factors.keys()) - (set(self.regularizer) | set(
-                    self.inplace_regularizer))), f"Regularizer name defined in model {set(factors.keys())} should correspond to that in config file"
-
-                if factors:
-                    for name, tensors in factors.items():
-                        if name not in self.regularizer:
-                            continue
-
-                        if not isinstance(tensors, (tuple, list)):
-                            tensors = [tensors]
-
-                        reg_loss = self.regularizer[name](tensors)
-                        loss += reg_loss
-
-                loss.backward()
                 self.optimizer.step()
 
                 total_loss += loss.cpu().item()
-
-                # TODO(gengyuan) inplace regularize
-                if factors:
-                    for name, tensors in factors.items():
-                        if name not in self.inplace_regularizer:
-                            continue
-
-                        if not isinstance(tensors, (tuple, list)):
-                            tensors = [tensors]
-
-                        self.inplace_regularizer[name](tensors)
 
                 # empty caches
                 # del samples, labels, scores, factors
@@ -256,11 +223,11 @@ class TrainTask(Task):
 
                         batch_scores_head = self.model.predict(queries_head)
                         assert list(batch_scores_head.shape) == [bs,
-                                                           self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
+                                                                 self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
 
                         batch_scores_tail = self.model.predict(queries_tail)
                         assert list(batch_scores_tail.shape) == [bs,
-                                                           self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
+                                                                 self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
 
                         # TODO (gengyuan): reimplement ATISE eval
 
@@ -301,6 +268,49 @@ class TrainTask(Task):
 
                     self.config.log(f"Metrics(head prediction) in iteration {epoch} : {metrics['head'].items()}")
                     self.config.log(f"Metrics(tail prediction) in iteration {epoch} : {metrics['tail'].items()}")
+
+    def _forward_pass(self, pos_batch, start, stop):
+        sample_target = self.config.get("negative_sampling.target")
+
+        samples, labels = self.sampler.sample(pos_batch, sample_target)
+
+        samples = samples.to(self.device)
+        labels = labels.to(self.device)
+
+        scores, factors = self.model.fit(samples)
+
+        # TODO (gengyuan) assertion: size of scores and labels should be matched
+        assert scores.size() == labels.size(), f"Score's size {scores.shape} should match label's size {labels.shape}"
+        loss = self.loss(scores, labels)
+
+        # TODO (gengyuan) assert that regularizer and inplace-regularizer don't share same name
+        assert not (factors and set(factors.keys()) - (set(self.regularizer) | set(
+            self.inplace_regularizer))), f"Regularizer name defined in model {set(factors.keys())} should correspond to that in config file"
+
+        if factors:
+            for name, tensors in factors.items():
+                if name not in self.regularizer:
+                    continue
+
+                if not isinstance(tensors, (tuple, list)):
+                    tensors = [tensors]
+
+                reg_loss = self.regularizer[name](tensors)
+                loss += reg_loss
+
+        # TODO(gengyuan) inplace regularize
+        if factors:
+            for name, tensors in factors.items():
+                if name not in self.inplace_regularizer:
+                    continue
+
+                if not isinstance(tensors, (tuple, list)):
+                    tensors = [tensors]
+
+                self.inplace_regularizer[name](tensors)
+
+        loss.backward()
+        return loss
 
     def eval(self):
         # TODO early stopping
