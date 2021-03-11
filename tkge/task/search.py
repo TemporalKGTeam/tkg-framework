@@ -148,7 +148,7 @@ class SearchTask(Task):
 
         self.onevsall_sampler = NonNegativeSampler(config=self.config, dataset=self.dataset, as_matrix=True)
 
-        self.config.log(f"Loading model {self.config.get('model.name')}")
+        self.config.log(f"Loading model {self.config.get('model.type')}")
         self.model = BaseModel.create(config=self.config, dataset=self.dataset, device=self.device)
         model_path = self.config.get("test.model_path")
         model_state_dict = torch.load(model_path)

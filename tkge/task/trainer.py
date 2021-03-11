@@ -18,6 +18,8 @@ from tkge.models.pipeline_model import PipelineModel
 from tkge.models.loss import Loss
 from tkge.eval.metrics import Evaluation
 
+from torch.nn import DataParallel
+
 
 class TrainTask(Task):
     @staticmethod
@@ -69,6 +71,7 @@ class TrainTask(Task):
 
         # TODO(gengyuan): passed to all modules
         self.device = self.config.get("task.device")
+        self.devices = self.config.get("task.devices")
 
         self._prepare()
 
@@ -106,7 +109,7 @@ class TrainTask(Task):
         self.onevsall_sampler = NonNegativeSampler(config=self.config, dataset=self.dataset, as_matrix=True)
 
         self.config.log(f"Creating model {self.config.get('model.type')}")
-        self.model = BaseModel.create(config=self.config, dataset=self.dataset)
+        self.model = DataParallel(BaseModel.create(config=self.config, dataset=self.dataset), device_ids=self.devices)
         self.model.to(self.device)
 
         self.config.log(f"Initializing loss function")
@@ -166,7 +169,7 @@ class TrainTask(Task):
                 samples = samples.to(self.device)
                 labels = labels.to(self.device)
 
-                scores, factors = self.model.fit(samples)
+                scores, factors = self.model.forward(samples)
 
                 # TODO (gengyuan) assertion: size of scores and labels should be matched
                 assert scores.size() == labels.size(), f"Score's size {scores.shape} should match label's size {labels.shape}"
@@ -254,11 +257,11 @@ class TrainTask(Task):
                         queries_head[:, 0] = float('nan')
                         queries_tail[:, 2] = float('nan')
 
-                        batch_scores_head = self.model.predict(queries_head)
+                        batch_scores_head = self.model.module.predict(queries_head)
                         assert list(batch_scores_head.shape) == [bs,
                                                            self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
 
-                        batch_scores_tail = self.model.predict(queries_tail)
+                        batch_scores_tail = self.model.module.predict(queries_tail)
                         assert list(batch_scores_tail.shape) == [bs,
                                                            self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
 
@@ -308,19 +311,26 @@ class TrainTask(Task):
         raise NotImplementedError
 
     def save_ckpt(self, epoch):
-        model = self.config.get("model.name")
+        model = self.config.get("model.type")
         dataset = self.config.get("dataset.name")
         folder = self.config.get("train.checkpoint.folder")
         filename = f"epoch_{epoch}_model_{model}_dataset_{dataset}.ckpt"
 
         self.config.log(f"Save the model to {folder} as file {filename}")
 
-        checkpoint = {
-            'last_epoch': epoch,
-            'state_dict': self.model.state_dict(),
-            'optimizer': self.optimizer.state_dict(),
-            'lr_scheduler': self.lr_scheduler.state_dict()
-        }
+        if self.lr_scheduler:
+            checkpoint = {
+                'last_epoch': epoch,
+                'state_dict': self.model.state_dict(),
+                'optimizer': self.optimizer.state_dict(),
+                'lr_scheduler': self.lr_scheduler.state_dict()
+            }
+        else:
+            checkpoint = {
+                'last_epoch': epoch,
+                'state_dict': self.model.state_dict(),
+                'optimizer': self.optimizer.state_dict()
+            }
 
         torch.save(checkpoint, os.path.join(folder, filename))  # os.path.join(model, dataset, folder, filename))
 
