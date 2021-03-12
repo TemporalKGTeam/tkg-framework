@@ -142,6 +142,14 @@ class TrainTask(Task):
         self.config.log(f"Initializing evaluation")
         self.evaluation = Evaluation(config=self.config, dataset=self.dataset)
 
+        # validity checks and warnings
+        if self.train_sub_bs >= self.train_bs or self.train_sub_bs < 1:
+            # TODO(max) improve logging with different hierarchies/labels, i.e. DEBUG, INFO, WARNING, ERROR
+            self.config.log(f"WARNING: Specified train.sub_batch_size={self.train_sub_bs} is greater or equal to "
+                            f"train.batch_size={self.train_bs} or smaller than 1, so use no sub batches. "
+                            f"Device(s) may run out of memory.")
+            self.train_sub_bs = self.train_bs
+
     def main(self):
         self.config.log("BEGIN TRAINING")
 
@@ -173,7 +181,7 @@ class TrainTask(Task):
 
                 loss = 0.0
                 j = 0
-                for start in range(0, current_bs, min(self.train_sub_bs, self.train_bs)):
+                for start in range(0, current_bs, self.train_sub_bs):
                     j += 1
                     self.config.log(f"  sub batch {j} of {self.train_bs / self.train_sub_bs}")
                     stop = min(start + self.train_sub_bs, current_bs)
@@ -216,14 +224,12 @@ class TrainTask(Task):
                         bs = batch.size(0)
                         dim = batch.size(1)
 
-
                         batch = batch.to(self.device)
 
                         counter += bs
 
                         queries_head = batch.clone()[:, :-1]
                         queries_tail = batch.clone()[:, :-1]
-
 
                         # samples_head, _ = self.onevsall_sampler.sample(queries, "head")
                         # samples_tail, _ = self.onevsall_sampler.sample(queries, "tail")
