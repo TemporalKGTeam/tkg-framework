@@ -168,28 +168,17 @@ class TrainTask(Task):
 
             start = time.time()
 
-            i = 0
             for pos_batch in self.train_loader:
-                i += 1
-                self.config.log(f"positive batch {i}")
                 self.optimizer.zero_grad()
-
-                self.config.log(f"Batch size\n{pos_batch.size(0)}")
 
                 # may be smaller than the specified batch size in last iteration
                 current_bs = pos_batch.size(0)
 
-                loss = 0.0
-                j = 0
                 for start in range(0, current_bs, self.train_sub_bs):
-                    j += 1
-                    self.config.log(f"  sub batch {j} of {self.train_bs / self.train_sub_bs}")
                     stop = min(start + self.train_sub_bs, current_bs)
-                    loss += self._forward_pass(pos_batch, start, stop)
+                    total_loss += self._forward_pass(pos_batch, start, stop)
 
                 self.optimizer.step()
-
-                total_loss += loss
 
                 # empty caches
                 # del samples, labels, scores, factors
@@ -294,14 +283,7 @@ class TrainTask(Task):
 
     def _forward_pass(self, pos_batch, start, stop):
         sample_target = self.config.get("negative_sampling.target")
-
         samples, labels = self.sampler.sample(pos_batch, sample_target)
-
-        # self.config.log(f"    Samples shape: {samples}")
-        self.config.log(f"    Start: {start}")
-        self.config.log(f"    Stop: {stop}")
-        self.config.log(f"    Samples size: {samples.size()}")
-        self.config.log(f"    Labels size: {labels.size()}")
 
         if sample_target == "both":
             pos_batch_size, _ = pos_batch.size()
@@ -321,9 +303,6 @@ class TrainTask(Task):
 
         sub_samples = sub_samples.to(self.device)
         sub_labels = sub_labels.to(self.device)
-
-        self.config.log(f"    Sub samples size: {sub_samples.size()}")
-        self.config.log(f"    Sub labels size: {sub_labels.size()}")
 
         scores, factors = self.model.fit(sub_samples)
 
