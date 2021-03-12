@@ -303,8 +303,6 @@ class TrainTask(Task):
         self.config.log(f"    Samples size: {samples.size()}")
         self.config.log(f"    Labels size: {labels.size()}")
 
-        # sub_samples, sub_labels = self._calculate_sub_samples()
-        # TODO(max) extract method (same procedure twice for given tensor)
         if sample_target == "both":
             pos_batch_size, _ = pos_batch.size()
 
