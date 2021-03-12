@@ -173,7 +173,7 @@ class TrainTask(Task):
 
                 loss = 0.0
                 j = 0
-                for start in range(0, current_bs, self.train_sub_bs):
+                for start in range(0, current_bs, min(self.train_sub_bs, self.train_bs)):
                     j += 1
                     self.config.log(f"  sub batch {j} of {self.train_bs / self.train_sub_bs}")
                     stop = min(start + self.train_sub_bs, current_bs)
