@@ -297,9 +297,26 @@ class TrainTask(Task):
         self.config.log(f"    Samples size: {samples.size()}")
         self.config.log(f"    Labels size: {labels.size()}")
 
-        # TODO fix
-        sub_samples = samples[start:stop].to(self.device)
-        sub_labels = labels[start:stop].to(self.device)
+        # sub_samples, sub_labels = self._calculate_sub_samples()
+        # TODO(max) extract method (same procedure twice for given tensor)
+        if sample_target == "both":
+            pos_batch_size, _ = pos_batch.size()
+
+            samples_h, samples_t = torch.split(samples, pos_batch_size)
+            sub_samples_h = samples_h[start:stop]
+            sub_samples_t = samples_t[start:stop]
+            sub_samples = torch.cat((sub_samples_h, sub_samples_t), dim=0)
+
+            labels_h, labels_t = torch.split(labels, pos_batch_size)
+            sub_labels_h = labels_h[start:stop]
+            sub_labels_t = labels_t[start:stop]
+            sub_labels = torch.cat((sub_labels_h, sub_labels_t), dim=0)
+        else:
+            sub_samples = samples[start:stop]
+            sub_labels = labels[start:stop]
+
+        sub_samples = sub_samples.to(self.device)
+        sub_labels = sub_labels.to(self.device)
 
         self.config.log(f"    Sub samples size: {sub_samples.size()}")
         self.config.log(f"    Sub labels size: {sub_labels.size()}")
