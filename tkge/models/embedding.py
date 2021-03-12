@@ -80,8 +80,8 @@ class EntityEmbedding(BaseEmbedding):
                                              embedding_dim=self.config.get(f"model.embedding.entity.keys.{k}.dim"))
                 self.initialize(self.config.get(f"model.embedding.entity.keys.{k}.init"))(self._tail[k].weight)
 
-            self._head = nn.ModuleDict(self._head)
-            self._tail = nn.ModuleDict(self._tail)
+        self._head = nn.ModuleDict(self._head)
+        self._tail = nn.ModuleDict(self._tail)
 
     def __call__(self, index: torch.Tensor, pos: str):
         assert pos in ['head', 'tail'], f"pos should be either head or tail"
