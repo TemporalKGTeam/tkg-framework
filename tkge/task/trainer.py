@@ -226,6 +226,7 @@ class TrainTask(Task):
                         # samples_head = samples_head.to(self.device)
                         # samples_tail = samples_tail.to(self.device)
 
+                        # TODO(max) implement sub batches for evaluation as well
                         queries_head[:, 0] = float('nan')
                         queries_tail[:, 2] = float('nan')
 
