@@ -325,7 +325,8 @@ class TrainTask(Task):
             'last_epoch': epoch,
             'state_dict': self.model.state_dict(),
             'optimizer': self.optimizer.state_dict(),
-            'lr_scheduler': self.lr_scheduler.state_dict() if self.lr_scheduler else None
+            'lr_scheduler': self.lr_scheduler.state_dict() if self.lr_scheduler else None,
+            'config': self.config
         }
 
         torch.save(checkpoint, os.path.join(folder, filename))  # os.path.join(model, dataset, folder, filename))
