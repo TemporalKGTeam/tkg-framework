@@ -20,7 +20,7 @@ class Evaluation(Configurable):
         self.dataset = dataset
         self.vocab_size = dataset.num_entities()
 
-        self.device = self.config.get("task.device_type")
+        self.device = self.config.get("task.device")
         self.filter = self.config.get("eval.filter")
         self.preference = self.config.get("eval.preference")
         self.ordering = self.config.get("eval.ordering")

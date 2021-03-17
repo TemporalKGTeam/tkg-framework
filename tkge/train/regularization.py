@@ -16,7 +16,7 @@ class Regularizer(ABC, nn.Module, Registrable, Configurable):
         Configurable.__init__(self, config=config)
         nn.Module.__init__(self)
 
-        self.device = self.config.get("task.device_type")
+        self.device = self.config.get("task.device")
         self.name = name
 
     @abstractmethod
