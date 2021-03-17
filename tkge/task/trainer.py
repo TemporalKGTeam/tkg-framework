@@ -66,6 +66,10 @@ class TrainTask(Task):
 
         self.train_bs = self.config.get("train.batch_size")
         self.valid_bs = self.config.get("train.valid.batch_size")
+        self.train_sub_bs = self.config.get("train.sub_batch_size") if self.config.get(
+            "train.sub_batch_size") else self.train_bs
+        self.valid_sub_bs = self.config.get("train.valid.sub_batch_size") if self.config.get(
+            "train.valid.sub_batch_size") else self.valid_bs
         self.datatype = (['timestamp_id'] if self.config.get("dataset.temporal.index") else []) + (
             ['timestamp_float'] if self.config.get("dataset.temporal.float") else [])
 
@@ -141,13 +145,19 @@ class TrainTask(Task):
         self.config.log(f"Initializing evaluation")
         self.evaluation = Evaluation(config=self.config, dataset=self.dataset)
 
+        # validity checks and warnings
+        if self.train_sub_bs >= self.train_bs or self.train_sub_bs < 1:
+            # TODO(max) improve logging with different hierarchies/labels, i.e. DEBUG, INFO, WARNING, ERROR
+            self.config.log(f"WARNING: Specified train.sub_batch_size={self.train_sub_bs} is greater or equal to "
+                            f"train.batch_size={self.train_bs} or smaller than 1, so use no sub batches. "
+                            f"Device(s) may run out of memory.")
+            self.train_sub_bs = self.train_bs
+
     def main(self):
-        self.config.log("BEGIN TRANING")
+        self.config.log("BEGIN TRAINING")
 
         save_freq = self.config.get("train.checkpoint.every")
         eval_freq = self.config.get("train.valid.every")
-
-        sample_target = self.config.get("negative_sampling.target")
 
         for epoch in range(1, self.config.get("train.max_epochs") + 1):
             self.model.train()
@@ -164,47 +174,14 @@ class TrainTask(Task):
             for pos_batch in self.train_loader:
                 self.optimizer.zero_grad()
 
-                samples, labels = self.sampler.sample(pos_batch, sample_target)
+                # may be smaller than the specified batch size in last iteration
+                current_bs = pos_batch.size(0)
 
-                samples = samples.to(self.device)
-                labels = labels.to(self.device)
+                for start in range(0, current_bs, self.train_sub_bs):
+                    stop = min(start + self.train_sub_bs, current_bs)
+                    total_loss += self._forward_pass(pos_batch, start, stop)
 
-                scores, factors = self.model.forward(samples)
-
-                # TODO (gengyuan) assertion: size of scores and labels should be matched
-                assert scores.size() == labels.size(), f"Score's size {scores.shape} should match label's size {labels.shape}"
-                loss = self.loss(scores, labels)
-
-                # TODO (gengyuan) assert that regularizer and inplace-regularizer don't share same name
-                assert not (factors and set(factors.keys()) - (set(self.regularizer) | set(
-                    self.inplace_regularizer))), f"Regularizer name defined in model {set(factors.keys())} should correspond to that in config file"
-
-                if factors:
-                    for name, tensors in factors.items():
-                        if name not in self.regularizer:
-                            continue
-
-                        if not isinstance(tensors, (tuple, list)):
-                            tensors = [tensors]
-
-                        reg_loss = self.regularizer[name](tensors)
-                        loss += reg_loss
-
-                loss.backward()
                 self.optimizer.step()
-
-                total_loss += loss.cpu().item()
-
-                # TODO(gengyuan) inplace regularize
-                if factors:
-                    for name, tensors in factors.items():
-                        if name not in self.inplace_regularizer:
-                            continue
-
-                        if not isinstance(tensors, (tuple, list)):
-                            tensors = [tensors]
-
-                        self.inplace_regularizer[name](tensors)
 
                 # empty caches
                 # del samples, labels, scores, factors
@@ -252,6 +229,7 @@ class TrainTask(Task):
                         # samples_head = samples_head.to(self.device)
                         # samples_tail = samples_tail.to(self.device)
 
+                        # TODO(max) implement sub batches for evaluation as well
                         queries_head[:, 0] = float('nan')
                         queries_tail[:, 2] = float('nan')
 
@@ -306,6 +284,65 @@ class TrainTask(Task):
                     self.config.log(f"Metrics(tail prediction) in iteration {epoch} : {metrics['tail'].items()}")
                     self.config.log(
                         f"Metrics(both prediction) in iteration {epoch} : {avg} ")
+
+    def _forward_pass(self, pos_batch, start, stop):
+        sample_target = self.config.get("negative_sampling.target")
+        samples, labels = self.sampler.sample(pos_batch, sample_target)
+
+        if sample_target == "both":
+            pos_batch_size, _ = pos_batch.size()
+
+            samples_h, samples_t = torch.split(samples, pos_batch_size)
+            sub_samples_h = samples_h[start:stop]
+            sub_samples_t = samples_t[start:stop]
+            sub_samples = torch.cat((sub_samples_h, sub_samples_t), dim=0)
+
+            labels_h, labels_t = torch.split(labels, pos_batch_size)
+            sub_labels_h = labels_h[start:stop]
+            sub_labels_t = labels_t[start:stop]
+            sub_labels = torch.cat((sub_labels_h, sub_labels_t), dim=0)
+        else:
+            sub_samples = samples[start:stop]
+            sub_labels = labels[start:stop]
+
+        sub_samples = sub_samples.to(self.device)
+        sub_labels = sub_labels.to(self.device)
+
+        scores, factors = self.model.fit(sub_samples)
+
+        # TODO (gengyuan) assertion: size of scores and labels should be matched
+        assert scores.size() == sub_labels.size(), f"Score's size {scores.shape} should match label's size {sub_labels.shape}"
+        loss = self.loss(scores, sub_labels)
+
+        # TODO (gengyuan) assert that regularizer and inplace-regularizer don't share same name
+        assert not (factors and set(factors.keys()) - (set(self.regularizer) | set(
+            self.inplace_regularizer))), f"Regularizer name defined in model {set(factors.keys())} should correspond to that in config file"
+
+        if factors:
+            for name, tensors in factors.items():
+                if name not in self.regularizer:
+                    continue
+
+                if not isinstance(tensors, (tuple, list)):
+                    tensors = [tensors]
+
+                reg_loss = self.regularizer[name](tensors)
+                loss += reg_loss
+
+        # TODO(gengyuan) inplace regularize
+        if factors:
+            for name, tensors in factors.items():
+                if name not in self.inplace_regularizer:
+                    continue
+
+                if not isinstance(tensors, (tuple, list)):
+                    tensors = [tensors]
+
+                self.inplace_regularizer[name](tensors)
+
+        loss.backward()
+
+        return loss.item()
 
     def eval(self):
         # TODO early stopping
