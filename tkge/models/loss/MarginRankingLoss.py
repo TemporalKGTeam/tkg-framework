@@ -1,21 +1,23 @@
 from tkge.models.loss import Loss
+from tkge.common.config import Config
+from tkge.common.paramtype import *
 
 import torch
 
 
 @Loss.register(name="margin_ranking_loss")
 class MarginRankingLoss(Loss):
-    def __init__(self, config):
+    device = DeviceParam('device', default_value='cuda')
+    margin = NumberParam('margin', default_value=100)
+
+    def __init__(self, config, **kwargs):
         super().__init__(config)
 
         self.margin = self.config.get("train.loss.margin")
-        self.reduction = self.config.get("train.loss.reduction")
+        self.device = self.config.get("task.device")
+        # self.num_samples = self.config.get("negative_sampling.num_samples")
 
-        self._device = self.config.get("task.device_type")
-        self._train_type = self.config.get("train.type")
-        self._loss = torch.nn.MarginRankingLoss(margin=self.margin, reduction=self.reduction)
-
-        self.num_samples = self.config.get("negative_sampling.num_samples")
+        self._loss = torch.nn.MarginRankingLoss(margin=self.margin, **kwargs)
 
     def __call__(self, scores: torch.Tensor, labels: torch.Tensor):
         assert labels.dim() == 2, 'Margin ranking loss only supports matrix-like scores and scores. Set train.negative_sampling.as_matrix to True in configuration file.'
@@ -30,6 +32,7 @@ class MarginRankingLoss(Loss):
 
         positive_scores = positive_scores.repeat((ns, 1)).squeeze()
         negative_scores = negative_scores.reshape(-1)
+
         y = torch.ones_like(positive_scores)
 
         return self._loss(positive_scores, negative_scores, y)

@@ -4,7 +4,7 @@ from torch import nn
 from typing import Type, Callable, Dict
 from collections import defaultdict
 
-from tkge.common.registry import Registrable
+from tkge.common.registrable import Registrable
 from tkge.common.configurable import Configurable
 from tkge.common.config import Config
 from tkge.train.regularization import Regularizer

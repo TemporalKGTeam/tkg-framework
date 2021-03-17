@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 
 from tkge.common.configurable import Configurable
-from tkge.common.registry import Registrable
+from tkge.common.registrable import Registrable
 from tkge.common.config import Config
 from tkge.common.error import ConfigurationError
 from tkge.data.dataset import DatasetProcessor
@@ -10,27 +10,34 @@ from tkge.indexing import where_in
 
 import torch
 import numba
+from abc import ABC, abstractmethod
 
 SLOTS = [0, 1, 2, 3]
 SLOT_STR = ["s", "p", "o", "t"]
 S, P, O, T = SLOTS
 
 
-class NegativeSampler(Registrable):
+class NegativeSampler(ABC, Registrable, Configurable):
     def __init__(self, config: Config, dataset: DatasetProcessor, as_matrix: bool = True):
-        super(NegativeSampler, self).__init__(config, configuration_key="negative_sampling")
+        Registrable.__init__(self)
+        Configurable.__init__(self, config, configuration_key="negative_sampling")
 
         self.num_samples = self.config.get("negative_sampling.num_samples")
         self.filter = self.config.get("negative_sampling.filter")
+
+        #TODO(gengyuan) as_matrix should be passed from config
         self.as_matrix = as_matrix
 
         self.dataset = dataset
 
-    @staticmethod
-    def create(config: Config, dataset: DatasetProcessor):
+    @classmethod
+    def create(cls, config: Config, dataset: DatasetProcessor):
         """Factory method for loss creation"""
 
-        ns_type = config.get("negative_sampling.name")
+        ns_type = config.get("negative_sampling.type")
+        kwargs = config.get(f"negative_sampling.args")
+
+        kwargs = kwargs if not isinstance(kwargs, type(None)) else {}
 
         if ns_type in NegativeSampler.list_available():
             as_matrix = config.get("negative_sampling.as_matrix")
@@ -42,12 +49,15 @@ class NegativeSampler(Registrable):
                 f"implement your negative samping class with `NegativeSampler.register(name)"
             )
 
+    @abstractmethod
     def _sample(self, pos_batch: torch.Tensor, as_matrix: bool, sample_target: str):
         raise NotImplementedError
 
+    @abstractmethod
     def _label(self, pos_batch: torch.Tensor, as_matrix: bool, sample_target: str):
         raise NotImplementedError
 
+    @abstractmethod
     def _filtered_sample(self, neg_sample):
         raise NotImplementedError
 
@@ -172,7 +182,7 @@ class BasicNegativeSampler(NegativeSampler):
 
         if sample_target == 'head':
             pos_neg_samples_h = pos_batch.repeat((1, num_pos_neg)).view(-1, dim_size)
-            rand_nums_h = torch.randint(low=0, high=self.dataset.num_entities() - 1,
+            rand_nums_h = torch.randint(low=1, high=self.dataset.num_entities(),
                                         size=(pos_neg_samples_h.shape[0], 1)).float()
 
             # for i in range(pos_neg_samples_h.shape[0] // num_pos_neg):
@@ -185,7 +195,7 @@ class BasicNegativeSampler(NegativeSampler):
 
         elif sample_target == 'tail':
             pos_neg_samples_t = pos_batch.repeat((1, num_pos_neg)).view(-1, dim_size)
-            rand_nums_t = torch.randint(low=0, high=self.dataset.num_entities() - 1,
+            rand_nums_t = torch.randint(low=1, high=self.dataset.num_entities(),
                                         size=(pos_neg_samples_t.shape[0], 1)).float()
 
             # for i in range(pos_neg_samples_t.shape[0] // num_pos_neg):
@@ -201,9 +211,9 @@ class BasicNegativeSampler(NegativeSampler):
             pos_neg_samples_h = pos_batch.repeat((1, num_pos_neg)).view(-1, dim_size)
             pos_neg_samples_t = pos_neg_samples_h.clone()
 
-            rand_nums_h = torch.randint(low=0, high=self.dataset.num_entities() - 1,
+            rand_nums_h = torch.randint(low=1, high=self.dataset.num_entities(),
                                         size=(pos_neg_samples_h.shape[0], 1)).float()
-            rand_nums_t = torch.randint(low=0, high=self.dataset.num_entities() - 1,
+            rand_nums_t = torch.randint(low=1, high=self.dataset.num_entities(),
                                         size=(pos_neg_samples_t.shape[0], 1)).float()
 
             # for i in range(pos_neg_samples_h.shape[0] // num_pos_neg):

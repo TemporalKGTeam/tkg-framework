@@ -1,6 +1,7 @@
-
 class ConfigurationError(Exception):
-    def __init__(self, msg:str):
+    """Exception for error cases in the `tkge.common.config.Config` class."""
+
+    def __init__(self, msg: str):
         super().__init__()
         self.msg = msg
 

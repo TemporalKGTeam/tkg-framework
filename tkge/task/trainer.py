@@ -14,6 +14,7 @@ from tkge.train.regularization import Regularizer, InplaceRegularizer
 from tkge.train.optim import get_optimizer, get_scheduler
 from tkge.common.config import Config
 from tkge.models.model import BaseModel
+from tkge.models.pipeline_model import PipelineModel
 from tkge.models.loss import Loss
 from tkge.eval.metrics import Evaluation
 
@@ -67,8 +68,7 @@ class TrainTask(Task):
             ['timestamp_float'] if self.config.get("dataset.temporal.float") else [])
 
         # TODO(gengyuan): passed to all modules
-        self.device = self.config.get("task.device_type")
-        self.devices = self.config.get("task.devices")
+        self.device = self.config.get("task.device")
 
         self._prepare()
 
@@ -105,9 +105,8 @@ class TrainTask(Task):
         self.sampler = NegativeSampler.create(config=self.config, dataset=self.dataset)
         self.onevsall_sampler = NonNegativeSampler(config=self.config, dataset=self.dataset, as_matrix=True)
 
-        self.config.log(f"Creating model {self.config.get('model.name')}")
+        self.config.log(f"Creating model {self.config.get('model.type')}")
         self.model = BaseModel.create(config=self.config, dataset=self.dataset)
-        # TODO devices
         self.model.to(self.device)
 
         self.config.log(f"Initializing loss function")
@@ -140,7 +139,7 @@ class TrainTask(Task):
         self.evaluation = Evaluation(config=self.config, dataset=self.dataset)
 
     def main(self):
-        self.config.log("BEGIN TRAINING")
+        self.config.log("BEGIN TRANING")
 
         save_freq = self.config.get("train.checkpoint.every")
         eval_freq = self.config.get("train.valid.every")
@@ -237,7 +236,6 @@ class TrainTask(Task):
                         bs = batch.size(0)
                         dim = batch.size(1)
 
-
                         batch = batch.to(self.device)
 
                         counter += bs
@@ -256,11 +254,11 @@ class TrainTask(Task):
 
                         batch_scores_head = self.model.predict(queries_head)
                         assert list(batch_scores_head.shape) == [bs,
-                                                           self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
+                                                                 self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
 
                         batch_scores_tail = self.model.predict(queries_tail)
                         assert list(batch_scores_tail.shape) == [bs,
-                                                           self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
+                                                                 self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
 
                         # TODO (gengyuan): reimplement ATISE eval
 
@@ -299,8 +297,12 @@ class TrainTask(Task):
                         for key in metrics[pos].keys():
                             metrics[pos][key] /= counter
 
+                    avg = {k: (metrics['head'][k] + metrics['tail'][k]) / 2 for k in metrics['head'].keys()}
+
                     self.config.log(f"Metrics(head prediction) in iteration {epoch} : {metrics['head'].items()}")
                     self.config.log(f"Metrics(tail prediction) in iteration {epoch} : {metrics['tail'].items()}")
+                    self.config.log(
+                        f"Metrics(both prediction) in iteration {epoch} : {avg} ")
 
     def eval(self):
         # TODO early stopping
@@ -308,30 +310,25 @@ class TrainTask(Task):
         raise NotImplementedError
 
     def save_ckpt(self, epoch):
-        overall_ckpt_folder = self.config.get("train.checkpoint.folder")
-        ckpt_folder = os.path.join(overall_ckpt_folder, self.config.get("model.name"))
-        filename = f"{self.config.train_config_name(epoch)}.ckpt"
+        model = self.config.get("model.type")
+        dataset = self.config.get("dataset.name")
+        folder = self.config.get("train.checkpoint.folder")
+        filename = f"epoch_{epoch}_model_{model}_dataset_{dataset}.ckpt"
 
-        self.config.log(f"Save the model to {ckpt_folder} as file {filename}")
+        import os
+        if not os.path.exists(folder):
+            os.makedirs(folder, exist_ok=True)
 
-        if self.lr_scheduler:
-            checkpoint = {
-                'last_epoch': epoch,
-                'state_dict': self.model.state_dict(),
-                'optimizer': self.optimizer.state_dict(),
-                'lr_scheduler': self.lr_scheduler.state_dict()
-            }
-        else:
-            checkpoint = {
-                'last_epoch': epoch,
-                'state_dict': self.model.state_dict(),
-                'optimizer': self.optimizer.state_dict()
-            }
+        self.config.log(f"Save the model to {folder} as file {filename}")
 
-        if not os.path.exists(ckpt_folder):
-            os.makedirs(ckpt_folder, 0o700)
+        checkpoint = {
+            'last_epoch': epoch,
+            'state_dict': self.model.state_dict(),
+            'optimizer': self.optimizer.state_dict(),
+            'lr_scheduler': self.lr_scheduler.state_dict() if self.lr_scheduler else None
+        }
 
-        torch.save(checkpoint, os.path.join(ckpt_folder, filename))  # os.path.join(model, dataset, folder, filename))
+        torch.save(checkpoint, os.path.join(folder, filename))  # os.path.join(model, dataset, folder, filename))
 
     def load_ckpt(self, ckpt_path):
         raise NotImplementedError

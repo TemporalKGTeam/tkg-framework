@@ -4,13 +4,12 @@ from torch.nn import functional as F
 
 import numpy as np
 
-from enum import Enum
-import os
 from collections import defaultdict
-from typing import Mapping, Dict
-import random
+from typing import Dict
+from abc import ABC, abstractmethod
 
-from tkge.common.registry import Registrable
+from tkge.common.registrable import Registrable
+from tkge.common.configurable import Configurable
 from tkge.common.config import Config
 from tkge.common.error import ConfigurationError
 from tkge.data.dataset import DatasetProcessor
@@ -18,22 +17,24 @@ from tkge.models.layers import LSTMModel
 from tkge.models.utils import *
 
 
-class BaseModel(nn.Module, Registrable):
+class BaseModel(ABC, nn.Module, Registrable, Configurable):
     def __init__(self, config: Config, dataset: DatasetProcessor):
         nn.Module.__init__(self)
-        Registrable.__init__(self, config=config)
+        Registrable.__init__(self)
+        Configurable.__init__(self, config=config)
 
         self.dataset = dataset
 
     @staticmethod
     def create(config: Config, dataset: DatasetProcessor):
-        """Factory method for sampler creation"""
+        model_type = config.get("model.type")
+        kwargs = config.get("model.args")
 
-        model_type = config.get("model.name")
+        kwargs = kwargs if not isinstance(kwargs, type(None)) else {}
 
         if model_type in BaseModel.list_available():
-            # kwargs = config.get("model.args")  # TODO: 需要改成key的格式
-            return BaseModel.by_name(model_type)(config, dataset)
+            # kwargs = config.get("model.args")  # TODO: get all args params
+            return BaseModel.by_name(model_type)(config, dataset, **kwargs)
         else:
             raise ConfigurationError(
                 f"{model_type} specified in configuration file is not supported"
@@ -41,7 +42,7 @@ class BaseModel(nn.Module, Registrable):
             )
 
     def load_config(self):
-        # TODO(gengyuan): 有参数的话加载，没指定参数的话用默认，最好可以直接读config文件然后setattr，需不需要做assert？
+        # TODO(gengyuan): should undefined params initialized by default values?
         raise NotImplementedError
 
     def prepare_embedding(self):
@@ -50,9 +51,11 @@ class BaseModel(nn.Module, Registrable):
     def get_embedding(self, **kwargs):
         raise NotImplementedError
 
+    @abstractmethod
     def forward(self, samples, **kwargs):
         raise NotImplementedError
 
+    @abstractmethod
     def predict(self, queries: torch.Tensor):
         """
         Should be a wrapper of method forward or a computation flow same as that in forward.
@@ -61,6 +64,7 @@ class BaseModel(nn.Module, Registrable):
         """
         raise NotImplementedError
 
+    @abstractmethod
     def fit(self, samples: torch.Tensor):
         # TODO(gengyuan): wrapping all the models
         """
@@ -75,10 +79,8 @@ class BaseModel(nn.Module, Registrable):
 
 @BaseModel.register(name='de_simple')
 class DeSimplEModel(BaseModel):
-    def __init__(self, config: Config, dataset: DatasetProcessor):
+    def __init__(self, config: Config, dataset: DatasetProcessor, **kwargs):
         super().__init__(config, dataset)
-
-        self.dropout = torch.nn.Dropout(p=self.config.get('model.dropout'))
 
         self.prepare_embedding()
 
@@ -245,8 +247,10 @@ class DeSimplEModel(BaseModel):
 
         h_emb1, r_emb1, t_emb1, h_emb2, r_emb2, t_emb2 = self.get_embedding(head, rel, tail, year, month, day)
 
+        p = self.config.get('model.dropout')
+
         scores = ((h_emb1 * r_emb1) * t_emb1 + (h_emb2 * r_emb2) * t_emb2) / 2.0
-        scores = self.dropout(scores)
+        scores = F.dropout(scores, p=p, training=self.training)  # TODO training
         scores = torch.sum(scores, dim=1)
 
         return scores, None
@@ -278,7 +282,7 @@ class DeSimplEModel(BaseModel):
 
 @BaseModel.register(name="tcomplex")
 class TComplExModel(BaseModel):
-    def __init__(self, config: Config, dataset: DatasetProcessor):
+    def __init__(self, config: Config, dataset: DatasetProcessor, **kwargs):
         super().__init__(config, dataset)
 
         self.rank = self.config.get("model.rank")
@@ -386,13 +390,17 @@ class TComplExModel(BaseModel):
 
 @BaseModel.register(name="hyte")
 class HyTEModel(BaseModel):
-    def __init__(self, config: Config, dataset: DatasetProcessor):
+    def __init__(self, config: Config, dataset: DatasetProcessor, **kwargs):
         super().__init__(config, dataset)
+
+    def forward(self, samples: torch.Tensor, **kwargs):
+        # TODO remember to negate the scores with torch.neg(scores)
+        raise NotImplementedError
 
 
 @BaseModel.register(name="atise")
 class ATiSEModel(BaseModel):
-    def __init__(self, config: Config, dataset: DatasetProcessor):
+    def __init__(self, config: Config, dataset: DatasetProcessor, **kwargs):
         super().__init__(config, dataset)
 
         # TODO(gengyuan) load params before initialize
@@ -557,14 +565,15 @@ class ATiSEModel(BaseModel):
 # reference: https://github.com/jimmywangheng/knowledge_representation_pytorch
 @BaseModel.register(name="ta_transe")
 class TATransEModel(BaseModel):
-    def __init__(self, config: Config, dataset: DatasetProcessor):
+    def __init__(self, config: Config, dataset: DatasetProcessor, **kwargs):
         super().__init__(config, dataset)
 
         # model params from files
         self.emb_dim = self.config.get("model.emb_dim")
         self.l1_flag = self.config.get("model.l1_flag")
+        self.p = self.config.get("model.p")
 
-        self.dropout = torch.nn.Dropout(p=self.config.get("model.dropout"))
+        self.dropout = torch.nn.Dropout(p=self.p)
         self.lstm = LSTMModel(self.emb_dim, n_layer=1)
 
         self.prepare_embedding()
@@ -617,9 +626,9 @@ class TATransEModel(BaseModel):
         rseq_e = self.dropout(rseq_e)
 
         if self.l1_flag:
-            scores = torch.sum(torch.abs(h_e + rseq_e - t_e), 1)
+            scores = torch.neg(torch.sum(torch.abs(h_e + rseq_e - t_e), 1))
         else:
-            scores = torch.sum((h_e + rseq_e - t_e) ** 2, 1)
+            scores = torch.neg(torch.sum((h_e + rseq_e - t_e) ** 2, 1))
 
         factors = {
             "norm": (h_e,
@@ -657,14 +666,15 @@ class TATransEModel(BaseModel):
 # reference: https://github.com/bsantraigi/TA_TransE/blob/master/model.py
 @BaseModel.register(name="ta_distmult")
 class TADistmultModel(BaseModel):
-    def __init__(self, config: Config, dataset: DatasetProcessor):
+    def __init__(self, config: Config, dataset: DatasetProcessor, **kwargs):
         super().__init__(config, dataset)
 
         # model params from files
         self.emb_dim = self.config.get("model.emb_dim")
         self.l1_flag = self.config.get("model.l1_flag")
+        self.p = self.config.get("model.p")
 
-        self.dropout = torch.nn.Dropout(p=self.config.get("model.dropout"))
+        self.dropout = torch.nn.Dropout(p=self.p)
         self.lstm = LSTMModel(self.emb_dim, n_layer=1)
         self.criterion = nn.Softplus()
 
@@ -753,7 +763,7 @@ class TADistmultModel(BaseModel):
 
 @BaseModel.register(name="ttranse")
 class TTransEModel(BaseModel):
-    def __init__(self, config: Config, dataset: DatasetProcessor):
+    def __init__(self, config: Config, dataset: DatasetProcessor, **kwargs):
         super().__init__(config, dataset)
 
         # model params from files
@@ -787,11 +797,9 @@ class TTransEModel(BaseModel):
         tem_e = self.embedding['tem'](tem)
 
         if self.l1_flag:
-            scores = torch.sum(torch.abs(h_e + r_e + tem_e - t_e), dim=1)
-            # scores = -torch.sum(torch.abs(h_e + r_e + tem_e - t_e), dim=1)
+            scores = torch.neg(torch.sum(torch.abs(h_e + r_e + tem_e - t_e), dim=1))
         else:
-            scores = torch.sum((h_e + r_e + tem_e - t_e) ** 2, dim=1)
-            # scores = -torch.sum((h_e + r_e + tem_e - t_e) ** 2, dim=1)
+            scores = torch.neg(torch.sum((h_e + r_e + tem_e - t_e) ** 2, dim=1))
 
         factors = {
             "norm": (h_e,

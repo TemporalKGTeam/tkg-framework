@@ -2,14 +2,13 @@ from typing import Optional
 import argparse
 
 from tkge.common.configurable import Configurable
-from tkge.common.registry import Registrable
+from tkge.common.registrable import Registrable
 from tkge.common.config import Config
 from tkge.data.dataset import DatasetProcessor
 
 
 class Task:
     @staticmethod
-
     def parse_arguments(parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
         raise NotImplementedError
 

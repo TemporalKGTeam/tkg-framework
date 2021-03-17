@@ -14,8 +14,9 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T", bound="Registrable")
 
 
-class Registrable(Configurable):
-    """
+class Registrable:
+    """Mix-in class for registry pattern.
+
     Any class that inherits from :class:`Registrable` gains access to a named registry for its subclasses.
     """
 

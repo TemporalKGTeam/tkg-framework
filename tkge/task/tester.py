@@ -31,6 +31,8 @@ class TestTask(Task):
         return subparser
 
     def __init__(self, config: Config):
+        super(TestTask, self).__init__(config=config)
+
         self.dataset = self.config.get("dataset.name")
         self.test_loader = None
         self.sampler = None

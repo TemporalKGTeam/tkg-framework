@@ -1,16 +1,19 @@
 from tkge.models.loss import Loss
 from tkge.common.config import Config
+from tkge.common.paramtype import *
 
 import torch
 
 
 @Loss.register(name="cross_entropy_loss")
 class CrossEntropyLoss(Loss):
+    device = DeviceParam(name='device', default_value='cuda')
+
     def __init__(self, config: Config):
         super().__init__(config)
 
-        self._device = config.get("task.device_type")
-        self._train_type = config.get("train.type")
+        self.device = self.config.get('task.device')
+
         self._loss = torch.nn.CrossEntropyLoss()
 
     def __call__(self, scores, labels, **kwargs):
@@ -29,25 +32,25 @@ class CrossEntropyLoss(Loss):
 
         # TODO(gengyuan) make sure each row has one and only one label
 
-        if labels.dim()!=1:
-            labels = labels.nonzero()
+        if labels.dim() != 1:
+            labels = torch.nonzero(labels)
             labels = labels[:, 1]
         else:
             labels = labels.long()
 
-        if "negative_sampling" in self._train_type:
-            # Pair each 1 with the following zeros until next 1
+        # if "negative_sampling" in self._train_type:
+        #     # Pair each 1 with the following zeros until next 1
 
-            return self._loss(scores, labels)
+        return self._loss(scores, labels)
 
-        elif self._train_type == "KvsAll":
-            # TODO determine how to form pairs for margin ranking in KvsAll training
-            # scores and labels are tensors of size (batch_size, num_entities)
-            # Each row has 1s and 0s of a single sp or po tuple from training
-            # How to combine them for pairs?
-            # Each 1 with all 0s? Can memory handle this?
-            raise NotImplementedError(
-                "Margin ranking with KvsAll training not yet supported."
-            )
-        else:
-            raise ValueError("train.type for margin ranking.")
+        # elif self._train_type == "KvsAll":
+        #     # TODO determine how to form pairs for margin ranking in KvsAll training
+        #     # scores and labels are tensors of size (batch_size, num_entities)
+        #     # Each row has 1s and 0s of a single sp or po tuple from training
+        #     # How to combine them for pairs?
+        #     # Each 1 with all 0s? Can memory handle this?
+        #     raise NotImplementedError(
+        #         "Margin ranking with KvsAll training not yet supported."
+        #     )
+        # else:
+        #     raise ValueError("train.type for margin ranking.")

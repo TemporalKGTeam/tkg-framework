@@ -4,26 +4,34 @@ import torch
 from torch import nn
 
 from tkge.common.config import Config
-from tkge.common.registry import Registrable
+from tkge.common.registrable import Registrable
+from tkge.common.configurable import Configurable
+
+from abc import ABC, abstractmethod
 
 
-class Regularizer(nn.Module, Registrable):
-    def __init__(self, config: Config, name: str):
-        Registrable.__init__(self, config)
+class Regularizer(ABC, nn.Module, Registrable, Configurable):
+    def __init__(self, config: Config, name: str, **kwargs):
+        Registrable.__init__(self)
+        Configurable.__init__(self, config=config)
         nn.Module.__init__(self)
 
         self.device = self.config.get("task.device_type")
         self.name = name
 
+    @abstractmethod
     def forward(self, factors: Tuple[torch.Tensor], **kwargs):
         raise NotImplementedError
 
-    @staticmethod
-    def create(config: Config, name: str):
+    @classmethod
+    def create(cls, config: Config, name: str):
         reg_type = config.get(f"train.regularizer.{name}.type")
+        kwargs = config.get(f"train.regularizer.{name}.args")
+
+        kwargs = kwargs if not isinstance(kwargs, type(None)) else {}
 
         if reg_type in Regularizer.list_available():
-            return Regularizer.by_name(reg_type)(config, name)
+            return Regularizer.by_name(reg_type)(config, name, **kwargs)
 
         else:
             raise ValueError(
@@ -33,12 +41,15 @@ class Regularizer(nn.Module, Registrable):
 
 
 class InplaceRegularizer(Regularizer):
-    @staticmethod
-    def create(config: Config, name: str):
+    @classmethod
+    def create(cls, config: Config, name: str):
         reg_type = config.get(f"train.inplace_regularizer.{name}.type")
+        kwargs = config.get(f"train.inplace_regularizer.{name}.args")
+
+        kwargs = kwargs if not isinstance(kwargs, type(None)) else {}
 
         if reg_type in InplaceRegularizer.list_available():
-            return InplaceRegularizer.by_name(reg_type)(config, name)
+            return InplaceRegularizer.by_name(reg_type)(config, name, **kwargs)
 
         else:
             raise ValueError(
@@ -151,7 +162,7 @@ class NormReg(Regularizer):
         # TODO (gengyuan) weird implementation
         for factor in factors:
             factor_norm = torch.sum(factor ** 2, dim=1, keepdim=True)
-            reg_loss += torch.sum(torch.max(factor_norm-1.0, torch.Tensor([0.0]).to(device)))
+            reg_loss += torch.sum(torch.max(factor_norm - 1.0, torch.Tensor([0.0]).to(device)))
 
         return reg_loss
 
@@ -181,5 +192,3 @@ class InplaceClampReg(Regularizer):
     def forward(self, factors: Tuple[torch.Tensor], **kwargs):
         for f in factors:
             f.data.clamp_(max=self.max, min=self.min)
-
-

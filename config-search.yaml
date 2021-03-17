@@ -1,0 +1,142 @@
+
+console:
+  quiet: False
+  folder: /Users/GengyuanMax/workplace/logging/tcomplex
+  format: {}
+
+#local
+task:
+  type: search
+  device: 'cuda'
+  reciprocal_relation: False
+
+random_seed:
+  default: -1
+  python: -1
+  torch: -1
+  numpy: -1
+  numba: -1
+
+
+# local
+dataset:
+  folder: '/Users/GengyuanMax/workspace/tkg-framework/data/icews14'
+
+  # indexes mapping [false, true]
+  # TODO 可以保存到cache
+  mapping: False
+  filter: False
+  temporal:
+    resolution: "day"
+    index: False
+    float: True
+  args: ~
+
+  name: 'icews14'
+  num_entities: -1
+  num_relations: -1
+  pickle: True
+
+negative_sampling:
+  type: 'time_agnostic'
+  num_samples: 500
+  filter: False
+  as_matrix: True
+  target: both
+  args: ~
+
+
+
+search:
+  global:
+    dim: 100
+    max_epochs: 10
+
+  fusion:
+    candidate1:
+      type: elementwise_product_fusion
+      target: 'rel+temp'
+      args: ~
+
+  transformation:
+    candidate1:
+      type: translation_tf
+      args: ~
+    candidate2:
+      type: rotation_tf
+      args: ~
+    candidate3:
+      type: distmult_tf
+      args: ~
+    candidate4:
+      typr: complex_factorization_tf
+      args: ~
+
+train:
+  # Split used for training (specified under 'data.files').
+  split: train
+  type: negative_sampling
+
+  loss:
+    type: cross_entropy_loss
+    args: ~
+
+  max_epochs: 10
+
+
+  loader:
+    num_workers: 0
+    pin_memory: False
+    drop_last: False
+    timeout: 0
+
+  valid:
+    split: test # in [test or valid]
+    every: 10
+    batch_size: 100
+    filter: time-aware  # in [off, static, time-aware]
+    ordering: optimistic    # in [optimistic, peesimistic]
+    k: [1, 3, 10]
+
+  batch_size: 512
+  subbatch_size: -1
+  subbatch_auto_tune: False
+  optimizer:
+    type: Adam
+    args:
+      lr: 0.001
+
+    default:
+      type: Adam           # sgd, adagrad, adam
+
+      args:
+        +++: +++
+
+  regularizer: ~
+  inplace_regularizer: ~
+
+  lr_scheduler: ""
+
+    lr_scheduler_args:
+      +++: +++
+
+    trace_level: epoch           # batch, epoch
+
+    checkpoint:
+      folder: /Users/GengyuanMax/workplace/ckpt/
+      every: 1
+      keep: 3
+
+    auto_correct: False
+    abort_on_nan: True
+    visualize_graph: False
+
+eval:
+  filter: time-aware
+  ordering: descending
+  preference: optimistic
+  k: [1,3,10]
+
+
+
+

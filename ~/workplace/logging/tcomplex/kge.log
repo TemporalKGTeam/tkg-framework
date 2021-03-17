@@ -1,0 +1,42 @@
+2021-03-01 00:48:49.952363 Preparing datasets icews14 in folder ~/workplace/tkge-framework/data/icews14...
+2021-03-01 00:49:15.875930 Preparing datasets icews14 in folder ~/workplace/tkg-framework/data/icews14...
+2021-03-01 00:49:47.449650 Preparing datasets icews14 in folder /Users/GengyuanMax/workplace/tkg-framework/data/icews14...
+2021-03-01 00:50:37.900202 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkg-framework/data/icews14...
+2021-03-01 00:50:39.795477 ==============================================
+2021-03-01 00:50:39.795677 Dataset type : icews14
+2021-03-01 00:50:39.796087 Number of entities : 7128
+2021-03-01 00:50:39.796207 Number of relations : 460
+2021-03-01 00:50:39.796340 
+2021-03-01 00:50:39.796443 Train set size : 145652
+2021-03-01 00:50:39.796626 Valid set size : 8941
+2021-03-01 00:50:39.796745 Test set size : 8963
+2021-03-01 00:50:39.796873 ==============================================
+2021-03-01 00:50:39.796979 Loading training split data for loading
+2021-03-01 00:50:39.797246 Initializing negative sampling
+2021-03-01 00:50:39.797479 Creating model tcomplex
+2021-03-01 01:00:20.723698 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkg-framework/data/icews14...
+2021-03-01 01:00:22.635967 ==============================================
+2021-03-01 01:00:22.636249 Dataset type : icews14
+2021-03-01 01:00:22.636625 Number of entities : 7128
+2021-03-01 01:00:22.636775 Number of relations : 460
+2021-03-01 01:00:22.636890 
+2021-03-01 01:00:22.636992 Train set size : 145652
+2021-03-01 01:00:22.637169 Valid set size : 8941
+2021-03-01 01:00:22.637294 Test set size : 8963
+2021-03-01 01:00:22.637455 ==============================================
+2021-03-01 01:00:22.637571 Loading training split data for loading
+2021-03-01 01:00:22.637853 Initializing negative sampling
+2021-03-01 01:13:37.791474 Preparing datasets icews14 in folder /Users/GengyuanMax/workspace/tkg-framework/data/icews14...
+2021-03-01 01:13:39.712910 ==============================================
+2021-03-01 01:13:39.713213 Dataset type : icews14
+2021-03-01 01:13:39.714286 Number of entities : 7128
+2021-03-01 01:13:39.714563 Number of relations : 460
+2021-03-01 01:13:39.714743 
+2021-03-01 01:13:39.714967 Train set size : 145652
+2021-03-01 01:13:39.715159 Valid set size : 8941
+2021-03-01 01:13:39.715338 Test set size : 8963
+2021-03-01 01:13:39.715454 ==============================================
+2021-03-01 01:13:39.715579 Loading training split data for loading
+2021-03-01 01:13:39.715785 Initializing negative sampling
+2021-03-01 01:13:39.715952 Creating model tcomplex
+2021-03-01 01:17:43.765204 Preparing datasets icews14 in folder ~/workplace/tkg-framework/data/icews14...
