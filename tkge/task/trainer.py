@@ -126,7 +126,7 @@ class TrainTask(Task):
             scheduler_args = self.config.get("train.lr_scheduler.args")
             self.lr_scheduler = get_scheduler(self.optimizer, scheduler_type, scheduler_args)
 
-        self.config.log((f"Initializeing regularizer"))
+        self.config.log(f"Initializing regularizer")
         self.regularizer = dict()
         self.inplace_regularizer = dict()
 
