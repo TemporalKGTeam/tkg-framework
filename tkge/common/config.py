@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Union, TypeVar
+from typing import Any, Dict, Optional, Union, TypeVar, Tuple
 import yaml
 import copy
 import collections
@@ -18,7 +18,7 @@ T = TypeVar("T", bound="Config")
 class Config:
     """Configuration class for all configurable classes.
 
-    `Condig` instance could be created from a configuration file (.yaml), from a param dict.
+    `Config` instance could be created from a configuration file (.yaml) or from a param dict.
     """
 
     Overwrite = Enum("Overwrite", "Yes No Error")
@@ -231,12 +231,14 @@ class Config:
         there and return ``True``. Else do nothing and return ``False``.
 
         """
-        if not os.path.exists(self.folder):
-            os.makedirs(self.folder)
-            os.makedirs(os.path.join(self.folder, "config"))
-            self.save(os.path.join(self.folder, "config.yaml"))
-            return True
-        return False
+        # if not os.path.exists(self.folder):
+        #     os.makedirs(self.folder)
+        #     os.makedirs(os.path.join(self.folder, "config"))
+        #     self.save(os.path.join(self.folder, "config.yaml"))
+        #     return True
+        # return False
+
+        self.ex_folder, self.ex_id = self.create_exid()
 
     def checkpoint_file(self, cpt_id: Union[str, int]) -> str:
         """Returns path of checkpoint file for given checkpoint id"""
@@ -325,6 +327,35 @@ class Config:
     def tracefile(self) -> str:
         folder = self.log_folder if self.log_folder else self.folder
         return os.path.join(folder, "trace.yaml")
+
+    def create_exid(self) -> Tuple[str, str]:
+        """
+        Get a self-incremental id in the current checkpoint folder.
+        Every time when starting a new training task, a new experiment folder
+        with incremental id will be created and associated with current experiment.
+        """
+        overall_ckpt_folder = self.config.get("train.checkpoint.folder")
+        base_folder = os.path.join(overall_ckpt_folder, self.config.get("model.type"), self.config.get("dataset.name"))
+
+        if not os.path.exists(base_folder):
+            os.makedirs(base_folder)
+
+        ex_num = os.listdir(base_folder)
+        ex_id = f"ex{ex_num:06d}"
+
+        ex_folder = os.path.join(base_folder, ex_id)
+        os.mkdir(ex_folder)
+
+        self.save(os.path.join(ex_folder, 'config.yaml'))
+
+        return ex_folder, ex_id
+
+
+    def save(self, filename):
+        """Save this configuration to the given file"""
+        with open(filename, "w+") as file:
+            file.write(yaml.dump(self.options))
+
 
 
 # class Config:
@@ -628,10 +659,7 @@ class Config:
 #         # now set all options
 #         self.set_all(new_options, create, overwrite)
 #
-#     def save(self, filename):
-#         """Save this configuration to the given file"""
-#         with open(filename, "w+") as file:
-#             file.write(yaml.dump(self.options))
+
 #
 #     @staticmethod
 #     def flatten(options: Dict[str, Any]) -> Dict[str, Any]:

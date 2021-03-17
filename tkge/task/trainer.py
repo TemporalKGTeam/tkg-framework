@@ -51,6 +51,9 @@ class TrainTask(Task):
     def __init__(self, config: Config):
         super().__init__(config)
 
+        # Initialize working folder
+        self.ex_folder, self.ex_id = config.create_exid()
+
         self.dataset: DatasetProcessor = self.config.get("dataset.name")
         self.train_loader: torch.utils.data.DataLoader = None
         self.valid_loader: torch.utils.data.DataLoader = None
@@ -309,27 +312,20 @@ class TrainTask(Task):
 
         raise NotImplementedError
 
-    def save_ckpt(self, epoch):
-        model = self.config.get("model.type")
-        dataset = self.config.get("dataset.name")
-        folder = self.config.get("train.checkpoint.folder")
-        filename = f"epoch_{epoch}_model_{model}_dataset_{dataset}.ckpt"
+    def save_ckpt(self, ckpt_name, epoch):
+        filename = f"{ckpt_name}.ckpt"
 
-        import os
-        if not os.path.exists(folder):
-            os.makedirs(folder, exist_ok=True)
-
-        self.config.log(f"Save the model to {folder} as file {filename}")
+        self.config.log(f"Save the model checkpoint to {self.ex_folder} as file {filename}")
 
         checkpoint = {
             'last_epoch': epoch,
             'state_dict': self.model.state_dict(),
             'optimizer': self.optimizer.state_dict(),
-            'lr_scheduler': self.lr_scheduler.state_dict() if self.lr_scheduler else None,
-            'config': self.config
+            'lr_scheduler': self.lr_scheduler.state_dict() if self.lr_scheduler else None
         }
 
-        torch.save(checkpoint, os.path.join(folder, filename))  # os.path.join(model, dataset, folder, filename))
+        torch.save(checkpoint,
+                   os.path.join(self.ex_folder, filename))  # os.path.join(model, dataset, folder, filename))
 
     def load_ckpt(self, ckpt_path):
         raise NotImplementedError
