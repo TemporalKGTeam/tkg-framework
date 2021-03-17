@@ -18,6 +18,12 @@ from tkge.models.pipeline_model import PipelineModel
 from tkge.models.loss import Loss
 from tkge.eval.metrics import Evaluation
 
+import torch.multiprocessing as mp
+import torch.distributed as dist
+
+from torch.nn.parallel import DistributedDataParallel as DDP
+from ignite.distributed import DistributedProxySampler as DPS
+
 
 class TrainTask(Task):
     @staticmethod
@@ -69,6 +75,7 @@ class TrainTask(Task):
 
         # TODO(gengyuan): passed to all modules
         self.device = self.config.get("task.device")
+        self.devices = self.config.get("task.devices")
 
         self._prepare()
 
@@ -105,9 +112,10 @@ class TrainTask(Task):
         self.sampler = NegativeSampler.create(config=self.config, dataset=self.dataset)
         self.onevsall_sampler = NonNegativeSampler(config=self.config, dataset=self.dataset, as_matrix=True)
 
-        self.config.log(f"Creating model {self.config.get('model.type')}")
-        self.model = BaseModel.create(config=self.config, dataset=self.dataset)
-        self.model.to(self.device)
+        # TODO with DDP this needs to be done for each process and it must not be a shared model (this is already handled by DDP)
+        # self.config.log(f"Creating model {self.config.get('model.type')}")
+        # self.model = BaseModel.create(config=self.config, dataset=self.dataset)
+        # self.model.to(self.device)
 
         self.config.log(f"Initializing loss function")
         self.loss = Loss.create(config=self.config)
@@ -123,7 +131,7 @@ class TrainTask(Task):
             scheduler_args = self.config.get("train.lr_scheduler.args")
             self.lr_scheduler = get_scheduler(self.optimizer, scheduler_type, scheduler_args)
 
-        self.config.log((f"Initializeing regularizer"))
+        self.config.log(f"Initializing regularizer")
         self.regularizer = dict()
         self.inplace_regularizer = dict()
 
@@ -138,8 +146,64 @@ class TrainTask(Task):
         self.config.log(f"Initializing evaluation")
         self.evaluation = Evaluation(config=self.config, dataset=self.dataset)
 
+        self.config.log(f"Initializing parallelization environment")
+        os.environ['MASTER_ADDR'] = '127.0.0.1'
+        os.environ['MASTER_PORT'] = '12355'
+        self.backend = 'nccl' if self.device == 'cuda' else 'gloo'
+
+
     def main(self):
-        self.config.log("BEGIN TRANING")
+        self.config.log("START PROCESS(ES)")
+        mp.spawn(self.start_process, nprocs=len(self.devices), join=True)
+
+
+    def start_process(self, rank):
+        self.config.log(f"Start process {rank + 1} of {len(self.devices)}")
+
+        dist.init_process_group(self.backend, rank=rank, world_size=len(self.devices))
+
+        self.config.log(f"Initialize model for process {rank + 1}")
+        model = BaseModel.create(config=self.config, dataset=self.dataset)
+        model.to(self.device)
+        ddp_model = DDP(model, device_ids=[rank])
+
+        self.config.log(f"Initialize sampler for process {rank + 1}")
+        dps_sampler = DPS(self.sampler, len(self.devices), rank)
+
+        # self.config.log(f"Initializing loss function for process {rank + 1}")
+        # self.loss = Loss.create(config=self.config)
+        #
+        # self.config.log(f"Initializing optimizer for process {rank + 1}")
+        # optimizer_type = self.config.get("train.optimizer.type")
+        # optimizer_args = self.config.get("train.optimizer.args")
+        # self.optimizer = get_optimizer(self.model.parameters(), optimizer_type, optimizer_args)
+        #
+        # self.config.log(f"Initializing lr scheduler for process {rank + 1}")
+        # if self.config.get("train.lr_scheduler"):
+        #     scheduler_type = self.config.get("train.lr_scheduler.type")
+        #     scheduler_args = self.config.get("train.lr_scheduler.args")
+        #     self.lr_scheduler = get_scheduler(self.optimizer, scheduler_type, scheduler_args)
+
+        # self.config.log(f"Initializing regularizer for process {rank + 1}")
+        # self.regularizer = dict()
+        # self.inplace_regularizer = dict()
+        #
+        # if self.config.get("train.regularizer"):
+        #     for name in self.config.get("train.regularizer"):
+        #         self.regularizer[name] = Regularizer.create(self.config, name)
+        #
+        # if self.config.get("train.inplace_regularizer"):
+        #     for name in self.config.get("train.inplace_regularizer"):
+        #         self.inplace_regularizer[name] = InplaceRegularizer.create(self.config, name)
+        #
+        # self.config.log(f"Initializing evaluation for process {rank + 1}")
+        # self.evaluation = Evaluation(config=self.config, dataset=self.dataset)
+
+        self.train(ddp_model, dps_sampler)
+
+
+    def train(self, model, sampler):
+        self.config.log("BEGIN TRAINING")
 
         save_freq = self.config.get("train.checkpoint.every")
         eval_freq = self.config.get("train.valid.every")
@@ -147,7 +211,8 @@ class TrainTask(Task):
         sample_target = self.config.get("negative_sampling.target")
 
         for epoch in range(1, self.config.get("train.max_epochs") + 1):
-            self.model.train()
+            # self.model.train()
+            model.train()
 
             # TODO early stopping conditions
             # 1. metrics 变化小
@@ -161,12 +226,13 @@ class TrainTask(Task):
             for pos_batch in self.train_loader:
                 self.optimizer.zero_grad()
 
-                samples, labels = self.sampler.sample(pos_batch, sample_target)
+                samples, labels = sampler.sample(pos_batch, sample_target)
 
                 samples = samples.to(self.device)
                 labels = labels.to(self.device)
 
-                scores, factors = self.model.fit(samples)
+                # scores, factors = self.model.fit(samples)
+                scores, factors = model.fit(samples)
 
                 # TODO (gengyuan) assertion: size of scores and labels should be matched
                 assert scores.size() == labels.size(), f"Score's size {scores.shape} should match label's size {labels.shape}"
@@ -224,7 +290,8 @@ class TrainTask(Task):
 
             if epoch % eval_freq == 0:
                 with torch.no_grad():
-                    self.model.eval()
+                    # self.model.eval()
+                    model.eval()
 
                     counter = 0
 
@@ -252,11 +319,13 @@ class TrainTask(Task):
                         queries_head[:, 0] = float('nan')
                         queries_tail[:, 2] = float('nan')
 
-                        batch_scores_head = self.model.predict(queries_head)
+                        # batch_scores_head = self.model.predict(queries_head)
+                        batch_scores_head = model.predict(queries_head)
                         assert list(batch_scores_head.shape) == [bs,
                                                                  self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
 
-                        batch_scores_tail = self.model.predict(queries_tail)
+                        # batch_scores_tail = self.model.predict(queries_tail)
+                        batch_scores_tail = model.predict(queries_tail)
                         assert list(batch_scores_tail.shape) == [bs,
                                                                  self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
 
