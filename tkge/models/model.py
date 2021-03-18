@@ -487,7 +487,10 @@ class ATiSEModel(BaseModel):
         self.embedding['emb_TR'].weight.data.renorm_(p=2, dim=0, maxnorm=1)
 
     def forward(self, sample: torch.Tensor, **kwargs):
-        return self.fit(sample)
+        fit_samples = self.fit(sample)
+        scores, factors = self.forward_model(fit_samples)
+        # TODO refit the scores if needed
+        return scores, factors
 
     def forward_model(self, sample: torch.Tensor, **kwargs):
         bs = sample.size(0)
@@ -543,7 +546,7 @@ class ATiSEModel(BaseModel):
 
     def fit(self, samples: torch.Tensor):
         # TODO seems like fit logic is currently implemented at the beginning of forward_model
-        return self.forward_model(samples)
+        return samples
 
 
     # TODO(gengyaun):
