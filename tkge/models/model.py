@@ -659,7 +659,10 @@ class TATransEModel(BaseModel):
         return rseq_e
 
     def forward(self, samples: torch.Tensor, **kwargs):
-        return self.fit(samples)
+        fit_samples = self.fit(samples)
+        scores, factors = self.forward_model(fit_samples)
+        scores = scores.view(samples.size(0), -1)  # refit
+        return scores, factors
 
     def forward_model(self, samples: torch.Tensor, **kwargs):
         h, r, t, tem = samples[:, 0].long(), samples[:, 1].long(), samples[:, 2].long(), samples[:, 3:].long()
@@ -686,15 +689,9 @@ class TATransEModel(BaseModel):
         return scores, factors
 
     def fit(self, samples: torch.Tensor):
-        bs = samples.size(0)
         dim = samples.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
-
         samples = samples.view(-1, dim)
-
-        scores, factor = self.forward_model(samples)
-        scores = scores.view(bs, -1)
-
-        return scores, factor
+        return samples
 
     def predict(self, queries: torch.Tensor):
         assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
