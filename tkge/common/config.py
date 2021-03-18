@@ -201,7 +201,7 @@ class Config:
                           "info": 1,
                           "warning": 2,
                           "error": 3}
-                if levels.get(self.log_level) >= levels.get(level):
+                if levels.get(level) >= levels.get(self.log_level):
                     line = f"{level.upper()}: {line}"
                 if self.echo:
                     print(line)
