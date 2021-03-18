@@ -233,7 +233,6 @@ class TrainTask(Task):
                         batch_scores_tail = []
 
                         for start in range(0, bs, self.valid_sub_bs):
-                            # TODO
                             stop = min(start + self.valid_sub_bs, bs)
                             sub_batch = batch[start:stop]
 
