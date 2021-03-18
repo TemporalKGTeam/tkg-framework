@@ -201,11 +201,11 @@ class Config:
                           "info": 1,
                           "warning": 2,
                           "error": 3}
+                line = f"{level.upper()}: {line}"
                 if levels.get(level) >= levels.get(self.log_level):
-                    line = f"{level.upper()}: {line}"
-                if self.echo:
-                    print(line)
-                file.write(f"{str(datetime.datetime.now())} {line}\n")
+                    if self.echo:
+                        print(line)
+                    file.write(f"{str(datetime.datetime.now())} {line}\n")
 
     def trace(
             self, echo=False, echo_prefix="", echo_flow=False, log=False, **kwargs
