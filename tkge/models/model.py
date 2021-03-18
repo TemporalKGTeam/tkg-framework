@@ -833,18 +833,15 @@ class TTransEModel(BaseModel):
             emb.weight.data.renorm(p=2, dim=1, maxnorm=1)
 
     def forward(self, samples, **kwargs):
-        return self.fit(samples)
+        fit_samples = self.fit(samples)
+        scores, factors = self.forward_model(fit_samples)
+        scores = scores.view(samples.size(0), -1)  # refit
+        return scores, factors
 
     def fit(self, samples: torch.Tensor):
-        bs = samples.size(0)
         dim = samples.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
-
         samples = samples.view(-1, dim)
-
-        scores, factor = self.forward_model(samples)
-        scores = scores.view(bs, -1)
-
-        return scores, factor
+        return samples
 
     def forward_model(self, samples, **kwargs):
         h, r, t, tem = samples[:, 0].long(), samples[:, 1].long(), samples[:, 2].long(), samples[:, 3].long()
