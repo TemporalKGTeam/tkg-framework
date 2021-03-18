@@ -217,15 +217,13 @@ class TrainTask(Task):
                     metrics['tail'] = defaultdict(float)
 
                     for batch in self.valid_loader:
+                        self.config.log(f"Valid batch size: {batch.size()}")
+
                         bs = batch.size(0)
-                        dim = batch.size(1)
 
                         batch = batch.to(self.device)
 
                         counter += bs
-
-                        queries_head = batch.clone()[:, :-1]
-                        queries_tail = batch.clone()[:, :-1]
 
                         # samples_head, _ = self.onevsall_sampler.sample(queries, "head")
                         # samples_tail, _ = self.onevsall_sampler.sample(queries, "tail")
@@ -233,15 +231,37 @@ class TrainTask(Task):
                         # samples_head = samples_head.to(self.device)
                         # samples_tail = samples_tail.to(self.device)
 
-                        # TODO(max) implement sub batches for evaluation as well
-                        queries_head[:, 0] = float('nan')
-                        queries_tail[:, 2] = float('nan')
+                        batch_scores_head = []
+                        batch_scores_tail = []
 
-                        batch_scores_head = self.model.predict(queries_head)
+                        for start in range(0, bs, self.valid_sub_bs):
+                            # TODO
+                            stop = min(start + self.valid_sub_bs, bs)
+                            sub_batch = batch[start:stop]
+
+                            sub_queries_head = sub_batch.clone()[:, :-1]
+                            sub_queries_tail = sub_batch.clone()[:, :-1]
+
+                            sub_queries_head[:, 0] = float('nan')
+                            sub_queries_tail[:, 2] = float('nan')
+
+                            self.config.log(f"Sub head queries size: {sub_queries_head.size()}")
+                            self.config.log(f"Sub tail queries size: {sub_queries_tail.size()}")
+
+                            sub_batch_scores_head = self.model.predict(sub_queries_head)
+                            sub_batch_scores_tail = self.model.predict(sub_queries_tail)
+
+                            batch_scores_head.append(sub_batch_scores_head)
+                            batch_scores_tail.append(sub_batch_scores_tail)
+
+                        batch_scores_head = torch.cat(batch_scores_head, dim=0)
+                        batch_scores_tail = torch.cat(batch_scores_tail, dim=0)
+
+                        self.config.log(f"Batch scores head: {batch_scores_head.size()}")
+                        self.config.log(f"Batch scores tail: {batch_scores_tail.size()}")
+
                         assert list(batch_scores_head.shape) == [bs,
                                                                  self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
-
-                        batch_scores_tail = self.model.predict(queries_tail)
                         assert list(batch_scores_tail.shape) == [bs,
                                                                  self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
 
