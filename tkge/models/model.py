@@ -418,7 +418,7 @@ class HyTEModel(BaseModel):
         super().__init__(config, dataset)
 
     def forward(self, samples: torch.Tensor, **kwargs):
-        # TODO wrapper for fit (see other models)
+        # TODO fit, forward_model, refit (if needed), return (see other models)
         raise NotImplementedError
 
     def forward_model(self, samples, **kwargs):
