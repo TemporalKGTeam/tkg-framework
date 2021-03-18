@@ -35,6 +35,8 @@ class Config:
                                         self.config_file[:-5], "exec-" + str(self.execution_id), "ckpt")
         self.start_time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
         self.log_file = os.path.join(self.log_folder, f"{self.start_time}.log")
+        self.log_level = self.get("console.log_level")
+        self.echo = self.get("console.echo")
 
     @classmethod
     def create_from_yaml(cls, filepath: str):
@@ -182,7 +184,7 @@ class Config:
                 result[fullkey] = value
 
     # Logging and Tracing
-    def log(self, msg: str, echo=True, prefix=""):
+    def log(self, msg: str, level="info"):
         """Add a message to the default log file.
 
         Optionally also print on console. ``prefix`` is used to indent each
@@ -194,11 +196,15 @@ class Config:
 
         with open(self.log_file, "a") as file:
             for line in msg.splitlines():
-                if prefix:
-                    line = prefix + line
-                if echo:
+                levels = {"debug": 0,
+                          "info": 1,
+                          "warning": 2,
+                          "error": 3}
+                if levels.get(self.log_level) >= levels.get(level):
+                    line = f"{level.upper()}: {line}"
+                if self.echo:
                     print(line)
-                file.write(str(datetime.datetime.now()) + " " + line + "\n")
+                file.write(f"{str(datetime.datetime.now())} {line}\n")
 
     def trace(
             self, echo=False, echo_prefix="", echo_flow=False, log=False, **kwargs

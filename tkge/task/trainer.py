@@ -123,7 +123,7 @@ class TrainTask(Task):
             scheduler_args = self.config.get("train.lr_scheduler.args")
             self.lr_scheduler = get_scheduler(self.optimizer, scheduler_type, scheduler_args)
 
-        self.config.log((f"Initializeing regularizer"))
+        self.config.log(f"Initializeing regularizer")
         self.regularizer = dict()
         self.inplace_regularizer = dict()
 
@@ -139,7 +139,7 @@ class TrainTask(Task):
         self.evaluation = Evaluation(config=self.config, dataset=self.dataset)
 
     def main(self):
-        self.config.log("BEGIN TRANING")
+        self.config.log("BEGIN TRAINING")
 
         save_freq = self.config.get("train.checkpoint.every")
         eval_freq = self.config.get("train.valid.every")
@@ -217,7 +217,7 @@ class TrainTask(Task):
                 else:
                     self.lr_scheduler.step()
 
-            self.config.log(f"Loss in iteration {epoch} : {avg_loss} comsuming {stop - start}s")
+            self.config.log(f"Loss in iteration {epoch} : {avg_loss} consuming {stop - start}s")
 
             if epoch % save_freq == 0:
                 self.save_ckpt(epoch)
