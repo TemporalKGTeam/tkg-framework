@@ -185,7 +185,8 @@ class Config:
 
     # Logging and Tracing
     def log(self, msg: str, level="info"):
-        """Add a message to the default log file.
+        """
+        Add a message to the default log file.
 
         Optionally also print on console. ``prefix`` is used to indent each
         output line.
@@ -209,7 +210,8 @@ class Config:
     def trace(
             self, echo=False, echo_prefix="", echo_flow=False, log=False, **kwargs
     ) -> Dict[str, Any]:
-        """Write a set of key-value pairs to the trace file.
+        """
+        Write a set of key-value pairs to the trace file.
 
         The pairs are written as a single-line YAML record. Optionally, also
         echo to console and/or write to log file.
@@ -224,7 +226,7 @@ class Config:
         if echo or log:
             msg = yaml.dump(kwargs, default_flow_style=echo_flow)
             if log:
-                self.log(msg, echo, echo_prefix)
+                self.log(msg)
             else:
                 for line in msg.splitlines():
                     if echo_prefix:
