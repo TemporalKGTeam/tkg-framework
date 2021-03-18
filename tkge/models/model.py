@@ -64,7 +64,7 @@ class BaseModel(ABC, nn.Module, Registrable, Configurable):
         raise NotImplementedError
 
     @abstractmethod
-    def forward_model(self, samples, **kwargs):
+    def _forward_model(self, samples, **kwargs):
         """
         Should do the classical model forwarding logic with no need to care about fitting (because its called in the
         forward() function after the call of the fit() function.
@@ -82,7 +82,7 @@ class BaseModel(ABC, nn.Module, Registrable, Configurable):
         raise NotImplementedError
 
     @abstractmethod
-    def fit(self, samples: torch.Tensor):
+    def _fit(self, samples: torch.Tensor):
         # TODO(gengyuan): wrapping all the models
         """
         Should be a wrapper of forward or a computation flow same as that in forward.
@@ -260,7 +260,7 @@ class DeSimplEModel(BaseModel):
         scores = scores.view(samples.size(0), -1)  # refit
         return scores, factors
 
-    def forward_model(self, samples, **kwargs):
+    def _forward_model(self, samples, **kwargs):
         head = samples[:, 0].long()
         rel = samples[:, 1].long()
         tail = samples[:, 2].long()
@@ -278,7 +278,7 @@ class DeSimplEModel(BaseModel):
 
         return scores, None
 
-    def fit(self, samples: torch.Tensor):
+    def _fit(self, samples: torch.Tensor):
         dim = samples.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
         samples = samples.view(-1, dim)
         return samples
@@ -327,7 +327,7 @@ class TComplExModel(BaseModel):
         # TODO refit the samples if needed
         return scores, factors
 
-    def forward_model(self, samples: torch.Tensor, **kwargs):
+    def _forward_model(self, samples: torch.Tensor, **kwargs):
         lhs = self.embeddings[0](samples[:, 0].long())
         rel = self.embeddings[1](samples[:, 1].long())
         rhs = self.embeddings[0](samples[:, 2].long())
@@ -359,7 +359,7 @@ class TComplExModel(BaseModel):
 
         return scores, factors
 
-    def fit(self, samples: torch.Tensor):
+    def _fit(self, samples: torch.Tensor):
         # TODO fit the samples
         return samples
 
@@ -421,11 +421,11 @@ class HyTEModel(BaseModel):
         # TODO fit, forward_model, refit (if needed), return (see other models)
         raise NotImplementedError
 
-    def forward_model(self, samples, **kwargs):
+    def _forward_model(self, samples, **kwargs):
         # TODO remember to negate the scores with torch.neg(scores)
         raise NotImplementedError
 
-    def fit(self, samples: torch.Tensor):
+    def _fit(self, samples: torch.Tensor):
         # TODO fit the samples
         raise NotImplementedError
 
@@ -492,7 +492,7 @@ class ATiSEModel(BaseModel):
         # TODO refit the scores if needed
         return scores, factors
 
-    def forward_model(self, sample: torch.Tensor, **kwargs):
+    def _forward_model(self, sample: torch.Tensor, **kwargs):
         bs = sample.size(0)
         # TODO(gengyuan)
         dim = sample.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
@@ -544,7 +544,7 @@ class ATiSEModel(BaseModel):
 
         return scores, factors
 
-    def fit(self, samples: torch.Tensor):
+    def _fit(self, samples: torch.Tensor):
         # TODO seems like fit logic is currently implemented at the beginning of forward_model
         return samples
 
@@ -664,7 +664,7 @@ class TATransEModel(BaseModel):
         scores = scores.view(samples.size(0), -1)  # refit
         return scores, factors
 
-    def forward_model(self, samples: torch.Tensor, **kwargs):
+    def _forward_model(self, samples: torch.Tensor, **kwargs):
         h, r, t, tem = samples[:, 0].long(), samples[:, 1].long(), samples[:, 2].long(), samples[:, 3:].long()
 
         h_e = self.embedding['ent'](h)
@@ -688,7 +688,7 @@ class TATransEModel(BaseModel):
 
         return scores, factors
 
-    def fit(self, samples: torch.Tensor):
+    def _fit(self, samples: torch.Tensor):
         dim = samples.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
         samples = samples.view(-1, dim)
         return samples
@@ -746,7 +746,7 @@ class TADistmultModel(BaseModel):
         scores = scores.view(samples.size(0), -1)  # refit
         return scores, factors
 
-    def forward_model(self, samples: torch.Tensor, **kwargs):
+    def _forward_model(self, samples: torch.Tensor, **kwargs):
         h, r, t, tem = samples[:, 0].long(), samples[:, 1].long(), samples[:, 2].long(), samples[:, 3:].long()
 
         h_e = self.embedding['ent'](h)
@@ -786,7 +786,7 @@ class TADistmultModel(BaseModel):
 
         return rseq_e
 
-    def fit(self, samples: torch.Tensor):
+    def _fit(self, samples: torch.Tensor):
         dim = samples.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
         samples = samples.view(-1, dim)
         return samples
@@ -838,12 +838,12 @@ class TTransEModel(BaseModel):
         scores = scores.view(samples.size(0), -1)  # refit
         return scores, factors
 
-    def fit(self, samples: torch.Tensor):
+    def _fit(self, samples: torch.Tensor):
         dim = samples.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
         samples = samples.view(-1, dim)
         return samples
 
-    def forward_model(self, samples, **kwargs):
+    def _forward_model(self, samples, **kwargs):
         h, r, t, tem = samples[:, 0].long(), samples[:, 1].long(), samples[:, 2].long(), samples[:, 3].long()
 
         h_e = self.embedding['ent'](h)
