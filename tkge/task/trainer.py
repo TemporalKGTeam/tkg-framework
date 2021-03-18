@@ -218,9 +218,6 @@ class TrainTask(Task):
                     self.lr_scheduler.step()
 
             self.config.log(f"Loss in iteration {epoch} : {avg_loss} consuming {stop - start}s")
-            self.config.log(f"Warning test message", level="warning")
-            self.config.log(f"Error test message", level="error")
-            self.config.log(f"Debug test message should not be shown", level="debug")
 
             if epoch % save_freq == 0:
                 self.save_ckpt(epoch)
