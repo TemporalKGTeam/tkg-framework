@@ -829,11 +829,7 @@ class TTransEModel(BaseModel):
 
         candidates = all_candidates_of_ent_queries(queries, self.dataset.num_entities())
 
-        self.config.log(f"Candidates size: {candidates.size()}")
-
         scores, _ = self.forward(candidates)
         scores = scores.view(bs, -1)
-
-        self.config.log(f"Scores size: {scores.size()}")
 
         return scores

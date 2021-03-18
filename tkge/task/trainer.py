@@ -217,8 +217,6 @@ class TrainTask(Task):
                     metrics['tail'] = defaultdict(float)
 
                     for batch in self.valid_loader:
-                        self.config.log(f"Valid batch size: {batch.size()}")
-
                         bs = batch.size(0)
 
                         batch = batch.to(self.device)
@@ -245,9 +243,6 @@ class TrainTask(Task):
                             sub_queries_head[:, 0] = float('nan')
                             sub_queries_tail[:, 2] = float('nan')
 
-                            self.config.log(f"Sub head queries size: {sub_queries_head.size()}")
-                            self.config.log(f"Sub tail queries size: {sub_queries_tail.size()}")
-
                             sub_batch_scores_head = self.model.predict(sub_queries_head)
                             sub_batch_scores_tail = self.model.predict(sub_queries_tail)
 
@@ -256,9 +251,6 @@ class TrainTask(Task):
 
                         batch_scores_head = torch.cat(batch_scores_head, dim=0)
                         batch_scores_tail = torch.cat(batch_scores_tail, dim=0)
-
-                        self.config.log(f"Batch scores head: {batch_scores_head.size()}")
-                        self.config.log(f"Batch scores tail: {batch_scores_tail.size()}")
 
                         assert list(batch_scores_head.shape) == [bs,
                                                                  self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
