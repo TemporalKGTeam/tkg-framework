@@ -255,7 +255,10 @@ class DeSimplEModel(BaseModel):
         return h_emb1, r_emb1, t_emb1, h_emb2, r_emb2, t_emb2
 
     def forward(self, samples, **kwargs):
-        return self.fit(samples)
+        fit_samples = self.fit(samples)
+        scores, factors = self.forward_model(fit_samples)
+        scores = scores.view(samples.size(0), -1)  # refit
+        return scores, factors
 
     def forward_model(self, samples, **kwargs):
         head = samples[:, 0].long()
@@ -276,15 +279,9 @@ class DeSimplEModel(BaseModel):
         return scores, None
 
     def fit(self, samples: torch.Tensor):
-        bs = samples.size(0)
         dim = samples.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
-
         samples = samples.view(-1, dim)
-
-        scores, factor = self.forward_model(samples)
-        scores = scores.view(bs, -1)
-
-        return scores, factor
+        return samples
 
     def predict(self, queries: torch.Tensor):
         assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
