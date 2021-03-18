@@ -255,8 +255,8 @@ class DeSimplEModel(BaseModel):
         return h_emb1, r_emb1, t_emb1, h_emb2, r_emb2, t_emb2
 
     def forward(self, samples, **kwargs):
-        fit_samples = self.fit(samples)
-        scores, factors = self.forward_model(fit_samples)
+        fit_samples = self._fit(samples)
+        scores, factors = self._forward_model(fit_samples)
         scores = scores.view(samples.size(0), -1)  # refit
         return scores, factors
 
@@ -291,7 +291,7 @@ class DeSimplEModel(BaseModel):
 
         candidates = all_candidates_of_ent_queries(queries, self.dataset.num_entities())
 
-        scores, _ = self.forward_model(candidates)
+        scores, _ = self._forward_model(candidates)
         scores = scores.view(bs, -1)
 
         return scores
@@ -322,8 +322,8 @@ class TComplExModel(BaseModel):
             emb.weight.data *= self.init_size
 
     def forward(self, samples, **kwargs):
-        fit_samples = self.fit(samples)
-        scores, factors = self.forward_model(fit_samples)
+        fit_samples = self._fit(samples)
+        scores, factors = self._forward_model(fit_samples)
         # TODO refit the samples if needed
         return scores, factors
 
@@ -487,8 +487,8 @@ class ATiSEModel(BaseModel):
         self.embedding['emb_TR'].weight.data.renorm_(p=2, dim=0, maxnorm=1)
 
     def forward(self, sample: torch.Tensor, **kwargs):
-        fit_samples = self.fit(sample)
-        scores, factors = self.forward_model(fit_samples)
+        fit_samples = self._fit(sample)
+        scores, factors = self._forward_model(fit_samples)
         # TODO refit the scores if needed
         return scores, factors
 
@@ -659,8 +659,8 @@ class TATransEModel(BaseModel):
         return rseq_e
 
     def forward(self, samples: torch.Tensor, **kwargs):
-        fit_samples = self.fit(samples)
-        scores, factors = self.forward_model(fit_samples)
+        fit_samples = self._fit(samples)
+        scores, factors = self._forward_model(fit_samples)
         scores = scores.view(samples.size(0), -1)  # refit
         return scores, factors
 
@@ -701,7 +701,7 @@ class TATransEModel(BaseModel):
 
         candidates = all_candidates_of_ent_queries(queries, self.dataset.num_entities())
 
-        scores, _ = self.forward_model(candidates)
+        scores, _ = self._forward_model(candidates)
         scores = scores.view(bs, -1)
 
         return scores
@@ -741,8 +741,8 @@ class TADistmultModel(BaseModel):
             emb.weight.data.renorm(p=2, dim=1, maxnorm=1)
 
     def forward(self, samples: torch.Tensor, **kwargs):
-        fit_samples = self.fit(samples)
-        scores, factors = self.forward_model(fit_samples)
+        fit_samples = self._fit(samples)
+        scores, factors = self._forward_model(fit_samples)
         scores = scores.view(samples.size(0), -1)  # refit
         return scores, factors
 
@@ -799,7 +799,7 @@ class TADistmultModel(BaseModel):
 
         candidates = all_candidates_of_ent_queries(queries, self.dataset.num_entities())
 
-        scores, _ = self.forward_model(candidates)
+        scores, _ = self._forward_model(candidates)
         scores = scores.view(bs, -1)
 
         return scores
@@ -833,8 +833,8 @@ class TTransEModel(BaseModel):
             emb.weight.data.renorm(p=2, dim=1, maxnorm=1)
 
     def forward(self, samples, **kwargs):
-        fit_samples = self.fit(samples)
-        scores, factors = self.forward_model(fit_samples)
+        fit_samples = self._fit(samples)
+        scores, factors = self._forward_model(fit_samples)
         scores = scores.view(samples.size(0), -1)  # refit
         return scores, factors
 
@@ -872,7 +872,7 @@ class TTransEModel(BaseModel):
 
         candidates = all_candidates_of_ent_queries(queries, self.dataset.num_entities())
 
-        scores, _ = self.forward_model(candidates)
+        scores, _ = self._forward_model(candidates)
         scores = scores.view(bs, -1)
 
         return scores
