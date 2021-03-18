@@ -144,11 +144,18 @@ class TrainTask(Task):
 
         # validity checks and warnings
         if self.train_sub_bs >= self.train_bs or self.train_sub_bs < 1:
-            # TODO(max) improve logging with different hierarchies/labels, i.e. DEBUG, INFO, WARNING, ERROR
+            # TODO(max) improve logging with different hierarchies/labels, i.e. merge with branch advannced_log_and_ckpt_management
             self.config.log(f"WARNING: Specified train.sub_batch_size={self.train_sub_bs} is greater or equal to "
                             f"train.batch_size={self.train_bs} or smaller than 1, so use no sub batches. "
                             f"Device(s) may run out of memory.")
             self.train_sub_bs = self.train_bs
+
+        if self.valid_sub_bs >= self.valid_bs or self.valid_sub_bs < 1:
+            # TODO(max) improve logging with different hierarchies/labels, i.e. merge with branch advannced_log_and_ckpt_management
+            self.config.log(f"WARNING: Specified train.valid.sub_batch_size={self.valid_sub_bs} is greater or equal to "
+                            f"train.valid.batch_size={self.valid_bs} or smaller than 1, so use no sub batches. "
+                            f"Device(s) may run out of memory.")
+            self.valid_sub_bs = self.valid_bs
 
     def main(self):
         self.config.log("BEGIN TRAINING")
