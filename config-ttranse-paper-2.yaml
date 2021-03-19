@@ -25,10 +25,10 @@ dataset:
   filter: FALSE
   temporal:
     resolution: day  #deprecated
-    index: False
-    float: True
+    index: True
+    float: False
   args: ~
-  name: icews14_TA
+  name: icews14
   num_entities: -1
   num_relations: -1
   +++: +++
