@@ -192,6 +192,11 @@ class GDELTDatasetProcessor(DatasetProcessor):
         super().__init__(config)
 
     def process(self):
+        """
+        Converts the raw text data to meaningful numerical data.
+        Since the GDELT dataset already represents the data as numbers (ids), the head, relation and tail entities only
+        need to be casted to numerical types.
+        """
         for rd in self.train_raw:
             head, rel, tail, ts = rd.strip().split('\t')
             head = int(head)
