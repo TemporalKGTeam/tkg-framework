@@ -259,7 +259,7 @@ class ICEWS14DatasetProcessor(DatasetProcessor):
         """
         Converts the raw text data to meaningful numerical data.
         Since the ICEWS14 dataset represent its data in raw semantic texts, the head, relation and tail entities need
-        to be indexed.
+        to be indexed programmatically.
         """
         all_timestamp = get_all_days_of_year(2014)
         self.ts2id = {ts: (arrow.get(ts) - arrow.get('2014-01-01')).days for ts in all_timestamp}
@@ -323,6 +323,11 @@ class ICEWS14DatasetProcessor(DatasetProcessor):
 @DatasetProcessor.register(name="icews05-15")
 class ICEWS0515DatasetProcessor(DatasetProcessor):
     def process(self):
+        """
+        Converts the raw text data to meaningful numerical data.
+        Since the ICEWS05-15 dataset represent its data in raw semantic texts, the head, relation and tail entities need
+        to be indexed programmatically.
+        """
         for rd in self.train_raw:
             head, rel, tail, ts = rd.strip().split('\t')
             head = self.index_entities(head)
