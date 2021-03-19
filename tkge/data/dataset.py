@@ -372,6 +372,15 @@ class YAGODatasetProcessor(DatasetProcessor):
         pass
 
 
+@DatasetProcessor.register(name="yago11k")
+class YAGO11KDatasetProcessor(DatasetProcessor):
+    def process(self):
+        pass
+
+    def process_time(self, origin: str):
+        pass
+
+
 class SplitDataset(torch.utils.data.Dataset):
     def __init__(self, dataset: Dict[str, List], datatype: Optional[List[str]] = None):
         super().__init__()
