@@ -11,7 +11,7 @@ def is_leap_year(years: int):
 
     assert isinstance(years, int), "Integer required."
 
-    if ((years % 4 == 0 and years % 100 != 0) or (years % 400 == 0)):
+    if (years % 4 == 0 and years % 100 != 0) or (years % 400 == 0):
         days_sum = 366
         return days_sum
     else:
