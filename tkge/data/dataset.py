@@ -49,7 +49,6 @@ class DatasetProcessor(ABC, Registrable, Configurable):
 
         self.load()
         self.process()
-        self.filter()
 
     @classmethod
     def create(cls, config: Config):
