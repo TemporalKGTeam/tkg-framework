@@ -89,6 +89,10 @@ class DatasetProcessor(ABC, Registrable, Configurable):
         return self.ts2id[ts]
 
     def load(self):
+        """
+        Loads the dataset from the train.txt, valid.txt and test.txt from the specified dataset folder.
+        Duplicates each quadruple and twists the head and tail entity if the flag for reciprocal relations is set.
+        """
         train_file = self.folder + "/train.txt"
         valid_file = self.folder + "/valid.txt"
         test_file = self.folder + "/test.txt"
