@@ -256,6 +256,11 @@ class GDELTDatasetProcessor(DatasetProcessor):
 @DatasetProcessor.register(name="icews14")
 class ICEWS14DatasetProcessor(DatasetProcessor):
     def process(self):
+        """
+        Converts the raw text data to meaningful numerical data.
+        Since the ICEWS14 dataset represent its data in raw semantic texts, the head, relation and tail entities need
+        to be indexed.
+        """
         all_timestamp = get_all_days_of_year(2014)
         self.ts2id = {ts: (arrow.get(ts) - arrow.get('2014-01-01')).days for ts in all_timestamp}
 
