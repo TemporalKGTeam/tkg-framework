@@ -354,6 +354,15 @@ class WIKIDatasetProcessor(DatasetProcessor):
         pass
 
 
+@DatasetProcessor.register(name="wiki12k")
+class WIKI12KDatasetProcessor(DatasetProcessor):
+    def process(self):
+        pass
+
+    def process_time(self, origin: str):
+        pass
+
+
 @DatasetProcessor.register(name="yago")
 class YAGODatasetProcessor(DatasetProcessor):
     def process(self):
