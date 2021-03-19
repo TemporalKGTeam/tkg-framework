@@ -71,18 +71,27 @@ class DatasetProcessor(ABC, Registrable, Configurable):
         raise NotImplementedError
 
     def index_entities(self, ent: str):
+        """
+        Associates each given entity with an unique identifier, i.e. the number of different entities.
+        """
         if ent not in self.ent2id:
             self.ent2id.update({ent: self.num_entities()})
 
         return self.ent2id[ent]
 
     def index_relations(self, rel: str):
+        """
+        Associates each given relation with an unique identifier, i.e. the number of different relations.
+        """
         if rel not in self.rel2id:
             self.rel2id.update({rel: self.num_relations()})
 
         return self.rel2id[rel]
 
     def index_timestamps(self, ts):
+        """
+        Associates each given timestamp with an unique identifier, i.e. the number of different timestamps.
+        """
         if ts not in self.ts2id:
             self.ts2id.update({ts: self.num_timestamps()})
 
