@@ -1,4 +1,3 @@
-import datetime
 import arrow
 
 from typing import List
