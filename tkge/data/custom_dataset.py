@@ -89,7 +89,7 @@ class Yago11kDatasetProcessor(DatasetProcessor):
             ts_end = self.process_time(ts_start, False)
 
             if ts_start < ts_end:
-                ts_end = self.config.get("dataset.args.yearmax")
+                ts_end = self.config.get("dataset.args.year_max")
 
         for rd in self.valid_raw:
             pass
@@ -103,7 +103,7 @@ class Yago11kDatasetProcessor(DatasetProcessor):
         if year.find('#') != -1 and len(year) == 4:
             year = int(year)
         else:
-            year = self.config.get("dataset.args.yearmin") if start else self.config.get("dataset.args.yearmax")
+            year = self.config.get("dataset.args.year_min") if start else self.config.get("dataset.args.year_max")
 
         return year
 

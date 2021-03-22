@@ -412,10 +412,71 @@ class YAGO11KDatasetProcessor(DatasetProcessor):
 @DatasetProcessor.register(name="yago15k")
 class YAGO15KDatasetProcessor(DatasetProcessor):
     def process(self):
-        pass
+        for index, rd in enumerate(self.train_raw):
+            fact = rd.strip().split('\t')
+
+            head, rel, tail = fact[0][1:-1], fact[1][1:-1], fact[2][1:-1]
+            head = self.index_entities(head)
+            rel = self.index_relations(rel)
+            tail = self.index_entities(tail)
+
+            if len(fact) >= 3:
+                temp_mod = fact[3][1:-1] if len(fact) == 4 else ''
+                year = int(fact[-1][1:-1]) if len(fact) >= 3 else ''
+                year_stop = year + 1
+
+                if self.train_raw[index + 1][0:3] == [head, rel, tail] and len(self.train_raw[index + 1]) == len(fact):
+                    # there is a defined endpoint when the next line holds the same triple (and has same length)
+                    year_stop = int(self.train_raw[index + 1][4][1:-1])
+                elif temp_mod and temp_mod == 'occursSince':
+                    year_stop = self.config.get('dataset.args.year_max')
+                elif temp_mod and temp_mod == 'occursUntil':
+                    year_stop = year
+                    year = self.config.get('dataset.args.year_min')
+
+                for y in range(year, year_stop + 1):
+                    y_id = self.index_timestamps(y)
+
+
+                ts = self.process_time(year, temp_mod, self.train_raw)
+                ts_id = self.index_timestamps(ts)
+                self.train_set['timestamp_id'].append([ts_id])
+                self.train_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+                self.all_quadruples.append([head, rel, tail, ts_id])
+
+        for rd in self.valid_raw:
+            head, rel, tail, ts = rd.strip().split('\t')
+            head = self.index_entities(head)
+            rel = self.index_relations(rel)
+            tail = self.index_entities(tail)
+            ts = self.process_time(ts)
+            ts_id = self.index_timestamps(ts)
+
+            self.valid_set['triple'].append([head, rel, tail])
+            self.valid_set['timestamp_id'].append([ts_id])
+            self.valid_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+
+            self.all_triples.append([head, rel, tail])
+            self.all_quadruples.append([head, rel, tail, ts_id])
+
+        for rd in self.test_raw:
+            head, rel, tail, ts = rd.strip().split('\t')
+            head = self.index_entities(head)
+            rel = self.index_relations(rel)
+            tail = self.index_entities(tail)
+            ts = self.process_time(ts)
+            ts_id = self.index_timestamps(ts)
+
+            self.test_set['triple'].append([head, rel, tail])
+            self.test_set['timestamp_id'].append([ts_id])
+            self.test_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+
+            self.all_triples.append([head, rel, tail])
+            self.all_quadruples.append([head, rel, tail, ts_id])
 
     def process_time(self, origin: str):
-        pass
+
+        return int(origin.split('-')[0])
 
 
 class SplitDataset(torch.utils.data.Dataset):
