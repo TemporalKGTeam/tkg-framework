@@ -32,7 +32,6 @@ dataset:
   # TODO 可以保存到cache
   # if True, we use existing mapping file to index entity/relation
   mapping: False
-  filter: False
   temporal:
     # specify the timestamp granularity
     resolution: "day"
@@ -45,9 +44,6 @@ dataset:
 
   # Specify dataset name. It should be registered in DatasetProcessor.
   name: 'icews14'
-  num_entities: -1
-  num_relations: -1
-  pickle: True
 
 # Negative sampling
 negative_sampling:
@@ -76,9 +72,8 @@ model:
 
 
 train:
-  # Split used for training (specified under 'data.files').
+  # TODO FEATURE Split used for training (specified under 'data.files').
   split: train
-  type: negative_sampling
 
   loss:
     type: cross_entropy_loss
@@ -94,31 +89,24 @@ train:
     drop_last: False  # when fetching iterable-style datasets with multi-processing, the last non-full batch is dropped
     timeout: 0  # timeout value for collecting batch from workers
 
-  # Split used for validation
+  # TODO FEATURE Split used for validation
   valid:
-    split: test # in [test or valid]
+    split: test # in [test or valid] TODO
     # validation frequency
     every: 10
     batch_size: 100
 
-    filter: time-aware  # in [off, static, time-aware]
+    filter: time-aware  # in [off, static, time-aware] TODO
 
-    ordering: optimistic    # in [optimistic, pessimistic]
-    k: [1, 3, 10]
+    ordering: optimistic    # in [optimistic, pessimistic] TODO
+    k: [1, 3, 10]  # TODO
 
   batch_size: 512
-  subbatch_size: -1
-  subbatch_auto_tune: False
+  sub_batch_size: -1  # TODO FEATURE subbatching branch will be merged to master
   optimizer:
     type: Adam
     args:  # the args need to match key and value of the torch.optim optimizer classes
       lr: 0.001
-
-    default:
-      type: Adam           # sgd, adagrad, adam
-
-      args:
-        +++: +++
 
   # Specify the regularizer
   regularizer:
@@ -138,16 +126,10 @@ train:
   lr_scheduler_args:
     +++: +++
 
-  trace_level: epoch           # batch, epoch
-
   checkpoint:
     folder: /home/ubuntu/gengyuan/ckpt/
     every: 10
-    keep: 3
-
-  auto_correct: False
-  abort_on_nan: True
-  visualize_graph: False
+    keep: 3  # TODO FEATURE backtracing intermediate checkpoints
 
 eval:
   # evaluation protocol: 'off' means no extra method. 'static' means if any candidate query's static part
