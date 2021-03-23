@@ -372,41 +372,41 @@ class ICEWS0515DatasetProcessor(DatasetProcessor):
     def process_time(self, origin: str):
         raise NotImplementedError
 
-
-@DatasetProcessor.register(name="wiki")
-class WIKIDatasetProcessor(DatasetProcessor):
-    def process(self):
-        pass
-
-    def process_time(self, origin: str):
-        pass
-
-
-@DatasetProcessor.register(name="wiki12k")
-class WIKI12KDatasetProcessor(DatasetProcessor):
-    def process(self):
-        pass
-
-    def process_time(self, origin: str):
-        pass
-
-
-@DatasetProcessor.register(name="yago")
-class YAGODatasetProcessor(DatasetProcessor):
-    def process(self):
-        pass
-
-    def process_time(self, origin: str):
-        pass
-
-
-@DatasetProcessor.register(name="yago11k")
-class YAGO11KDatasetProcessor(DatasetProcessor):
-    def process(self):
-        pass
-
-    def process_time(self, origin: str):
-        pass
+#
+# @DatasetProcessor.register(name="wiki")
+# class WIKIDatasetProcessor(DatasetProcessor):
+#     def process(self):
+#         pass
+#
+#     def process_time(self, origin: str):
+#         pass
+#
+#
+# @DatasetProcessor.register(name="wiki12k")
+# class WIKI12KDatasetProcessor(DatasetProcessor):
+#     def process(self):
+#         pass
+#
+#     def process_time(self, origin: str):
+#         pass
+#
+#
+# @DatasetProcessor.register(name="yago")
+# class YAGODatasetProcessor(DatasetProcessor):
+#     def process(self):
+#         pass
+#
+#     def process_time(self, origin: str):
+#         pass
+#
+#
+# @DatasetProcessor.register(name="yago11k")
+# class YAGO11KDatasetProcessor(DatasetProcessor):
+#     def process(self):
+#         pass
+#
+#     def process_time(self, origin: str):
+#         pass
 
 
 @DatasetProcessor.register(name="yago15k")
@@ -481,11 +481,11 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
         next_fact = self.train_raw[index + 1].strip().split('\t')
 
         temp_mod = fact[3][1:-1] if len(fact) == 4 else ''
-        year = int(fact[-1][1:-1]) if len(fact) >= 3 else ''
+        year = int(fact[-1]) if len(fact) >= 3 else ''
 
         next_triple = next_fact[0][1:-1], next_fact[1][1:-1], next_fact[2][1:-1]
         next_temp_mod = next_fact[3][1:-1] if len(next_fact) == 4 else ''
-        next_year = int(next_fact[-1][1:-1]) if len(next_fact) >= 3 else ''
+        next_year = int(next_fact[-1]) if len(next_fact) >= 3 else ''
 
         is_closed_timespan = triple == next_triple and temp_mod and year and next_temp_mod and next_year
 
