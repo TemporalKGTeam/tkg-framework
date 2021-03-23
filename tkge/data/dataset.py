@@ -480,8 +480,8 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
         # TODO(max) function signature does not fit YAGO time processing
         next_fact = self.train_raw[index + 1].strip().split('\t')
 
-        temp_mod = fact[3][1:-1] if len(fact) == 4 else ''
-        year = int(fact[-1]) if len(fact) >= 3 else ''
+        temp_mod = fact[3][1:-1] if len(fact) == 5 else ''
+        year = int(fact[-1]) if len(fact) >= 4 else ''
 
         next_triple = next_fact[0][1:-1], next_fact[1][1:-1], next_fact[2][1:-1]
         next_temp_mod = next_fact[3][1:-1] if len(next_fact) == 4 else ''
