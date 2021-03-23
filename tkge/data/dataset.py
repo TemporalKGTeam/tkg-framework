@@ -413,84 +413,39 @@ class ICEWS0515DatasetProcessor(DatasetProcessor):
 @DatasetProcessor.register(name="yago15k")
 class YAGO15KDatasetProcessor(DatasetProcessor):
     def process(self):
-        # TODO(max) refactoring (duplicated code lines)
-        index = 0
-        while index < len(self.train_raw):
-            rd = self.train_raw[index]
-            fact = rd.strip().split('\t')
-            self.config.log(f"Processing train fact in line {index}: {fact}")
+        data_types = ["train", "valid", "test"]
+        data_raw_mappings = {data_types[0]: self.train_raw, data_types[1]: self.valid_raw, data_types[2]: self.test_raw}
+        data_set_mappings = {data_types[0]: self.train_set, data_types[1]: self.valid_set, data_types[2]: self.test_set}
 
-            triple = fact[0][1:-1], fact[1][1:-1], fact[2][1:-1]
-            head_id = self.index_entities(triple[0])
-            rel_id = self.index_relations(triple[1])
-            tail_id = self.index_entities(triple[2])
+        for data_type in data_types:
+            index = 0
+            while index < len(data_raw_mappings[data_type]):
+                rd = data_raw_mappings[data_type][index]
+                fact = rd.strip().split('\t')
+                self.config.log(f"Processing fact in line {index + 1}: {fact}")
 
-            year_start, year_stop, index = self.process_time("train", index=index, fact=fact, triple=triple)
+                triple = fact[0][1:-1], fact[1][1:-1], fact[2][1:-1]
+                head_id = self.index_entities(triple[0])
+                rel_id = self.index_relations(triple[1])
+                tail_id = self.index_entities(triple[2])
 
-            for y in range(year_start, year_stop + 1):
-                ts_id = self.index_timestamps(y)
+                year_start, year_stop, index = self.process_time(data_type, index=index, fact=fact, triple=triple)
 
-                self.train_set['triple'].append([head_id, rel_id, tail_id])
-                self.train_set['timestamp_id'].append([ts_id if year_start != 0 and year_stop != 0 else []])
-                # TODO(max) how to float single year value?
-                self.train_set['timestamp_float'].append([y if year_start != 0 and year_stop != 0 else []])
+                for y in range(year_start, year_stop + 1):
+                    ts_id = self.index_timestamps(y)
 
-                self.all_triples.append([head_id, rel_id, tail_id])
-                self.all_quadruples.append([head_id, rel_id, tail_id, ts_id if year_start != 0 and year_stop != 0 else []])
+                    data_set_mappings[data_type]['triple'].append([head_id, rel_id, tail_id])
+                    data_set_mappings[data_type]['timestamp_id'].append([ts_id if year_start != 0 and year_stop != 0 else []])
+                    # TODO(max) how to float single year value?
+                    data_set_mappings[data_type]['timestamp_float'].append([y if year_start != 0 and year_stop != 0 else []])
 
-            index += 1
+                    self.all_triples.append([head_id, rel_id, tail_id])
+                    self.all_quadruples.append(
+                        [head_id, rel_id, tail_id, ts_id if year_start != 0 and year_stop != 0 else []])
 
-        index = 0
-        while index < len(self.valid_raw):
-            rd = self.valid_raw[index]
-            fact = rd.strip().split('\t')
-            self.config.log(f"Processing valid fact in line {index}: {fact}")
+                    self.config.log(f"Added quadruple: {str([head_id, rel_id, tail_id, ts_id if year_start != 0 and year_stop != 0 else []])}")
 
-            triple = fact[0][1:-1], fact[1][1:-1], fact[2][1:-1]
-            head_id = self.index_entities(triple[0])
-            rel_id = self.index_relations(triple[1])
-            tail_id = self.index_entities(triple[2])
-
-            year_start, year_stop, index = self.process_time("valid", index=index, fact=fact, triple=triple)
-
-            for y in range(year_start, year_stop + 1):
-                ts_id = self.index_timestamps(y)
-
-                self.valid_set['triple'].append([head_id, rel_id, tail_id])
-                self.valid_set['timestamp_id'].append([ts_id if year_start != 0 and year_stop != 0 else []])
-                # TODO(max) how to float single year value?
-                self.valid_set['timestamp_float'].append([y if year_start != 0 and year_stop != 0 else []])
-
-                self.all_triples.append([head_id, rel_id, tail_id])
-                self.all_quadruples.append([head_id, rel_id, tail_id, ts_id if year_start != 0 and year_stop != 0 else []])
-
-            index += 1
-
-        index = 0
-        while index < len(self.test_raw):
-            rd = self.test_raw[index]
-            fact = rd.strip().split('\t')
-            self.config.log(f"Processing test fact in line {index}: {fact}")
-
-            triple = fact[0][1:-1], fact[1][1:-1], fact[2][1:-1]
-            head_id = self.index_entities(triple[0])
-            rel_id = self.index_relations(triple[1])
-            tail_id = self.index_entities(triple[2])
-
-            year_start, year_stop, index = self.process_time("test", index=index, fact=fact, triple=triple)
-
-            for y in range(year_start, year_stop + 1):
-                ts_id = self.index_timestamps(y)
-
-                self.test_set['triple'].append([head_id, rel_id, tail_id])
-                self.test_set['timestamp_id'].append([ts_id if year_start != 0 and year_stop != 0 else []])
-                # TODO(max) how to float single year value?
-                self.test_set['timestamp_float'].append([y if year_start != 0 and year_stop != 0 else []])
-
-                self.all_triples.append([head_id, rel_id, tail_id])
-                self.all_quadruples.append([head_id, rel_id, tail_id, ts_id if year_start != 0 and year_stop != 0 else []])
-
-            index += 1
+                index += 1
 
     def process_time(self, origin: str, index: int = 0, fact: List[str] = None, triple: Tuple = None):
         """
@@ -546,7 +501,7 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
             year = int(self.config.get('dataset.args.year_min'))
         else:
             # case 5: otherwise there is no timespan, i.e. a stand alone triple
-            year_stop = year + 1
+            year_stop = year
 
         return year, year_stop, index
 
