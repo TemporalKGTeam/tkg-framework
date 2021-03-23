@@ -372,6 +372,7 @@ class ICEWS0515DatasetProcessor(DatasetProcessor):
     def process_time(self, origin: str):
         raise NotImplementedError
 
+
 #
 # @DatasetProcessor.register(name="wiki")
 # class WIKIDatasetProcessor(DatasetProcessor):
@@ -413,84 +414,92 @@ class ICEWS0515DatasetProcessor(DatasetProcessor):
 class YAGO15KDatasetProcessor(DatasetProcessor):
     def process(self):
         # TODO(max) refactoring (duplicated code lines)
-        for index, rd in enumerate(self.train_raw):
+        index = 0
+        while index < len(self.train_raw):
+            rd = self.train_raw[index]
             fact = rd.strip().split('\t')
+            self.config.log(f"Processing train fact in line {index}: {fact}")
 
             triple = fact[0][1:-1], fact[1][1:-1], fact[2][1:-1]
             head_id = self.index_entities(triple[0])
             rel_id = self.index_relations(triple[1])
             tail_id = self.index_entities(triple[2])
 
-            year_start, year_stop = self.process_time('', index=index, fact=fact, triple=triple)
+            year_start, year_stop, index = self.process_time('', index=index, fact=fact, triple=triple)
 
             for y in range(year_start, year_stop + 1):
                 ts_id = self.index_timestamps(y)
 
                 self.train_set['triple'].append([head_id, rel_id, tail_id])
-                self.train_set['timestamp_id'].append([ts_id])
+                self.train_set['timestamp_id'].append([ts_id if year_start != 0 and year_stop != 0 else []])
                 # TODO(max) how to float single year value?
-                self.train_set['timestamp_float'].append(y)
+                self.train_set['timestamp_float'].append([y if year_start != 0 and year_stop != 0 else []])
 
                 self.all_triples.append([head_id, rel_id, tail_id])
-                self.all_quadruples.append([head_id, rel_id, tail_id, ts_id])
+                self.all_quadruples.append([head_id, rel_id, tail_id, ts_id if year_start != 0 and year_stop != 0 else []])
+
+            index += 1
 
         for index, rd in enumerate(self.valid_raw):
             fact = rd.strip().split('\t')
+            self.config.log(f"Processing valid fact in line {index}: {fact}")
 
             triple = fact[0][1:-1], fact[1][1:-1], fact[2][1:-1]
             head_id = self.index_entities(triple[0])
             rel_id = self.index_relations(triple[1])
             tail_id = self.index_entities(triple[2])
 
-            year_start, year_stop = self.process_time('', index=index, fact=fact, triple=triple)
+            year_start, year_stop, index = self.process_time('', index=index, fact=fact, triple=triple)
 
             for y in range(year_start, year_stop + 1):
                 ts_id = self.index_timestamps(y)
 
                 self.valid_set['triple'].append([head_id, rel_id, tail_id])
-                self.valid_set['timestamp_id'].append([ts_id])
+                self.valid_set['timestamp_id'].append([ts_id if year_start != 0 and year_stop != 0 else []])
                 # TODO(max) how to float single year value?
-                self.valid_set['timestamp_float'].append(y)
+                self.valid_set['timestamp_float'].append([y if year_start != 0 and year_stop != 0 else []])
 
                 self.all_triples.append([head_id, rel_id, tail_id])
-                self.all_quadruples.append([head_id, rel_id, tail_id, ts_id])
+                self.all_quadruples.append([head_id, rel_id, tail_id, ts_id if year_start != 0 and year_stop != 0 else []])
 
         for index, rd in enumerate(self.test_raw):
             fact = rd.strip().split('\t')
+            self.config.log(f"Processing test fact in line {index}: {fact}")
 
             triple = fact[0][1:-1], fact[1][1:-1], fact[2][1:-1]
             head_id = self.index_entities(triple[0])
             rel_id = self.index_relations(triple[1])
             tail_id = self.index_entities(triple[2])
 
-            year_start, year_stop = self.process_time('', index=index, fact=fact, triple=triple)
+            year_start, year_stop, index = self.process_time('', index=index, fact=fact, triple=triple)
 
             for y in range(year_start, year_stop + 1):
                 ts_id = self.index_timestamps(y)
 
                 self.test_set['triple'].append([head_id, rel_id, tail_id])
-                self.test_set['timestamp_id'].append([ts_id])
+                self.test_set['timestamp_id'].append([ts_id if year_start != 0 and year_stop != 0 else []])
                 # TODO(max) how to float single year value?
-                self.test_set['timestamp_float'].append(y)
+                self.test_set['timestamp_float'].append([y if year_start != 0 and year_stop != 0 else []])
 
                 self.all_triples.append([head_id, rel_id, tail_id])
-                self.all_quadruples.append([head_id, rel_id, tail_id, ts_id])
+                self.all_quadruples.append([head_id, rel_id, tail_id, ts_id if year_start != 0 and year_stop != 0 else []])
 
     def process_time(self, origin: str, index: int = 0, fact: List = None, triple: Tuple = None):
         # TODO(max) function signature does not fit YAGO time processing
         next_fact = self.train_raw[index + 1].strip().split('\t')
 
         temp_mod = fact[3][1:-1] if len(fact) == 5 else ''
-        year = int(fact[-1]) if len(fact) >= 4 else ''
+        year = int(fact[-1][1:5]) if len(fact) >= 4 else 0
 
         next_triple = next_fact[0][1:-1], next_fact[1][1:-1], next_fact[2][1:-1]
         next_temp_mod = next_fact[3][1:-1] if len(next_fact) == 5 else ''
-        next_year = int(next_fact[-1]) if len(next_fact) >= 4 else ''
+        next_year = int(next_fact[-1][1:5]) if len(next_fact) >= 4 else 0
 
         is_closed_timespan = triple == next_triple and temp_mod and year and next_temp_mod and next_year
 
         if is_closed_timespan:
             year_stop = next_year
+            index += 1
         elif temp_mod and temp_mod == 'occursSince':
             year_stop = int(self.config.get('dataset.args.year_max'))
         elif temp_mod and temp_mod == 'occursUntil':
@@ -499,7 +508,7 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
         else:
             year_stop = year + 1
 
-        return year, year_stop
+        return year, year_stop, index
 
 
 class SplitDataset(torch.utils.data.Dataset):
