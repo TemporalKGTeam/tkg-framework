@@ -425,7 +425,7 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
             rel_id = self.index_relations(triple[1])
             tail_id = self.index_entities(triple[2])
 
-            year_start, year_stop, index = self.process_time('', index=index, fact=fact, triple=triple)
+            year_start, year_stop, index = self.process_time("train", index=index, fact=fact, triple=triple)
 
             for y in range(year_start, year_stop + 1):
                 ts_id = self.index_timestamps(y)
@@ -440,7 +440,9 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
 
             index += 1
 
-        for index, rd in enumerate(self.valid_raw):
+        index = 0
+        while index < len(self.valid_raw):
+            rd = self.valid_raw[index]
             fact = rd.strip().split('\t')
             self.config.log(f"Processing valid fact in line {index}: {fact}")
 
@@ -449,7 +451,7 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
             rel_id = self.index_relations(triple[1])
             tail_id = self.index_entities(triple[2])
 
-            year_start, year_stop, index = self.process_time('', index=index, fact=fact, triple=triple)
+            year_start, year_stop, index = self.process_time("valid", index=index, fact=fact, triple=triple)
 
             for y in range(year_start, year_stop + 1):
                 ts_id = self.index_timestamps(y)
@@ -462,7 +464,11 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
                 self.all_triples.append([head_id, rel_id, tail_id])
                 self.all_quadruples.append([head_id, rel_id, tail_id, ts_id if year_start != 0 and year_stop != 0 else []])
 
-        for index, rd in enumerate(self.test_raw):
+            index += 1
+
+        index = 0
+        while index < len(self.test_raw):
+            rd = self.test_raw[index]
             fact = rd.strip().split('\t')
             self.config.log(f"Processing test fact in line {index}: {fact}")
 
@@ -471,7 +477,7 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
             rel_id = self.index_relations(triple[1])
             tail_id = self.index_entities(triple[2])
 
-            year_start, year_stop, index = self.process_time('', index=index, fact=fact, triple=triple)
+            year_start, year_stop, index = self.process_time("test", index=index, fact=fact, triple=triple)
 
             for y in range(year_start, year_stop + 1):
                 ts_id = self.index_timestamps(y)
@@ -483,6 +489,8 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
 
                 self.all_triples.append([head_id, rel_id, tail_id])
                 self.all_quadruples.append([head_id, rel_id, tail_id, ts_id if year_start != 0 and year_stop != 0 else []])
+
+            index += 1
 
     def process_time(self, origin: str, index: int = 0, fact: List[str] = None, triple: Tuple = None):
         """
@@ -497,15 +505,20 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
         In cases 1 and 2 the index needs to be incremented by 1 because the next line was already processed then.
         Returns the start and end timestamp (only as the year) of the triple, as well as the maybe modified index.
         """
-        temp_mod = fact[3][1:-1] if len(fact) >= 4 and fact[3][1:-1] in ["occursSince", "occursUntil"] else None
+        data = {"train": self.train_raw, "valid": self.valid_raw, "test": self.valid_raw}
+        data_raw = data[origin]
+        valid_temp_mods = ["occursSince", "occursUntil"]
+
+        # process time of the current fact
+        temp_mod = fact[3][1:-1] if len(fact) >= 4 and fact[3][1:-1] in valid_temp_mods else None
         year = int(fact[4].split('-')[0][1:]) if len(fact) == 5 else 0
 
-        # only process the next fact if there is a next fact
-        if index + 1 < len(self.train_raw):
-            next_fact = self.train_raw[index + 1].strip().split('\t')
+        # process time of the next fact only if there exists at least one more fact after this
+        if index + 1 < len(data_raw):
+            next_fact = data_raw[index + 1].strip().split('\t')
             next_triple = next_fact[0][1:-1], next_fact[1][1:-1], next_fact[2][1:-1]
 
-            next_temp_mod = next_fact[3][1:-1] if len(next_fact) >= 4 and next_fact[3][1:-1] in ["occursSince", "occursUntil"] else None
+            next_temp_mod = next_fact[3][1:-1] if len(next_fact) >= 4 and next_fact[3][1:-1] in valid_temp_mods else None
             next_year = int(next_fact[4][1:].split('-')[0]) if len(next_fact) == 5 else 0
 
             is_closed_timespan = triple == next_triple and temp_mod and year != 0 and next_temp_mod and next_year != 0
