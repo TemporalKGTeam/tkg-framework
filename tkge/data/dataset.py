@@ -413,6 +413,11 @@ class ICEWS0515DatasetProcessor(DatasetProcessor):
 @DatasetProcessor.register(name="yago15k")
 class YAGO15KDatasetProcessor(DatasetProcessor):
     def process(self):
+        """
+        Processes the raw data for each data type (i.e. train, valid and test) of the YAGO15k dataset.
+        Uses the resulting timespan of the function process_time to add as many quadruples to each data set as years
+        where that fact is true.
+        """
         data_types = ["train", "valid", "test"]
         data_raw_mappings = {data_types[0]: self.train_raw, data_types[1]: self.valid_raw, data_types[2]: self.test_raw}
         data_set_mappings = {data_types[0]: self.train_set, data_types[1]: self.valid_set, data_types[2]: self.test_set}
@@ -443,7 +448,7 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
                     self.all_quadruples.append(
                         [head_id, rel_id, tail_id, ts_id if year_start != 0 and year_stop != 0 else []])
 
-                    self.config.log(f"Added quadruple: {str([head_id, rel_id, tail_id, ts_id if year_start != 0 and year_stop != 0 else []])}")
+                    self.config.log(f"Added tuple: {str([head_id, rel_id, tail_id, ts_id if year_start != 0 and year_stop != 0 else [], [y if year_start != 0 and year_stop != 0 else []]])}")
 
                 index += 1
 
