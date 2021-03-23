@@ -440,7 +440,8 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
                     ts_id = self.index_timestamps(y)
 
                     data_set_mappings[data_split]['triple'].append([head_id, rel_id, tail_id])
-                    data_set_mappings[data_split]['timestamp_id'].append([ts_id if year_start != 0 and year_stop != 0 else []])
+                    # TODO(max) how to model missing timestamps?
+                    data_set_mappings[data_split]['timestamp_id'].append([ts_id if year_start != 0 and year_stop != 0 else 0])
                     # TODO(max) how to float single year value?
                     data_set_mappings[data_split]['timestamp_float'].append([y if year_start != 0 and year_stop != 0 else []])
 
