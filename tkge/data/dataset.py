@@ -418,37 +418,37 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
         Uses the resulting timespan of the function process_time to add as many quadruples to each data set as years
         where that fact is true.
         """
-        data_types = ["train", "valid", "test"]
-        data_raw_mappings = {data_types[0]: self.train_raw, data_types[1]: self.valid_raw, data_types[2]: self.test_raw}
-        data_set_mappings = {data_types[0]: self.train_set, data_types[1]: self.valid_set, data_types[2]: self.test_set}
+        data_splits = ["train", "valid", "test"]
+        data_raw_mappings = {data_splits[0]: self.train_raw, data_splits[1]: self.valid_raw, data_splits[2]: self.test_raw}
+        data_set_mappings = {data_splits[0]: self.train_set, data_splits[1]: self.valid_set, data_splits[2]: self.test_set}
 
-        for data_type in data_types:
+        for data_split in data_splits:
             index = 0
-            while index < len(data_raw_mappings[data_type]):
-                rd = data_raw_mappings[data_type][index]
+            while index < len(data_raw_mappings[data_split]):
+                rd = data_raw_mappings[data_split][index]
                 fact = rd.strip().split('\t')
-                self.config.log(f"Processing fact in line {index + 1}: {fact}")
+                # self.config.log(f"Processing fact in line {index + 1}: {fact}")
 
                 triple = fact[0][1:-1], fact[1][1:-1], fact[2][1:-1]
                 head_id = self.index_entities(triple[0])
                 rel_id = self.index_relations(triple[1])
                 tail_id = self.index_entities(triple[2])
 
-                year_start, year_stop, index = self.process_time(data_type, index=index, fact=fact, triple=triple)
+                year_start, year_stop, index = self.process_time(data_split, index=index, fact=fact, triple=triple)
 
                 for y in range(year_start, year_stop + 1):
                     ts_id = self.index_timestamps(y)
 
-                    data_set_mappings[data_type]['triple'].append([head_id, rel_id, tail_id])
-                    data_set_mappings[data_type]['timestamp_id'].append([ts_id if year_start != 0 and year_stop != 0 else []])
+                    data_set_mappings[data_split]['triple'].append([head_id, rel_id, tail_id])
+                    data_set_mappings[data_split]['timestamp_id'].append([ts_id if year_start != 0 and year_stop != 0 else []])
                     # TODO(max) how to float single year value?
-                    data_set_mappings[data_type]['timestamp_float'].append([y if year_start != 0 and year_stop != 0 else []])
+                    data_set_mappings[data_split]['timestamp_float'].append([y if year_start != 0 and year_stop != 0 else []])
 
                     self.all_triples.append([head_id, rel_id, tail_id])
                     self.all_quadruples.append(
                         [head_id, rel_id, tail_id, ts_id if year_start != 0 and year_stop != 0 else []])
 
-                    self.config.log(f"Added tuple: {str([head_id, rel_id, tail_id, ts_id if year_start != 0 and year_stop != 0 else [], [y if year_start != 0 and year_stop != 0 else []]])}")
+                    # self.config.log(f"Added tuple: {str([head_id, rel_id, tail_id, ts_id if year_start != 0 and year_stop != 0 else [], [y if year_start != 0 and year_stop != 0 else []]])}")
 
                 index += 1
 
