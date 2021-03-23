@@ -484,8 +484,8 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
         year = int(fact[-1]) if len(fact) >= 4 else ''
 
         next_triple = next_fact[0][1:-1], next_fact[1][1:-1], next_fact[2][1:-1]
-        next_temp_mod = next_fact[3][1:-1] if len(next_fact) == 4 else ''
-        next_year = int(next_fact[-1]) if len(next_fact) >= 3 else ''
+        next_temp_mod = next_fact[3][1:-1] if len(next_fact) == 5 else ''
+        next_year = int(next_fact[-1]) if len(next_fact) >= 4 else ''
 
         is_closed_timespan = triple == next_triple and temp_mod and year and next_temp_mod and next_year
 
