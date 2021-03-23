@@ -1,6 +1,5 @@
 import torch
 from torch.utils.data.dataset import Dataset as PTDataset
-import numpy as np
 
 from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
@@ -440,16 +439,13 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
                     ts_id = self.index_timestamps(y)
 
                     data_set_mappings[data_split]['triple'].append([head_id, rel_id, tail_id])
-                    # TODO(max) how to model missing timestamps?
-                    data_set_mappings[data_split]['timestamp_id'].append([ts_id if year_start != 0 and year_stop != 0 else 0])
-                    # TODO(max) how to float single year value?
-                    data_set_mappings[data_split]['timestamp_float'].append([y if year_start != 0 and year_stop != 0 else []])
+                    data_set_mappings[data_split]['timestamp_id'].append([ts_id])
+                    data_set_mappings[data_split]['timestamp_float'].append([y])
 
                     self.all_triples.append([head_id, rel_id, tail_id])
-                    self.all_quadruples.append(
-                        [head_id, rel_id, tail_id, ts_id if year_start != 0 and year_stop != 0 else []])
+                    self.all_quadruples.append([head_id, rel_id, tail_id, ts_id])
 
-                    # self.config.log(f"Added tuple: {str([head_id, rel_id, tail_id, ts_id if year_start != 0 and year_stop != 0 else [], [y if year_start != 0 and year_stop != 0 else []]])}")
+                    # self.config.log(f" {data_split} tuple: {str([head_id, rel_id, tail_id, ts_id, [y]])}")
 
                 index += 1
 
@@ -466,7 +462,7 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
         In cases 1 and 2 the index needs to be incremented by 1 because the next line was already processed then.
         Returns the start and end timestamp (only as the year) of the triple, as well as the maybe modified index.
         """
-        data = {"train": self.train_raw, "valid": self.valid_raw, "test": self.valid_raw}
+        data = {"train": self.train_raw, "valid": self.valid_raw, "test": self.test_raw}
         data_raw = data[origin]
         valid_temp_mods = ["occursSince", "occursUntil"]
 
