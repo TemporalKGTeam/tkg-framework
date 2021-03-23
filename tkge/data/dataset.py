@@ -484,27 +484,38 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
                 self.all_triples.append([head_id, rel_id, tail_id])
                 self.all_quadruples.append([head_id, rel_id, tail_id, ts_id if year_start != 0 and year_stop != 0 else []])
 
-    def process_time(self, origin: str, index: int = 0, fact: List = None, triple: Tuple = None):
+    def process_time(self, origin: str, index: int = 0, fact: List[str] = None, triple: Tuple = None):
         # TODO(max) function signature does not fit YAGO time processing
-        next_fact = self.train_raw[index + 1].strip().split('\t')
+        # TODO(max) refactor & clean code
+        temp_mod = fact[3][1:-1] if len(fact) >= 4 and fact[3][1:-1] in ["occursSince", "occursUntil"] else None
+        year = int(fact[4].split('-')[0][1:]) if len(fact) == 5 else 0
 
-        temp_mod = fact[3][1:-1] if len(fact) == 5 else ''
-        year = int(fact[-1][1:5]) if len(fact) >= 4 else 0
-
-        next_triple = next_fact[0][1:-1], next_fact[1][1:-1], next_fact[2][1:-1]
-        next_temp_mod = next_fact[3][1:-1] if len(next_fact) == 5 else ''
-        next_year = int(next_fact[-1][1:5]) if len(next_fact) >= 4 else 0
-
-        is_closed_timespan = triple == next_triple and temp_mod and year and next_temp_mod and next_year
+        if index + 1 < len(self.train_raw):
+            next_fact = self.train_raw[index + 1].strip().split('\t')
+            next_triple = next_fact[0][1:-1], next_fact[1][1:-1], next_fact[2][1:-1] if index + 1 < len(self.train_raw) else None
+            next_temp_mod = next_fact[3][1:-1] if len(next_fact) >= 4 and next_fact[3][1:-1] in ["occursSince", "occursUntil"] else None
+            next_year = int(next_fact[4][1:].split('-')[0]) if len(next_fact) == 5 else 0
+            is_closed_timespan = triple == next_triple and temp_mod and year != 0 and next_temp_mod and next_year != 0
+        else:
+            is_closed_timespan = False
+            next_year = 0
+            next_temp_mod = None
 
         if is_closed_timespan:
             year_stop = next_year
+            index += 1
+        elif temp_mod and next_temp_mod and year == 0 and next_year == 0:
+            year = int(self.config.get('dataset.args.year_min'))
+            year_stop = int(self.config.get('dataset.args.year_max'))
             index += 1
         elif temp_mod and temp_mod == 'occursSince':
             year_stop = int(self.config.get('dataset.args.year_max'))
         elif temp_mod and temp_mod == 'occursUntil':
             year_stop = year
             year = int(self.config.get('dataset.args.year_min'))
+        elif temp_mod == year and next_temp_mod == next_year:
+            year = int(self.config.get('dataset.args.year_min'))
+            year_stop = int(self.config.get('dataset.args.year_max'))
         else:
             year_stop = year + 1
 
