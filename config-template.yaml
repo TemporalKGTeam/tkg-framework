@@ -1,0 +1,165 @@
+console:
+  quiet: False
+  folder: /home/ubuntu/gengyuan/logging/model
+  format: {}
+
+# task
+task:
+  # task type includes 'train', 'evaluate', 'search', 'resume'
+  type: train
+  # specify working devices: 'cpu', 'cuda', 'cuda: 0' etc.
+  device: 'cuda'
+  # if reciprocal_training is set True, we will use reciprocal relations for training, which means
+  # every item [s, p, o, t] in training set, [o, p^-1, s, t] will also be loaded into training set.
+  # So the training set size will be doubled. Inverted relation p^-1 will be named as 'p_RECIPROCAL'
+  # and will be indexed by increment.
+  reciprocal_training: False
+
+random_seed:
+  default: -1
+  python: -1
+  torch: -1
+  numpy: -1
+  numba: -1
+
+
+# dataset
+dataset:
+  # specify the dataset folder with train/valid/test files.
+  folder: /home/ubuntu/gengyuan/tkg-framework/data/icews14
+
+  # indexes mapping [false, true]
+  # TODO 可以保存到cache
+  # if True, we use existing mapping file to index entity/relation
+  mapping: False
+  filter: False
+  temporal:
+    # specify the timestamp granularity
+    resolution: "day"
+    # if true, retrieve the timestamp as index
+    index: False
+    # if true, retrieve the timestamp as float numbers, '2010-01-01' will be [2010, 1, 1]
+    float: True
+  args: ~
+
+
+  # Specify dataset name. It should be registered in DatasetProcessor.
+  name: 'icews14'
+  num_entities: -1
+  num_relations: -1
+  pickle: True
+
+# Negative sampling
+negative_sampling:
+  # negative sampler should be registered beforehand.
+  type: 'time_agnostic'
+  # for one positive sample, create num_samples negative samples.
+  num_samples: 500
+  # if True, false negative samples will be filtered
+  filter: False
+  # if True, positive and negative samples will be organized as matrix: each row will be one
+  # positive sample and its generated negative samples.
+  # if False, it will be flattened.
+  as_matrix: True
+  # target should be 'head'/'tail'/'both' to indicate whether head entity ot tail entity will
+  # be corrrupted.
+  target: both
+  args: ~
+
+# model
+model:
+  # model type should be registered.
+  type: model
+  # custom arguments.
+  args: ~
+
+
+
+train:
+  # Split used for training (specified under 'data.files').
+  split: train
+  type: negative_sampling
+
+  loss:
+    type: cross_entropy_loss
+    args: ~
+
+  max_epochs: 500
+
+
+  loader:
+    num_workers: 0
+    pin_memory: False
+    drop_last: False
+    timeout: 0
+
+  # Split used for validation
+  valid:
+    split: test # in [test or valid]
+    # validation frequency
+    every: 10
+    batch_size: 100
+
+    filter: time-aware  # in [off, static, time-aware]
+
+    ordering: optimistic    # in [optimistic, pessimistic]
+    k: [1, 3, 10]
+
+  batch_size: 512
+  subbatch_size: -1
+  subbatch_auto_tune: False
+  optimizer:
+    type: Adam
+    args:
+      lr: 0.001
+
+    default:
+      type: Adam           # sgd, adagrad, adam
+
+      args:
+        +++: +++
+
+  # Specify the regularizer
+  regularizer:
+    # name is unique identification
+    n3:
+      # reg type
+      type: n3_regularize
+      weight: 1e-2
+    lambda3:
+      type: lambda3_regularize
+      weight: 1e-2
+  # Specify the inplace regularizer
+  inplace_regularizer: ~
+
+  lr_scheduler: ""
+
+  lr_scheduler_args:
+    +++: +++
+
+  trace_level: epoch           # batch, epoch
+
+  checkpoint:
+    folder: /home/ubuntu/gengyuan/ckpt/
+    every: 10
+    keep: 3
+
+  auto_correct: False
+  abort_on_nan: True
+  visualize_graph: False
+
+eval:
+  # evaluation protocol: 'off' means no extra method. 'static' means if any candidate query's static part
+  # in training set, it will be masked out. 'time-aware' means if any candidate query in training set, it
+  # will be masked out.
+  filter: time-aware
+  # evaluation protocal: 'optimistic' means the true query will be ranked after all the candidate queries
+  # with greater scores; 'pessimistic' means the true query will be ranked after all the candidate queries
+  # with greater or equal scores.
+  preference: optimistic
+  # evaluation protocol: 'descending' means scores are sorted descendingly and highest scores will be ranked
+  # highest; while 'ascending' means scores are sorted acendingly and lowest scores will be ranked highest.
+  ordering: descending
+  k: [1,3,10]
+
+
