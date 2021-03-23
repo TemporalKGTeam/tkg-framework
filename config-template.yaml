@@ -87,11 +87,12 @@ train:
   max_epochs: 500
 
 
+  # See https://pytorch.org/docs/stable/data.html for more details
   loader:
-    num_workers: 0
-    pin_memory: False
-    drop_last: False
-    timeout: 0
+    num_workers: 0  # use multiple processes for data loading
+    pin_memory: False  # enables fast data transfer to CUDA-enabled GPUs (CUDA tensors are pinned, not returned)
+    drop_last: False  # when fetching iterable-style datasets with multi-processing, the last non-full batch is dropped
+    timeout: 0  # timeout value for collecting batch from workers
 
   # Split used for validation
   valid:
@@ -110,7 +111,7 @@ train:
   subbatch_auto_tune: False
   optimizer:
     type: Adam
-    args:
+    args:  # the args need to match key and value of the torch.optim optimizer classes
       lr: 0.001
 
     default:
