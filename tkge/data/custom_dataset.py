@@ -1,16 +1,11 @@
-import torch
-from torch.utils.data.dataset import Dataset as PTDataset
-import numpy as np
-
-from typing import Dict, List, Tuple, Optional
 import enum
-import datetime
 import time
-
-from tkge.data.dataset import DatasetProcessor
-from tkge.common.config import Config
+import torch
 
 from collections import defaultdict
+from tkge.data.dataset import DatasetProcessor
+from tkge.common.config import Config
+from typing import List, Tuple
 
 SPOT = enum.Enum('spot', ('s', 'p', 'o', 't'))
 
@@ -18,50 +13,13 @@ SPOT = enum.Enum('spot', ('s', 'p', 'o', 't'))
 @DatasetProcessor.register(name="icews14_atise")
 class ICEWS14AtiseDatasetProcessor(DatasetProcessor):
     def process(self):
-        for rd in self.train_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts_id = self.index_timestamps(ts)
-            ts = self.process_time(ts)
+        for data_split in self.data_splits:
+            for rd in self.data_raw_mappings[data_split]:
+                quadruple = rd.strip().split('\t')
+                head_id, rel_id, tail_id, ts_id = self.index_quadruple(quadruple)
+                ts_float = [self.process_time(quadruple[3])]
 
-            self.train_set['triple'].append([head, rel, tail])
-            self.train_set['timestamp_id'].append([ts_id])
-            self.train_set['timestamp_float'].append([ts])
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
-
-        for rd in self.valid_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts_id = self.index_timestamps(ts)
-            ts = self.process_time(ts)
-
-            self.valid_set['triple'].append([head, rel, tail])
-            self.valid_set['timestamp_id'].append([ts_id])
-            self.valid_set['timestamp_float'].append([ts])
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
-
-        for rd in self.test_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts_id = self.index_timestamps(ts)
-            ts = self.process_time(ts)
-
-            self.test_set['triple'].append([head, rel, tail])
-            self.test_set['timestamp_id'].append([ts_id])
-            self.test_set['timestamp_float'].append([ts])
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
+                self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str):
         # TODO (gengyuan) move to init method
@@ -182,50 +140,13 @@ class ICEWS14TADatasetProcessor(DatasetProcessor):
             '0d': 22, '1d': 23, '2d': 24, '3d': 25, '4d': 26, '5d': 27, '6d': 28, '7d': 29, '8d': 30, '9d': 31,
         }
 
-        for rd in self.train_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts_id = self.index_timestamps(ts)
-            ts = self.process_time(ts)
+        for data_split in self.data_splits:
+            for rd in self.data_raw_mappings[data_split]:
+                quadruple = rd.strip().split('\t')
+                head_id, rel_id, tail_id, ts_id = self.index_quadruple(quadruple)
+                ts_float = self.process_time(quadruple[3])
 
-            self.train_set['triple'].append([head, rel, tail])
-            self.train_set['timestamp_id'].append([ts_id])
-            self.train_set['timestamp_float'].append(ts)
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
-
-        for rd in self.valid_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts_id = self.index_timestamps(ts)
-            ts = self.process_time(ts)
-
-            self.valid_set['triple'].append([head, rel, tail])
-            self.valid_set['timestamp_id'].append([ts_id])
-            self.valid_set['timestamp_float'].append(ts)
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
-
-        for rd in self.test_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts_id = self.index_timestamps(ts)
-            ts = self.process_time(ts)
-
-            self.test_set['triple'].append([head, rel, tail])
-            self.test_set['timestamp_id'].append([ts_id])
-            self.test_set['timestamp_float'].append(ts)
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
+                self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str):
         ts = []
@@ -320,50 +241,13 @@ class TestICEWS14DatasetProcessor(DatasetProcessor):
             self.test_size = len(self.test_raw)
 
     def process(self):
-        for rd in self.train_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts = self.process_time(ts)
-            ts_id = self.index_timestamps(ts)
+        for data_split in self.data_splits:
+            for rd in self.data_raw_mappings[data_split]:
+                quadruple = rd.strip().split('\t')
+                head_id, rel_id, tail_id, ts_id = self.index_quadruple(quadruple)
+                ts_float = list(map(lambda x: int(x), self.process_time(quadruple[3]).split('-')))
 
-            self.train_set['triple'].append([head, rel, tail])
-            self.train_set['timestamp_id'].append([ts_id])
-            self.train_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
-
-        for rd in self.valid_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts = self.process_time(ts)
-            ts_id = self.index_timestamps(ts)
-
-            self.valid_set['triple'].append([head, rel, tail])
-            self.valid_set['timestamp_id'].append([ts_id])
-            self.valid_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
-
-        for rd in self.test_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts = self.process_time(ts)
-            ts_id = self.index_timestamps(ts)
-
-            self.test_set['triple'].append([head, rel, tail])
-            self.test_set['timestamp_id'].append([ts_id])
-            self.test_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
+                self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str):
         level = ['year', 'month', 'day', 'hour', 'minute', 'second']
