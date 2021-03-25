@@ -581,7 +581,7 @@ class TATransEModel(BaseModel):
     def prepare_embedding(self):
         num_ent = self.dataset.num_entities()
         num_rel = self.dataset.num_relations()
-        num_tem = 32  # should be 32
+        num_tem = max(self.dataset.num_timestamps(), 32)
 
         self.embedding: Dict[str, torch.nn.Embedding] = defaultdict(None)
         self.embedding['ent'] = torch.nn.Embedding(num_ent, self.emb_dim)
@@ -683,7 +683,7 @@ class TADistmultModel(BaseModel):
     def prepare_embedding(self):
         num_ent = self.dataset.num_entities()
         num_rel = self.dataset.num_relations()
-        num_tem = 32  # should be 32
+        num_tem = max(self.dataset.num_timestamps(), 32)
 
         self.embedding: Dict[str, torch.nn.Embedding] = defaultdict(None)
         self.embedding['ent'] = torch.nn.Embedding(num_ent, self.emb_dim)
