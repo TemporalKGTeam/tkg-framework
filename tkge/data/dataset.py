@@ -414,8 +414,9 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
     def process(self):
         """
         Processes the raw data for each data type (i.e. train, valid and test) of the YAGO15k dataset.
-        Uses the resulting timespan of the function process_time to add as many quadruples to each data set as years
-        where that fact is true.
+        If a fact has a temporal part (temporal modifier and timestamp), then the temporal modifier is used to
+        concatenate the relation, so a relation of a fact can be '<relation>occursSince', '<relation>occursUntil' or
+        '<relation>_no-time'.
         """
         data_splits = ["train", "valid", "test"]
         data_raw_mappings = {data_splits[0]: self.train_raw, data_splits[1]: self.valid_raw, data_splits[2]: self.test_raw}
