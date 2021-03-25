@@ -85,12 +85,8 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
             '<occursUntil>': 1
         }
 
-        data_splits = ["train", "valid", "test"]
-        data_raw_mappings = {data_splits[0]: self.train_raw, data_splits[1]: self.valid_raw, data_splits[2]: self.test_raw}
-        data_set_mappings = {data_splits[0]: self.train_set, data_splits[1]: self.valid_set, data_splits[2]: self.test_set}
-
-        for data_split in data_splits:
-            for rd in data_raw_mappings[data_split]:
+        for data_split in self.data_splits:
+            for rd in self.data_raw_mappings[data_split]:
                 fact = rd.strip().split('\t')
                 # self.config.log(f"Processing fact in line {index + 1}: {fact}")
 
@@ -107,18 +103,10 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
                     ts = 'no-time'
                     ts_id = self.index_timestamps(ts)  # TODO should not be possible for TA models
 
-                head_id = self.index_entities(head)
-                rel_id = self.index_relations(rel)
-                tail_id = self.index_entities(tail)
-
+                head_id, rel_id, tail_id = self.index_triple([head, rel, tail])
                 ts_float = self.process_time(ts, mod)
 
-                data_set_mappings[data_split]['triple'].append([head_id, rel_id, tail_id])
-                data_set_mappings[data_split]['timestamp_id'].append([ts_id])
-                data_set_mappings[data_split]['timestamp_float'].append(ts_float)
-
-                self.all_triples.append([head_id, rel_id, tail_id])
-                self.all_quadruples.append([head_id, rel_id, tail_id, ts_id])
+                self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str, mod: str = None):
         ts = []
