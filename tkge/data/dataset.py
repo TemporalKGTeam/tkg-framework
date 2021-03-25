@@ -198,7 +198,7 @@ class DatasetProcessor(ABC, Registrable, Configurable):
                         f"Train set size : {self.train_size}\n"
                         f"Valid set size : {self.valid_size}\n"
                         f"Test set size : {self.test_size}\n"
-                        '==============================================')
+                        f'==============================================')
 
 
 @DatasetProcessor.register(name="gdelt")
