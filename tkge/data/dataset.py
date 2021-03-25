@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data.dataset import Dataset as PTDataset
 
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional
 from collections import defaultdict
 
 from tkge.common.registrable import Registrable
