@@ -3,8 +3,9 @@ import time
 import torch
 
 from collections import defaultdict
-from tkge.data.dataset import DatasetProcessor
 from tkge.common.config import Config
+from tkge.data.dataset import DatasetProcessor
+from tkge.data.utils import get_tem_dict, get_mod_dict
 from typing import List, Tuple
 
 SPOT = enum.Enum('spot', ('s', 'p', 'o', 't'))
@@ -74,17 +75,6 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
         If a fact has a temporal part (temporal modifier and timestamp), then the temporal modifier and the timestamp
         tokens are used to build a sequence of their ids.
         """
-        self.tem_dict = {
-            '0y': 0, '1y': 1, '2y': 2, '3y': 3, '4y': 4, '5y': 5, '6y': 6, '7y': 7, '8y': 8, '9y': 9,
-            '01m': 10, '02m': 11, '03m': 12, '04m': 13, '05m': 14, '06m': 15, '07m': 16, '08m': 17, '09m': 18,
-            '10m': 19, '11m': 20, '12m': 21,
-            '0d': 22, '1d': 23, '2d': 24, '3d': 25, '4d': 26, '5d': 27, '6d': 28, '7d': 29, '8d': 30, '9d': 31,
-        }
-        self.mod_dict = {
-            '<occursSince>': 0,
-            '<occursUntil>': 1
-        }
-
         for data_split in self.data_splits:
             for rd in self.data_raw_mappings[data_split]:
                 fact = rd.strip().split('\t')
@@ -111,8 +101,8 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
     def process_time(self, origin: str, mod: str = None):
         ts = []
         if mod and origin != "no-time":
-            ts.append(self.mod_dict[mod])
-            ts.extend([self.tem_dict[f'{int(yi):01}y'] for yi in origin])
+            ts.append(get_mod_dict()[mod])
+            ts.extend([get_tem_dict()[f'{int(yi):01}y'] for yi in origin])
         else:
             ts.extend([0, 0, 0, 0, 0])  # TODO how to model time-less facts?
         return ts
@@ -121,13 +111,6 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
 @DatasetProcessor.register(name="icews14_TA")
 class ICEWS14TADatasetProcessor(DatasetProcessor):
     def process(self):
-        self.tem_dict = {
-            '0y': 0, '1y': 1, '2y': 2, '3y': 3, '4y': 4, '5y': 5, '6y': 6, '7y': 7, '8y': 8, '9y': 9,
-            '01m': 10, '02m': 11, '03m': 12, '04m': 13, '05m': 14, '06m': 15, '07m': 16, '08m': 17, '09m': 18,
-            '10m': 19, '11m': 20, '12m': 21,
-            '0d': 22, '1d': 23, '2d': 24, '3d': 25, '4d': 26, '5d': 27, '6d': 28, '7d': 29, '8d': 30, '9d': 31,
-        }
-
         for data_split in self.data_splits:
             for rd in self.data_raw_mappings[data_split]:
                 quadruple = rd.strip().split('\t')
@@ -140,9 +123,9 @@ class ICEWS14TADatasetProcessor(DatasetProcessor):
         ts = []
         year, month, day = origin.split('-')
 
-        ts.extend([self.tem_dict[f'{int(yi):01}y'] for yi in year])
-        ts.extend([self.tem_dict[f'{int(month):02}m']])
-        ts.extend([self.tem_dict[f'{int(di):01}d'] for di in day])
+        ts.extend([get_tem_dict()[f'{int(yi):01}y'] for yi in year])
+        ts.extend([get_tem_dict()[f'{int(month):02}m']])
+        ts.extend([get_tem_dict()[f'{int(di):01}d'] for di in day])
 
         return ts
 
