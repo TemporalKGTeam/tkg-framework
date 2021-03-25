@@ -452,80 +452,8 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
                 self.all_triples.append([head_id, rel_id, tail_id])
                 self.all_quadruples.append([head_id, rel_id, tail_id, ts_id])
 
-                # year_start, year_stop, index = self.process_time(data_split, index=index, fact=fact, triple=triple)
-                #
-                # for y in range(year_start, year_stop + 1):
-                #     ts_id = self.index_timestamps(y)
-                #
-                #     data_set_mappings[data_split]['triple'].append([head_id, rel_id, tail_id])
-                #     data_set_mappings[data_split]['timestamp_id'].append([ts_id])
-                #     data_set_mappings[data_split]['timestamp_float'].append([y])
-                #
-                #     self.all_triples.append([head_id, rel_id, tail_id])
-                #     self.all_quadruples.append([head_id, rel_id, tail_id, ts_id])
-                #
-                #     # self.config.log(f" {data_split} tuple: {str([head_id, rel_id, tail_id, ts_id, [y]])}")
-
     def process_time(self, origin: str):
         raise NotImplementedError
-
-    # def process_time(self, origin: str, index: int = 0, fact: List[str] = None, triple: Tuple = None):
-    #     """
-    #     Processes the time information in the YAGO15k dataset.
-    #     Since there are not only timestamps but also time modifiers, namely 'occursSince' and 'occursUntil', and
-    #     corresponding tuples that appear twice in a row, a few cases need to be addressed:
-    #     - Case 1: The timespan is given by the data.
-    #     - Case 2: The timespan is not given explicitly, but with argument-less modifiers that indicate universal truth.
-    #     - Case 3: The timespan is partly given by the data, i.e. the start time is known.
-    #     - Case 4: The timespan is partly given by the data, i.e. the end time is known.
-    #     - Case 5: There is no time information given at all.
-    #     In cases 1 and 2 the index needs to be incremented by 1 because the next line was already processed then.
-    #     Returns the start and end timestamp (only as the year) of the triple, as well as the maybe modified index.
-    #     """
-    #     data = {"train": self.train_raw, "valid": self.valid_raw, "test": self.test_raw}
-    #     data_raw = data[origin]
-    #     valid_temp_mods = ["occursSince", "occursUntil"]
-    #
-    #     # process time of the current fact
-    #     temp_mod = fact[3][1:-1] if len(fact) >= 4 and fact[3][1:-1] in valid_temp_mods else None
-    #     year = int(fact[4].split('-')[0][1:]) if len(fact) == 5 else 0
-    #
-    #     # process time of the next fact only if there exists at least one more fact after this
-    #     if index + 1 < len(data_raw):
-    #         next_fact = data_raw[index + 1].strip().split('\t')
-    #         next_triple = next_fact[0][1:-1], next_fact[1][1:-1], next_fact[2][1:-1]
-    #
-    #         next_temp_mod = next_fact[3][1:-1] if len(next_fact) >= 4 and next_fact[3][1:-1] in valid_temp_mods else None
-    #         next_year = int(next_fact[4][1:].split('-')[0]) if len(next_fact) == 5 else 0
-    #
-    #         is_closed_timespan = triple == next_triple and temp_mod and year != 0 and next_temp_mod and next_year != 0
-    #     else:
-    #         next_temp_mod = None
-    #         next_year = 0
-    #
-    #         is_closed_timespan = False
-    #
-    #     if is_closed_timespan:
-    #         # case 1: same triple appears twice in a row and has a temporal modifier as well as a timestamp
-    #         year_stop = next_year
-    #         index += 1
-    #     elif temp_mod and next_temp_mod and year == 0 and next_year == 0:
-    #         # case 2: same triple appears twice in a row but has only a temporal modifier and no timestamp
-    #         year = int(self.config.get('dataset.args.year_min'))
-    #         year_stop = int(self.config.get('dataset.args.year_max'))
-    #         index += 1
-    #     elif temp_mod and temp_mod == 'occursSince':
-    #         # case 3: triple appears only once and is true until now (or forever from the start year)
-    #         year_stop = int(self.config.get('dataset.args.year_max'))
-    #     elif temp_mod and temp_mod == 'occursUntil':
-    #         # case 4: triple appears only once and was true until a certain year
-    #         year_stop = year
-    #         year = int(self.config.get('dataset.args.year_min'))
-    #     else:
-    #         # case 5: otherwise there is no timespan, i.e. a stand alone triple
-    #         year_stop = year
-    #
-    #     return year, year_stop, index
 
 
 class SplitDataset(torch.utils.data.Dataset):
