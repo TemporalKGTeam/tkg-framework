@@ -428,6 +428,7 @@ class TestICEWS14DatasetProcessor(DatasetProcessor):
     #     else:
     #         return self.rel2id[rel]
 
+
 # Deprecated: dataset created with timespans instead of concatenated relation and temporal modifier
 @DatasetProcessor.register(name="yago15k_timespan")
 class YAGO15KDatasetProcessor(DatasetProcessor):
@@ -446,11 +447,11 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
             while index < len(data_raw_mappings[data_split]):
                 rd = data_raw_mappings[data_split][index]
                 fact = rd.strip().split('\t')
-                # self.config.log(f"Processing fact in line {index + 1}: {fact}")
 
-                head_id = self.index_entities(head)
-                rel_id = self.index_relations(rel)
-                tail_id = self.index_entities(tail)
+                triple = fact[0][1:-1], fact[1][1:-1], fact[2][1:-1]
+                head_id = self.index_entities(triple[0])
+                rel_id = self.index_relations(triple[1])
+                tail_id = self.index_entities(triple[2])
 
                 year_start, year_stop, index = self.process_time(data_split, index=index, fact=fact, triple=triple)
 
@@ -464,8 +465,7 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
                     self.all_triples.append([head_id, rel_id, tail_id])
                     self.all_quadruples.append([head_id, rel_id, tail_id, ts_id])
 
-                    # self.config.log(f" {data_split} tuple: {str([head_id, rel_id, tail_id, ts_id, [y]])}")
-
+                index += 1
 
     def process_time(self, origin: str, index: int = 0, fact: List[str] = None, triple: Tuple = None):
         """
