@@ -46,6 +46,14 @@ class DatasetProcessor(ABC, Registrable, Configurable):
         self.all_triples = []
         self.all_quadruples = []
 
+        self.data_splits = ["train", "valid", "test"]
+        self.data_raw_mappings = {self.data_splits[0]: self.train_raw,
+                                  self.data_splits[1]: self.valid_raw,
+                                  self.data_splits[2]: self.test_raw}
+        self.data_set_mappings = {self.data_splits[0]: self.train_set,
+                                  self.data_splits[1]: self.valid_set,
+                                  self.data_splits[2]: self.test_set}
+
         self.load()
         self.process()
 
@@ -204,50 +212,21 @@ class GDELTDatasetProcessor(DatasetProcessor):
         Since the GDELT dataset already represents the data as numbers (ids), the head and tail entities as well as the
         relations only need to be casted to numerical types.
         """
-        for rd in self.train_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = int(head)
-            rel = int(rel)
-            tail = int(tail)
-            ts = self.process_time(ts)
-            ts_id = self.index_timestamps(ts)
+        for data_split in self.data_splits:
+            for rd in self.data_raw_mappings[data_split]:
+                head, rel, tail, ts = rd.strip().split('\t')
+                head = int(head)
+                rel = int(rel)
+                tail = int(tail)
+                ts = self.process_time(ts)
+                ts_id = self.index_timestamps(ts)
 
-            self.train_set['triple'].append([head, rel, tail])
-            self.train_set['timestamp_id'].append([ts_id])
-            self.train_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+                self.data_set_mappings[data_split]['triple'].append([head, rel, tail])
+                self.data_set_mappings[data_split]['timestamp_id'].append([ts_id])
+                self.data_set_mappings[data_split]['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
 
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
-
-        for rd in self.valid_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = int(head)
-            rel = int(rel)
-            tail = int(tail)
-            ts = self.process_time(ts)
-            ts_id = self.index_timestamps(ts)
-
-            self.valid_set['triple'].append([head, rel, tail])
-            self.valid_set['timestamp_id'].append([ts_id])
-            self.valid_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
-
-        for rd in self.test_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = int(head)
-            rel = int(rel)
-            tail = int(tail)
-            ts = self.process_time(ts)
-            ts_id = self.index_timestamps(ts)
-
-            self.test_set['triple'].append([head, rel, tail])
-            self.test_set['timestamp_id'].append([ts_id])
-            self.test_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
+                self.all_triples.append([head, rel, tail])
+                self.all_quadruples.append([head, rel, tail, ts_id])
 
     def process_time(self, origin: str, resolution: str = 'day'):
         all_resolutions = ['year', 'month', 'day', 'hour', 'minute', 'second']
@@ -271,50 +250,21 @@ class ICEWS14DatasetProcessor(DatasetProcessor):
         all_timestamp = get_all_days_of_year(2014)
         self.ts2id = {ts: (arrow.get(ts) - arrow.get('2014-01-01')).days for ts in all_timestamp}
 
-        for rd in self.train_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts = self.process_time(ts)
-            ts_id = self.index_timestamps(ts)
+        for data_split in self.data_splits:
+            for rd in self.data_raw_mappings[data_split]:
+                head, rel, tail, ts = rd.strip().split('\t')
+                head = self.index_entities(head)
+                rel = self.index_relations(rel)
+                tail = self.index_entities(tail)
+                ts = self.process_time(ts)
+                ts_id = self.index_timestamps(ts)
 
-            self.train_set['triple'].append([head, rel, tail])
-            self.train_set['timestamp_id'].append([ts_id])
-            self.train_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+                self.data_set_mappings[data_split]['triple'].append([head, rel, tail])
+                self.data_set_mappings[data_split]['timestamp_id'].append([ts_id])
+                self.data_set_mappings[data_split]['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
 
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
-
-        for rd in self.valid_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts = self.process_time(ts)
-            ts_id = self.index_timestamps(ts)
-
-            self.valid_set['triple'].append([head, rel, tail])
-            self.valid_set['timestamp_id'].append([ts_id])
-            self.valid_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
-
-        for rd in self.test_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts = self.process_time(ts)
-            ts_id = self.index_timestamps(ts)
-
-            self.test_set['triple'].append([head, rel, tail])
-            self.test_set['timestamp_id'].append([ts_id])
-            self.test_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
+                self.all_triples.append([head, rel, tail])
+                self.all_quadruples.append([head, rel, tail, ts_id])
 
     def process_time(self, origin: str):
         all_resolutions = ['year', 'month', 'day', 'hour', 'minute', 'second']
@@ -335,38 +285,17 @@ class ICEWS0515DatasetProcessor(DatasetProcessor):
         Since the ICEWS05-15 dataset represent its data in raw semantic texts, the head and tail entities as well as the
         relations need to be indexed programmatically.
         """
-        for rd in self.train_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts = self.process_time(ts)
+        for data_split in self.data_splits:
+            for rd in self.data_raw_mappings[data_split]:
+                head, rel, tail, ts = rd.strip().split('\t')
+                head = self.index_entities(head)
+                rel = self.index_relations(rel)
+                tail = self.index_entities(tail)
+                ts = self.process_time(ts)
 
-            self.train_set['triple'].append([head, rel, tail])
-            self.train_set['timestamp_id'].append([self.index_timestamps(ts)])
-            self.train_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
-
-        for rd in self.train_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts = self.process_time(ts)
-
-            self.valid_set['triple'].append([head, rel, tail])
-            self.valid_set['timestamp_id'].append([self.index_timestamps(ts)])
-            self.valid_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
-
-        for rd in self.train_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts = self.process_time(ts)
-
-            self.test_set['triple'].append([head, rel, tail])
-            self.test_set['timestamp_id'].append([self.index_timestamps(ts)])
-            self.test_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+                self.data_set_mappings[data_split]['triple'].append([head, rel, tail])
+                self.data_set_mappings[data_split]['timestamp_id'].append([self.index_timestamps(ts)])
+                self.data_set_mappings[data_split]['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
 
     def process_time(self, origin: str):
         raise NotImplementedError
@@ -381,12 +310,8 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
         concatenate the relation, so a relation of a fact can be '<relation>occursSince', '<relation>occursUntil' or
         '<relation>_no-time'.
         """
-        data_splits = ["train", "valid", "test"]
-        data_raw_mappings = {data_splits[0]: self.train_raw, data_splits[1]: self.valid_raw, data_splits[2]: self.test_raw}
-        data_set_mappings = {data_splits[0]: self.train_set, data_splits[1]: self.valid_set, data_splits[2]: self.test_set}
-
-        for data_split in data_splits:
-            for rd in data_raw_mappings[data_split]:
+        for data_split in self.data_splits:
+            for rd in self.data_raw_mappings[data_split]:
                 fact = rd.strip().split('\t')
                 # self.config.log(f"Processing fact in line {index + 1}: {fact}")
 
@@ -408,9 +333,9 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
                 rel_id = self.index_relations(rel)
                 tail_id = self.index_entities(tail)
 
-                data_set_mappings[data_split]['triple'].append([head_id, rel_id, tail_id])
-                data_set_mappings[data_split]['timestamp_id'].append([ts_id])
-                data_set_mappings[data_split]['timestamp_float'].append([int(ts) if ts != 'no-time' else 0])
+                self.data_set_mappings[data_split]['triple'].append([head_id, rel_id, tail_id])
+                self.data_set_mappings[data_split]['timestamp_id'].append([ts_id])
+                self.data_set_mappings[data_split]['timestamp_float'].append([int(ts) if ts != 'no-time' else 0])
 
                 self.all_triples.append([head_id, rel_id, tail_id])
                 self.all_quadruples.append([head_id, rel_id, tail_id, ts_id])
