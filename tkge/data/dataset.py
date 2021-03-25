@@ -372,43 +372,6 @@ class ICEWS0515DatasetProcessor(DatasetProcessor):
         raise NotImplementedError
 
 
-#
-# @DatasetProcessor.register(name="wiki")
-# class WIKIDatasetProcessor(DatasetProcessor):
-#     def process(self):
-#         pass
-#
-#     def process_time(self, origin: str):
-#         pass
-#
-#
-# @DatasetProcessor.register(name="wiki12k")
-# class WIKI12KDatasetProcessor(DatasetProcessor):
-#     def process(self):
-#         pass
-#
-#     def process_time(self, origin: str):
-#         pass
-#
-#
-# @DatasetProcessor.register(name="yago")
-# class YAGODatasetProcessor(DatasetProcessor):
-#     def process(self):
-#         pass
-#
-#     def process_time(self, origin: str):
-#         pass
-#
-#
-# @DatasetProcessor.register(name="yago11k")
-# class YAGO11KDatasetProcessor(DatasetProcessor):
-#     def process(self):
-#         pass
-#
-#     def process_time(self, origin: str):
-#         pass
-
-
 @DatasetProcessor.register(name="yago15k")
 class YAGO15KDatasetProcessor(DatasetProcessor):
     def process(self):
