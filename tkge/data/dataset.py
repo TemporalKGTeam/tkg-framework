@@ -76,6 +76,19 @@ class DatasetProcessor(ABC, Registrable, Configurable):
     def process(self):
         raise NotImplementedError
 
+    def index_quadruple(self, quadruple: List[str]):
+        head_id, rel_id, tail_id = self.index_triple(quadruple[0:3])
+        ts_id = self.index_timestamps(quadruple[3])
+
+        return head_id, rel_id, tail_id, ts_id
+
+    def index_triple(self, triple: List[str]):
+        head_id = self.index_entities(triple[0])
+        rel_id = self.index_relations(triple[1])
+        tail_id = self.index_entities(triple[2])
+
+        return head_id, rel_id, tail_id
+
     def index_entities(self, ent: str):
         """
         Associates each given entity with an unique identifier, i.e. the number of different entities.
@@ -148,6 +161,14 @@ class DatasetProcessor(ABC, Registrable, Configurable):
         # TODO(gengyuan)
         return {"train": self.train_set, "valid": self.valid_set, "test": self.test_set}[split]
 
+    def add(self, data_split, head_id, rel_id, tail_id, ts_id, ts_float):
+        self.data_set_mappings[data_split]['triple'].append([head_id, rel_id, tail_id])
+        self.data_set_mappings[data_split]['timestamp_id'].append([ts_id])
+        self.data_set_mappings[data_split]['timestamp_float'].append(ts_float)
+
+        self.all_triples.append([head_id, rel_id, tail_id])
+        self.all_quadruples.append([head_id, rel_id, tail_id, ts_id])
+
     def num_entities(self):
         return len(self.ent2id)
 
@@ -215,18 +236,13 @@ class GDELTDatasetProcessor(DatasetProcessor):
         for data_split in self.data_splits:
             for rd in self.data_raw_mappings[data_split]:
                 head, rel, tail, ts = rd.strip().split('\t')
-                head = int(head)
-                rel = int(rel)
-                tail = int(tail)
-                ts = self.process_time(ts)
+                head_id = int(head)
+                rel_id = int(rel)
+                tail_id = int(tail)
                 ts_id = self.index_timestamps(ts)
+                ts_float = list(map(lambda x: int(x), self.process_time(ts).split('-')))
 
-                self.data_set_mappings[data_split]['triple'].append([head, rel, tail])
-                self.data_set_mappings[data_split]['timestamp_id'].append([ts_id])
-                self.data_set_mappings[data_split]['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
-
-                self.all_triples.append([head, rel, tail])
-                self.all_quadruples.append([head, rel, tail, ts_id])
+                self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str, resolution: str = 'day'):
         all_resolutions = ['year', 'month', 'day', 'hour', 'minute', 'second']
@@ -252,19 +268,11 @@ class ICEWS14DatasetProcessor(DatasetProcessor):
 
         for data_split in self.data_splits:
             for rd in self.data_raw_mappings[data_split]:
-                head, rel, tail, ts = rd.strip().split('\t')
-                head = self.index_entities(head)
-                rel = self.index_relations(rel)
-                tail = self.index_entities(tail)
-                ts = self.process_time(ts)
-                ts_id = self.index_timestamps(ts)
+                quadruple = rd.strip().split('\t')
+                head_id, rel_id, tail_id, ts_id = self.index_quadruple(quadruple)
+                ts_float = list(map(lambda x: int(x), self.process_time(quadruple[3]).split('-')))
 
-                self.data_set_mappings[data_split]['triple'].append([head, rel, tail])
-                self.data_set_mappings[data_split]['timestamp_id'].append([ts_id])
-                self.data_set_mappings[data_split]['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
-
-                self.all_triples.append([head, rel, tail])
-                self.all_quadruples.append([head, rel, tail, ts_id])
+                self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str):
         all_resolutions = ['year', 'month', 'day', 'hour', 'minute', 'second']
@@ -287,17 +295,14 @@ class ICEWS0515DatasetProcessor(DatasetProcessor):
         """
         for data_split in self.data_splits:
             for rd in self.data_raw_mappings[data_split]:
-                head, rel, tail, ts = rd.strip().split('\t')
-                head = self.index_entities(head)
-                rel = self.index_relations(rel)
-                tail = self.index_entities(tail)
-                ts = self.process_time(ts)
+                quadruple = rd.strip().split('\t')
+                head_id, rel_id, tail_id, ts_id = self.index_quadruple(quadruple)
+                ts_float = list(map(lambda x: int(x), self.process_time(quadruple[3]).split('-')))
 
-                self.data_set_mappings[data_split]['triple'].append([head, rel, tail])
-                self.data_set_mappings[data_split]['timestamp_id'].append([self.index_timestamps(ts)])
-                self.data_set_mappings[data_split]['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+                self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str):
+        # TODO
         raise NotImplementedError
 
 
@@ -329,16 +334,10 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
                     ts = 'no-time'
                     ts_id = self.index_timestamps(ts)
 
-                head_id = self.index_entities(head)
-                rel_id = self.index_relations(rel)
-                tail_id = self.index_entities(tail)
+                head_id, rel_id, tail_id = self.index_triple([head, rel, tail])
+                ts_float = [int(ts) if ts != 'no-time' else 0]
 
-                self.data_set_mappings[data_split]['triple'].append([head_id, rel_id, tail_id])
-                self.data_set_mappings[data_split]['timestamp_id'].append([ts_id])
-                self.data_set_mappings[data_split]['timestamp_float'].append([int(ts) if ts != 'no-time' else 0])
-
-                self.all_triples.append([head_id, rel_id, tail_id])
-                self.all_quadruples.append([head_id, rel_id, tail_id, ts_id])
+                self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str):
         raise NotImplementedError
