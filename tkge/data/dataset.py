@@ -190,15 +190,15 @@ class DatasetProcessor(ABC, Registrable, Configurable):
         return filtered_data
 
     def info(self):
-        self.config.log('==============================================')
-        self.config.log(f'Dataset type : {self.config.get("dataset.name")}')
-        self.config.log(f"Number of entities : {self.num_entities()}")
-        self.config.log(f"Number of relations : {self.num_relations()}")
-        self.config.log(f"\n")
-        self.config.log(f"Train set size : {self.train_size}")
-        self.config.log(f"Valid set size : {self.valid_size}")
-        self.config.log(f"Test set size : {self.test_size}")
-        self.config.log('==============================================')
+        self.config.log(f'==============================================\n'
+                        f'Dataset type : {self.config.get("dataset.name")}\n'
+                        f"Number of entities : {self.num_entities()}\n"
+                        f"Number of relations : {self.num_relations()}\n"
+                        f"\n"
+                        f"Train set size : {self.train_size}\n"
+                        f"Valid set size : {self.valid_size}\n"
+                        f"Test set size : {self.test_size}\n"
+                        '==============================================')
 
 
 @DatasetProcessor.register(name="gdelt")
