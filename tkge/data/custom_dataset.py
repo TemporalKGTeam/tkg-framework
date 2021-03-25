@@ -68,7 +68,7 @@ class Yago11kDatasetProcessor(DatasetProcessor):
 
 
 @DatasetProcessor.register(name="yago15k_TA")
-class YAGO15KDatasetProcessor(DatasetProcessor):
+class YAGO15KTADatasetProcessor(DatasetProcessor):
     def process(self):
         """
         Processes the raw data for each data type (i.e. train, valid and test) of the YAGO15k dataset.
