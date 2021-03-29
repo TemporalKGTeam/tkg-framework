@@ -1,8 +1,7 @@
 import torch
 from torch.utils.data.dataset import Dataset as PTDataset
-import numpy as np
 
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional
 from collections import defaultdict
 
 from tkge.common.registrable import Registrable
@@ -48,8 +47,16 @@ class DatasetProcessor(ABC, Registrable, Configurable):
         self.all_quadruples = []
 
         self.load()
+
+        self.data_splits = ["train", "valid", "test"]
+        self.data_raw_mappings = {self.data_splits[0]: self.train_raw,
+                                  self.data_splits[1]: self.valid_raw,
+                                  self.data_splits[2]: self.test_raw}
+        self.data_set_mappings = {self.data_splits[0]: self.train_set,
+                                  self.data_splits[1]: self.valid_set,
+                                  self.data_splits[2]: self.test_set}
+
         self.process()
-        self.filter()
 
     @classmethod
     def create(cls, config: Config):
@@ -70,25 +77,52 @@ class DatasetProcessor(ABC, Registrable, Configurable):
     def process(self):
         raise NotImplementedError
 
+    def index_quadruple(self, quadruple: List[str]):
+        head_id, rel_id, tail_id = self.index_triple(quadruple[0:3])
+        ts_id = self.index_timestamps(quadruple[3])
+
+        return head_id, rel_id, tail_id, ts_id
+
+    def index_triple(self, triple: List[str]):
+        head_id = self.index_entities(triple[0])
+        rel_id = self.index_relations(triple[1])
+        tail_id = self.index_entities(triple[2])
+
+        return head_id, rel_id, tail_id
+
     def index_entities(self, ent: str):
+        """
+        Associates each given entity with an unique identifier, i.e. the number of different entities.
+        """
         if ent not in self.ent2id:
             self.ent2id.update({ent: self.num_entities()})
 
         return self.ent2id[ent]
 
     def index_relations(self, rel: str):
+        """
+        Associates each given relation with an unique identifier, i.e. the number of different relations.
+        """
         if rel not in self.rel2id:
             self.rel2id.update({rel: self.num_relations()})
 
         return self.rel2id[rel]
 
     def index_timestamps(self, ts):
+        """
+        Associates each given timestamp with an unique identifier, i.e. the number of different timestamps.
+        """
         if ts not in self.ts2id:
             self.ts2id.update({ts: self.num_timestamps()})
 
         return self.ts2id[ts]
 
     def load(self):
+        """
+        Loads the dataset from the train.txt, valid.txt and test.txt from the specified dataset folder.
+        Duplicates each quadruple and twists the head and tail entity in the train dataset
+        if the flag for reciprocal relations is set.
+        """
         train_file = self.folder + "/train.txt"
         valid_file = self.folder + "/valid.txt"
         test_file = self.folder + "/test.txt"
@@ -127,6 +161,14 @@ class DatasetProcessor(ABC, Registrable, Configurable):
     def get(self, split: str = "train"):
         # TODO(gengyuan)
         return {"train": self.train_set, "valid": self.valid_set, "test": self.test_set}[split]
+
+    def add(self, data_split, head_id, rel_id, tail_id, ts_id, ts_float):
+        self.data_set_mappings[data_split]['triple'].append([head_id, rel_id, tail_id])
+        self.data_set_mappings[data_split]['timestamp_id'].append([ts_id])
+        self.data_set_mappings[data_split]['timestamp_float'].append(ts_float)
+
+        self.all_triples.append([head_id, rel_id, tail_id])
+        self.all_quadruples.append([head_id, rel_id, tail_id, ts_id])
 
     def num_entities(self):
         return len(self.ent2id)
@@ -170,15 +212,15 @@ class DatasetProcessor(ABC, Registrable, Configurable):
         return filtered_data
 
     def info(self):
-        self.config.log('==============================================')
-        self.config.log(f'Dataset type : {self.config.get("dataset.name")}')
-        self.config.log(f"Number of entities : {self.num_entities()}")
-        self.config.log(f"Number of relations : {self.num_relations()}")
-        self.config.log(f"\n")
-        self.config.log(f"Train set size : {self.train_size}")
-        self.config.log(f"Valid set size : {self.valid_size}")
-        self.config.log(f"Test set size : {self.test_size}")
-        self.config.log('==============================================')
+        self.config.log(f'==============================================\n'
+                        f'Dataset type : {self.config.get("dataset.name")}\n'
+                        f"Number of entities : {self.num_entities()}\n"
+                        f"Number of relations : {self.num_relations()}\n"
+                        f"\n"
+                        f"Train set size : {self.train_size}\n"
+                        f"Valid set size : {self.valid_size}\n"
+                        f"Test set size : {self.test_size}\n"
+                        f'==============================================')
 
 
 @DatasetProcessor.register(name="gdelt")
@@ -187,50 +229,21 @@ class GDELTDatasetProcessor(DatasetProcessor):
         super().__init__(config)
 
     def process(self):
-        for rd in self.train_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = int(head)
-            rel = int(rel)
-            tail = int(tail)
-            ts = self.process_time(ts)
-            ts_id = self.index_timestamps(ts)
+        """
+        Converts the raw text data to meaningful numerical data.
+        Since the GDELT dataset already represents the data as numbers (ids), the head and tail entities as well as the
+        relations only need to be casted to numerical types.
+        """
+        for data_split in self.data_splits:
+            for rd in self.data_raw_mappings[data_split]:
+                head, rel, tail, ts = rd.strip().split('\t')
+                head_id = int(head)
+                rel_id = int(rel)
+                tail_id = int(tail)
+                ts_id = self.index_timestamps(ts)
+                ts_float = list(map(lambda x: int(x), self.process_time(ts).split('-')))
 
-            self.train_set['triple'].append([head, rel, tail])
-            self.train_set['timestamp_id'].append([ts_id])
-            self.train_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
-
-        for rd in self.valid_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = int(head)
-            rel = int(rel)
-            tail = int(tail)
-            ts = self.process_time(ts)
-            ts_id = self.index_timestamps(ts)
-
-            self.valid_set['triple'].append([head, rel, tail])
-            self.valid_set['timestamp_id'].append([ts_id])
-            self.valid_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
-
-        for rd in self.test_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = int(head)
-            rel = int(rel)
-            tail = int(tail)
-            ts = self.process_time(ts)
-            ts_id = self.index_timestamps(ts)
-
-            self.test_set['triple'].append([head, rel, tail])
-            self.test_set['timestamp_id'].append([ts_id])
-            self.test_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
+                self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str, resolution: str = 'day'):
         all_resolutions = ['year', 'month', 'day', 'hour', 'minute', 'second']
@@ -246,53 +259,21 @@ class GDELTDatasetProcessor(DatasetProcessor):
 @DatasetProcessor.register(name="icews14")
 class ICEWS14DatasetProcessor(DatasetProcessor):
     def process(self):
+        """
+        Converts the raw text data to meaningful numerical data.
+        Since the ICEWS14 dataset represent its data in raw semantic texts, the head and tail entities as well as the
+        relations need to be indexed programmatically.
+        """
         all_timestamp = get_all_days_of_year(2014)
         self.ts2id = {ts: (arrow.get(ts) - arrow.get('2014-01-01')).days for ts in all_timestamp}
 
-        for rd in self.train_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts = self.process_time(ts)
-            ts_id = self.index_timestamps(ts)
+        for data_split in self.data_splits:
+            for rd in self.data_raw_mappings[data_split]:
+                quadruple = rd.strip().split('\t')
+                head_id, rel_id, tail_id, ts_id = self.index_quadruple(quadruple)
+                ts_float = list(map(lambda x: int(x), self.process_time(quadruple[3]).split('-')))
 
-            self.train_set['triple'].append([head, rel, tail])
-            self.train_set['timestamp_id'].append([ts_id])
-            self.train_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
-
-        for rd in self.valid_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts = self.process_time(ts)
-            ts_id = self.index_timestamps(ts)
-
-            self.valid_set['triple'].append([head, rel, tail])
-            self.valid_set['timestamp_id'].append([ts_id])
-            self.valid_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
-
-        for rd in self.test_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts = self.process_time(ts)
-            ts_id = self.index_timestamps(ts)
-
-            self.test_set['triple'].append([head, rel, tail])
-            self.test_set['timestamp_id'].append([ts_id])
-            self.test_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
+                self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str):
         all_resolutions = ['year', 'month', 'day', 'hour', 'minute', 'second']
@@ -308,59 +289,59 @@ class ICEWS14DatasetProcessor(DatasetProcessor):
 @DatasetProcessor.register(name="icews05-15")
 class ICEWS0515DatasetProcessor(DatasetProcessor):
     def process(self):
-        for rd in self.train_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts = self.process_time(ts)
+        """
+        Converts the raw text data to meaningful numerical data.
+        Since the ICEWS05-15 dataset represent its data in raw semantic texts, the head and tail entities as well as the
+        relations need to be indexed programmatically.
+        """
+        for data_split in self.data_splits:
+            for rd in self.data_raw_mappings[data_split]:
+                quadruple = rd.strip().split('\t')
+                head_id, rel_id, tail_id, ts_id = self.index_quadruple(quadruple)
+                ts_float = list(map(lambda x: int(x), self.process_time(quadruple[3]).split('-')))
 
-            self.train_set['triple'].append([head, rel, tail])
-            self.train_set['timestamp_id'].append([self.index_timestamps(ts)])
-            self.train_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
-
-        for rd in self.train_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts = self.process_time(ts)
-
-            self.valid_set['triple'].append([head, rel, tail])
-            self.valid_set['timestamp_id'].append([self.index_timestamps(ts)])
-            self.valid_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
-
-        for rd in self.train_raw:
-            head, rel, tail, ts = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts = self.process_time(ts)
-
-            self.test_set['triple'].append([head, rel, tail])
-            self.test_set['timestamp_id'].append([self.index_timestamps(ts)])
-            self.test_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+                self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str):
+        # TODO
         raise NotImplementedError
 
 
-@DatasetProcessor.register(name="wiki")
-class WIKIDatasetProcessor(DatasetProcessor):
+@DatasetProcessor.register(name="yago15k")
+class YAGO15KDatasetProcessor(DatasetProcessor):
     def process(self):
-        pass
+        """
+        Processes the raw data for each data type (i.e. train, valid and test) of the YAGO15k dataset.
+        If a fact has a temporal part (temporal modifier and timestamp), then the temporal modifier is used to
+        concatenate the relation, so a relation of a fact can be '<relation>occursSince', '<relation>occursUntil' or
+        '<relation>_no-time'.
+        """
+        for data_split in self.data_splits:
+            for rd in self.data_raw_mappings[data_split]:
+                fact = rd.strip().split('\t')
+                # self.config.log(f"Processing fact in line {index + 1}: {fact}")
+
+                if len(fact) > 4:
+                    head, rel, tail, mod, ts = fact
+                    rel += mod
+                    ts = ts.split('-')[0][1:]
+                    ts_id = self.index_timestamps(ts)
+                elif len(fact) == 4:
+                    # ignore the two tuples with temporal modifiers but without timestamp
+                    continue
+                else:
+                    head, rel, tail = fact
+                    rel += '_no-time'
+                    ts = 'no-time'
+                    ts_id = self.index_timestamps(ts)
+
+                head_id, rel_id, tail_id = self.index_triple([head, rel, tail])
+                ts_float = [int(ts) if ts != 'no-time' else 0]
+
+                self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str):
-        pass
-
-
-@DatasetProcessor.register(name="yago")
-class YAGODatasetProcessor(DatasetProcessor):
-    def process(self):
-        pass
-
-    def process_time(self, origin: str):
-        pass
+        raise NotImplementedError
 
 
 class SplitDataset(torch.utils.data.Dataset):
