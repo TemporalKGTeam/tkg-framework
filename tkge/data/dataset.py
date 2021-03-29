@@ -46,6 +46,8 @@ class DatasetProcessor(ABC, Registrable, Configurable):
         self.all_triples = []
         self.all_quadruples = []
 
+        self.load()
+
         self.data_splits = ["train", "valid", "test"]
         self.data_raw_mappings = {self.data_splits[0]: self.train_raw,
                                   self.data_splits[1]: self.valid_raw,
@@ -54,7 +56,6 @@ class DatasetProcessor(ABC, Registrable, Configurable):
                                   self.data_splits[1]: self.valid_set,
                                   self.data_splits[2]: self.test_set}
 
-        self.load()
         self.process()
 
     @classmethod
