@@ -148,11 +148,18 @@ class TrainTask(Task):
 
         # validity checks and warnings
         if self.train_sub_bs >= self.train_bs or self.train_sub_bs < 1:
-            # TODO(max) improve logging with different hierarchies/labels, i.e. DEBUG, INFO, WARNING, ERROR
+            # TODO(max) improve logging with different hierarchies/labels, i.e. merge with branch advannced_log_and_ckpt_management
             self.config.log(f"WARNING: Specified train.sub_batch_size={self.train_sub_bs} is greater or equal to "
                             f"train.batch_size={self.train_bs} or smaller than 1, so use no sub batches. "
                             f"Device(s) may run out of memory.")
             self.train_sub_bs = self.train_bs
+
+        if self.valid_sub_bs >= self.valid_bs or self.valid_sub_bs < 1:
+            # TODO(max) improve logging with different hierarchies/labels, i.e. merge with branch advannced_log_and_ckpt_management
+            self.config.log(f"WARNING: Specified train.valid.sub_batch_size={self.valid_sub_bs} is greater or equal to "
+                            f"train.valid.batch_size={self.valid_bs} or smaller than 1, so use no sub batches. "
+                            f"Device(s) may run out of memory.")
+            self.valid_sub_bs = self.valid_bs
 
     def main(self):
         self.config.log("BEGIN TRAINING")
@@ -215,14 +222,10 @@ class TrainTask(Task):
 
                     for batch in self.valid_loader:
                         bs = batch.size(0)
-                        dim = batch.size(1)
 
                         batch = batch.to(self.device)
 
                         counter += bs
-
-                        queries_head = batch.clone()[:, :-1]
-                        queries_tail = batch.clone()[:, :-1]
 
                         # samples_head, _ = self.onevsall_sampler.sample(queries, "head")
                         # samples_tail, _ = self.onevsall_sampler.sample(queries, "tail")
@@ -230,15 +233,31 @@ class TrainTask(Task):
                         # samples_head = samples_head.to(self.device)
                         # samples_tail = samples_tail.to(self.device)
 
-                        # TODO(max) implement sub batches for evaluation as well
-                        queries_head[:, 0] = float('nan')
-                        queries_tail[:, 2] = float('nan')
+                        batch_scores_head = []
+                        batch_scores_tail = []
 
-                        batch_scores_head = self.model.module.predict(queries_head)
+                        for start in range(0, bs, self.valid_sub_bs):
+                            stop = min(start + self.valid_sub_bs, bs)
+                            sub_batch = batch[start:stop]
+
+                            sub_queries_head = sub_batch.clone()[:, :-1]
+                            sub_queries_tail = sub_batch.clone()[:, :-1]
+
+                            sub_queries_head[:, 0] = float('nan')
+                            sub_queries_tail[:, 2] = float('nan')
+
+                            sub_batch_scores_head = self.model.predict(sub_queries_head)
+                            sub_batch_scores_tail = self.model.predict(sub_queries_tail)
+
+                            batch_scores_head.append(sub_batch_scores_head)
+                            batch_scores_tail.append(sub_batch_scores_tail)
+
+                        batch_scores_head = torch.cat(batch_scores_head, dim=0)
+                        batch_scores_tail = torch.cat(batch_scores_tail, dim=0)
+
                         assert list(batch_scores_head.shape) == [bs,
                                                                  self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
 
-                        batch_scores_tail = self.model.module.predict(queries_tail)
                         assert list(batch_scores_tail.shape) == [bs,
                                                                  self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
 
