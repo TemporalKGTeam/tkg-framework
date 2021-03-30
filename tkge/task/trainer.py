@@ -290,6 +290,12 @@ class TrainTask(Task):
         sample_target = self.config.get("negative_sampling.target")
         samples, labels = self.sampler.sample(pos_batch, sample_target)
 
+        # self.config.log(f"Start index: {start}")
+        # self.config.log(f"Stop index: {stop}")
+        # self.config.log(f"BEFORE Samples: {samples.size()}")
+        # self.config.log(f"BEFORE Labels: {labels.size()}")
+        # self.config.log(f"BEFORE Sub labels: {sub_labels.size()}")
+
         if sample_target == "both":
             pos_batch_size, _ = pos_batch.size()
 
@@ -309,10 +315,16 @@ class TrainTask(Task):
         sub_samples = sub_samples.to(self.device)
         sub_labels = sub_labels.to(self.device)
 
+        # self.config.log(f"AFTER Sub samples: {sub_samples.size()}")
+        # self.config.log(f"AFTER Sub labels: {sub_labels.size()}")
+
         scores, factors = self.model.forward(sub_samples)
 
+        # self.config.log(f"AFTER Scores: {scores.size()}")
+        # self.config.log(f"AFTER Labels: {labels.size()}")
+
         # TODO (gengyuan) assertion: size of scores and labels should be matched
-        assert scores.size() == sub_labels.size(), f"Score's size {scores.shape} should match label's size {sub_labels.shape}"
+        assert scores.size(0) == sub_labels.size(0), f"Score's size {scores.shape} should match label's size {sub_labels.shape}"
         loss = self.loss(scores, sub_labels)
 
         # TODO (gengyuan) assert that regularizer and inplace-regularizer don't share same name

@@ -47,11 +47,11 @@ model:
 
 
 negative_sampling:
-  type: time_agnostic
-  num_samples: 500
+  type: pseudo_sampling
+  num_samples: -1
   filter: False
   as_matrix: True
-  target: both
+  target: tail
   args: ~
 
 
@@ -65,10 +65,10 @@ train:
     args: ~
   max_epochs: 500
   batch_size: 1000
-  sub_batch_size: 64
+  sub_batch_size: -1
   subbatch_auto_tune: False
   optimizer:
-    type: Adam
+    type: Adagrad
     args:
       lr: 0.001
   loader:
@@ -92,14 +92,16 @@ train:
   abort_on_nan: True
   visualize_graph: False
   pin_memory: False
-  regularizer: ~
-  inplace_regularizer:
-    norm:
-      type: inplace_renorm_regularize
-      p: 2
-      dim: 1
-      maxnorm: 1
+  regularizer:
+    n3:
+      type: n3_regularize
+      weight: 1e-2
       args: ~
+    lambda3:
+      type: lambda3_regularize
+      weight: 1e-2
+      args: ~
+  inplace_regularizer: ~
   lr_scheduler: ~
   lr_scheduler_args:
     +++: +++

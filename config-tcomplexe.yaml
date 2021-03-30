@@ -4,7 +4,7 @@
 console:
   # If set, no console output is produced
   quiet: False
-  folder: "~/workplace/logging/tcomplex"
+  execution_dir: /mnt/data1/ma/gengyuan/experiment/results
 
   # Formatting of trace entries for console output after certain events, such as
   # finishing an epoch. Each entry is a key-value pair, where the key refers to
@@ -30,8 +30,9 @@ task:
 
   # Main device to use for this job (e.g., 'cpu', 'cuda', 'cuda:0')
   device: 'cpu'
+  devices: ~
 
-  reciprocal_relation: True
+  reciprocal_training: False
 
 # The seeds of the PRNGs can be set manually for (increased) reproducibility.
 # Use -1 to disable explicit seeding.
@@ -52,7 +53,7 @@ random_seed:
 
 dataset:
   # data folder includes train, val, test files
-  folder: '/Users/GengyuanMax/workspace/tkg-framework/data/icews14'
+  folder: /mnt/data1/ma/gengyuan/experiment/tkg-framework-mapping-experiment/data/icews14
 
   # indexes mapping [false, true]
   # TODO 可以保存到cache
@@ -69,7 +70,7 @@ dataset:
   # Specify a data here. There must be a folder of that name under "data/".
   # If this folder contains a data.yaml file, it overrides the defaults
   # specified below.
-  name: 'icews14'
+  name: icews14
 
   # Number of entities. If set to -1, automatically determined from the
   # entity_ids file (see below).
@@ -224,6 +225,7 @@ train:
     split: test # in [test or valid]
     every: 1
     batch_size: 1000
+    sub_batch_size: -1
     filter: time-aware  # in [off, static, time-aware]
     ordering: optimistic    # in [optimistic, peesimistic]
     k: [1, 3, 10]
@@ -232,9 +234,11 @@ train:
     n3:
       type: n3_regularize
       weight: 1e-2
+      args: ~
     lambda3:
       type: lambda3_regularize
       weight: 1e-2
+      args: ~
 
   inplace_regularizer: ~
 
