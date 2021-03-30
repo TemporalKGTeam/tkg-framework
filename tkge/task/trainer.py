@@ -114,7 +114,7 @@ class TrainTask(Task):
 
         self.config.log(f"Creating model {self.config.get('model.type')}")
         base_model = BaseModel.create(config=self.config, dataset=self.dataset)
-        self.model = DataParallel(base_model, device_ids=self.devices) if self.device == 'gpu' else base_model
+        self.model = DataParallel(base_model, device_ids=self.devices) if self.device == 'cuda' else base_model
         self.model.to(self.device)
 
         self.config.log(f"Initializing loss function")
