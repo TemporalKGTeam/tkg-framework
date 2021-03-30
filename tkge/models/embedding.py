@@ -152,6 +152,9 @@ class TemporalEmbedding(BaseEmbedding):
 
         self._temporal = nn.ModuleDict(self._temporal)
 
+    def get_weight(self, key):
+        return self._temporal[key].weight
+
     def __call__(self, index: torch.Tensor):
         return {k: v(index) for k, v in self._temporal.items()}
 

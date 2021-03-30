@@ -4,7 +4,7 @@
 console:
   # If set, no console output is produced
   quiet: False
-  folder: /home/ubuntu/gengyuan/logging/tcomplex
+  folder: /home/ubuntu/gengyuan/logging/tntcomplex
 
   # Formatting of trace entries for console output after certain events, such as
   # finishing an epoch. Each entry is a key-value pair, where the key refers to
@@ -109,9 +109,9 @@ dataset:
 # "transe", or "conve". For available models, see the project homepage and/or
 # configuration files under kge/model.
 model:
-  type: 'tcomplex'
-  rank: 156
-  no_time_emb: False
+  type: 'tntcomplex'
+  rank: 189
+  no_time_emb: True
   init_size: 0.01
   args: ~
 
@@ -235,7 +235,7 @@ train:
       args: ~
     lambda3:
       type: lambda3_regularize
-      weight: 1e-2
+      weight: 1
       args: ~
 
   inplace_regularizer: ~
