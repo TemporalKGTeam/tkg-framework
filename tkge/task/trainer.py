@@ -109,7 +109,8 @@ class TrainTask(Task):
         self.onevsall_sampler = NonNegativeSampler(config=self.config, dataset=self.dataset, as_matrix=True)
 
         self.config.log(f"Creating model {self.config.get('model.type')}")
-        self.model = DataParallel(BaseModel.create(config=self.config, dataset=self.dataset), device_ids=self.devices)
+        base_model = BaseModel.create(config=self.config, dataset=self.dataset)
+        self.model = DataParallel(base_model, device_ids=self.devices) if self.device == 'gpu' else base_model
         self.model.to(self.device)
 
         self.config.log(f"Initializing loss function")
