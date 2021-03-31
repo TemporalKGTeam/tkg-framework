@@ -615,7 +615,7 @@ class TATransEModel(BaseModel):
         # model params from files
         self.emb_dim = self.config.get("model.emb_dim")
         self.l1_flag = self.config.get("model.l1_flag")
-        self.p = self.config.get("model.p")
+        self.p = self.config.get("model.dropout")
 
         self.dropout = torch.nn.Dropout(p=self.p)
         self.lstm = LSTMModel(self.emb_dim, n_layer=1)
@@ -625,7 +625,7 @@ class TATransEModel(BaseModel):
     def prepare_embedding(self):
         num_ent = self.dataset.num_entities()
         num_rel = self.dataset.num_relations()
-        num_tem = max(self.dataset.num_timestamps(), 32)
+        num_tem = 32
 
         self.embedding: Dict[str, torch.nn.Embedding] = defaultdict(None)
         self.embedding['ent'] = torch.nn.Embedding(num_ent, self.emb_dim)
@@ -640,6 +640,8 @@ class TATransEModel(BaseModel):
 
     def get_rseq(self, rel: torch.LongTensor, tem: torch.LongTensor):
 
+        # self.config.log(f"tem in: {tem.size()}")
+
         r_e = self.embedding['rel'](rel)
         r_e = r_e.unsqueeze(0).transpose(0, 1)
 
@@ -648,9 +650,19 @@ class TATransEModel(BaseModel):
         tem = tem.contiguous()
         tem = tem.view(bs * tem_len)
 
+        # self.config.log(f"tem: {tem.size()}")
+
         token_e = self.embedding['tem'](tem)
+
+        # self.config.log(f"token_e: {token_e.size()}")
+
         token_e = token_e.view(bs, tem_len, self.emb_dim)
+
+        # self.config.log(f"token_e view: {token_e.size()}")
+
         seq_e = torch.cat((r_e, token_e), 1)
+
+        # self.config.log(f"seq_e: {seq_e.size()}")
 
         hidden_tem = self.lstm(seq_e)
         hidden_tem = hidden_tem[0, :, :]
@@ -665,6 +677,8 @@ class TATransEModel(BaseModel):
         return scores, factors
 
     def _forward_model(self, samples: torch.Tensor, **kwargs):
+        # self.config.log(f"Sample in: {samples.size()}")
+
         h, r, t, tem = samples[:, 0].long(), samples[:, 1].long(), samples[:, 2].long(), samples[:, 3:].long()
 
         h_e = self.embedding['ent'](h)
@@ -716,7 +730,7 @@ class TADistmultModel(BaseModel):
         # model params from files
         self.emb_dim = self.config.get("model.emb_dim")
         self.l1_flag = self.config.get("model.l1_flag")
-        self.p = self.config.get("model.p")
+        self.p = self.config.get("model.dropout")
 
         self.dropout = torch.nn.Dropout(p=self.p)
         self.lstm = LSTMModel(self.emb_dim, n_layer=1)
@@ -727,7 +741,7 @@ class TADistmultModel(BaseModel):
     def prepare_embedding(self):
         num_ent = self.dataset.num_entities()
         num_rel = self.dataset.num_relations()
-        num_tem = max(self.dataset.num_timestamps(), 32)
+        num_tem = 32
 
         self.embedding: Dict[str, torch.nn.Embedding] = defaultdict(None)
         self.embedding['ent'] = torch.nn.Embedding(num_ent, self.emb_dim)
