@@ -41,7 +41,6 @@ model:
   type: ttranse
   emb_dim: 100
   l1_flag: True
-  dropout: 0.0
   args: ~
 
 

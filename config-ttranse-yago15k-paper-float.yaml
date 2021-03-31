@@ -25,8 +25,8 @@ dataset:
   filter: FALSE
   temporal:
     resolution: day  #deprecated
-    index: True
-    float: False
+    index: False
+    float: True
   args: ~
   name: yago15k
   num_entities: -1
@@ -41,7 +41,6 @@ model:
   type: ttranse
   emb_dim: 100
   l1_flag: True
-  dropout: 0.4
   args: ~
 
 
