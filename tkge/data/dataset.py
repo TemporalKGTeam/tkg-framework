@@ -336,6 +336,7 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
                     ts_id = self.index_timestamps(ts)
 
                 head_id, rel_id, tail_id = self.index_triple([head, rel, tail])
+                # TODO(max) determine float value for no time information, currently 0
                 ts_float = [int(ts) if ts != 'no-time' else 0]
 
                 self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
