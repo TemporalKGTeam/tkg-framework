@@ -52,7 +52,7 @@ class TrainTask(Task):
         super().__init__(config)
 
         # Initialize working folder
-        self.ex_folder, self.ex_id = config.create_exid()
+        config.create_experiment()
 
         self.dataset: DatasetProcessor = self.config.get("dataset.name")
         self.train_loader: torch.utils.data.DataLoader = None
@@ -126,7 +126,7 @@ class TrainTask(Task):
             scheduler_args = self.config.get("train.lr_scheduler.args")
             self.lr_scheduler = get_scheduler(self.optimizer, scheduler_type, scheduler_args)
 
-        self.config.log((f"Initializeing regularizer"))
+        self.config.log(f"Initializing regularizer")
         self.regularizer = dict()
         self.inplace_regularizer = dict()
 
@@ -142,7 +142,7 @@ class TrainTask(Task):
         self.evaluation = Evaluation(config=self.config, dataset=self.dataset)
 
     def main(self):
-        self.config.log("BEGIN TRANING")
+        self.config.log("BEGIN TRAINING")
 
         save_freq = self.config.get("train.checkpoint.every")
         eval_freq = self.config.get("train.valid.every")
@@ -175,7 +175,8 @@ class TrainTask(Task):
                 scores, factors = self.model.fit(samples)
 
                 # TODO (gengyuan) assertion: size of scores and labels should be matched
-                assert scores.size(0) == labels.size(0), f"Score's size {scores.shape} should match label's size {labels.shape}"
+                assert scores.size(0) == labels.size(
+                    0), f"Score's size {scores.shape} should match label's size {labels.shape}"
                 loss = self.loss(scores, labels)
 
                 # TODO (gengyuan) assert that regularizer and inplace-regularizer don't share same name
@@ -223,10 +224,10 @@ class TrainTask(Task):
                 else:
                     self.lr_scheduler.step()
 
-            self.config.log(f"Loss in iteration {epoch} : {avg_loss} comsuming {stop - start}s")
+            self.config.log(f"Loss in iteration {epoch} : {avg_loss} consuming {stop - start}s")
 
             if epoch % save_freq == 0:
-                self.save_ckpt(f"epoch_{epoch}")
+                self.save_ckpt(f"epoch_{epoch}", epoch=epoch)
 
             if epoch % eval_freq == 0:
                 with torch.no_grad():
@@ -289,14 +290,13 @@ class TrainTask(Task):
                     self.config.log(
                         f"Metrics(both prediction) in iteration {epoch} : {avg} ")
 
-                    if avg['mrr'] > best_metric:
-                        best_metric = avg['mrr']
+                    if avg['mean_reciprocal_ranking'] > best_metric:
+                        best_metric = avg['mean_reciprocal_ranking']
                         best_epoch = epoch
 
-                        self.save_ckpt('best')
+                        self.save_ckpt('best', epoch=epoch)
 
-            self.save_ckpt('latest')
-
+            self.save_ckpt('latest', epoch=epoch)
 
     def eval(self):
         # TODO early stopping
@@ -306,7 +306,7 @@ class TrainTask(Task):
     def save_ckpt(self, ckpt_name, epoch):
         filename = f"{ckpt_name}.ckpt"
 
-        self.config.log(f"Save the model checkpoint to {self.ex_folder} as file {filename}")
+        self.config.log(f"Save the model checkpoint to {self.config.ex_folder} as file {filename}")
 
         checkpoint = {
             'last_epoch': epoch,
@@ -316,7 +316,7 @@ class TrainTask(Task):
         }
 
         torch.save(checkpoint,
-                   os.path.join(self.ex_folder, filename))  # os.path.join(model, dataset, folder, filename))
+                   os.path.join(self.config.ex_folder, filename))  # os.path.join(model, dataset, folder, filename))
 
     def load_ckpt(self, ckpt_path):
         raise NotImplementedError
