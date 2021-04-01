@@ -38,7 +38,7 @@ dataset:
 
 negative_sampling:
   type: 'time_agnostic'
-  num_samples: 500
+  num_samples: 750
   filter: False
   as_matrix: True
   target: both
@@ -46,67 +46,28 @@ negative_sampling:
 
 
 model:
-  type: pipeline_model
+  type: translation_simple_model
+
+  p: 0.4
 
   embedding:
     entity:
       pos_aware: True
       keys:
         real:
-          dim: 100
+          dim: 160
           init: xavier_uniform
-#        imag:
-#          dim: 100
-#          init: xavier_uniform
-#        ent_embs:
-#          dim: 68
-#          init: xavier_uniform
-#        amps_y:
-#          dim: 32
-#          init: xavier_uniform
-#        amps_m:
-#          dim: 32
-#          init: xavier_uniform
-#        amps_d:
-#          dim: 32
-#          init: xavier_uniform
-#        freq_y:
-#          dim: 32
-#          init: xavier_uniform
-#        freq_m:
-#          dim: 32
-#          init: xavier_uniform
-#        freq_d:
-#          dim: 32
-#          init: xavier_uniform
-#        phi_y:
-#          dim: 32
-#          init: xavier_uniform
-#        phi_m:
-#          dim: 32
-#          init: xavier_uniform
-#        phi_d:
-#          dim: 32
-#          init: xavier_uniform
 
     relation:
       keys:
         real:
-          dim: 100
+          dim: 160
           init: xavier_uniform
-#        imag:
-#          dim: 100
-#          init: xavier_uniform
-    # if temporal: ~ then we use float, otherwise we use the index
     temporal:
       keys:
         real:
-          dim: 100
+          dim: 160
           init: xavier_uniform
-#        imag:
-#          dim: 100
-#          init: xavier_uniform
-
   fusion:
     type: addition_fusion
     target:
@@ -165,7 +126,15 @@ train:
       args:
         +++: +++
 
-  regularizer: ~
+  regularizer:
+    lambda3:
+      type: lambda3_regularize
+      weight: 1e-2
+      args: ~
+    n3:
+      type: n3_regularize
+      weight: 1e-2
+      args: ~
   inplace_regularizer: ~
 
   lr_scheduler: ""

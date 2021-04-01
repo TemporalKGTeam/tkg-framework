@@ -185,7 +185,7 @@ class TestICEWS14DatasetProcessor(DatasetProcessor):
         print('==========')
 
         self.folder = self.config.get("dataset.folder")
-        self.level = self.config.get("dataset.temporal.level")
+        self.level = self.config.get("dataset.temporal.resolution")
         self.index = self.config.get("dataset.temporal.index")
         self.float = self.config.get("dataset.temporal.float")
 
@@ -319,3 +319,128 @@ class TestICEWS14DatasetProcessor(DatasetProcessor):
     #         return self.rel2id[rel[:-12]] + 230
     #     else:
     #         return self.rel2id[rel]
+
+
+@DatasetProcessor.register(name="yago1830_tntcomplex")
+class YAGO1830DatasetProcessor(DatasetProcessor):
+    def __init__(self, config: Config):
+        super().__init__(config)
+
+
+        self.folder = self.config.get("dataset.folder")
+        self.level = self.config.get("dataset.temporal.resolution")
+        self.index = self.config.get("dataset.temporal.index")
+        self.float = self.config.get("dataset.temporal.float")
+
+        self.reciprocal_training = self.config.get("task.reciprocal_training")
+        # self.filter_method = self.config.get("data.filter")
+
+        self.train_raw: List[str] = []
+        self.valid_raw: List[str] = []
+        self.test_raw: List[str] = []
+
+
+        self.train_set = defaultdict(list)
+        self.valid_set = defaultdict(list)
+        self.test_set = defaultdict(list)
+
+        self.all_triples = []
+        self.all_quadruples = []
+
+        self.load()
+        self.process()
+        self.filter()
+
+    def load(self):
+        train_file = self.folder + "/train.txt"
+        valid_file = self.folder + "/valid.txt"
+        test_file = self.folder + "/test.txt"
+
+        with open(train_file, "r") as f:
+            if self.reciprocal_training:
+                lines = f.readlines()
+
+                for line in lines:
+                    self.train_raw.append(line)
+
+                    # for line in lines:
+
+                    insert_line = line.split('\t')
+                    insert_line[1] = str(int(insert_line[1]) + 10)
+                    insert_line[0], insert_line[2] = insert_line[2], insert_line[0]
+                    insert_line = '\t'.join(insert_line)
+
+                    self.train_raw.append(insert_line)
+            else:
+                self.train_raw = f.readlines()
+
+            self.train_size = len(self.train_raw)
+
+        with open(valid_file, "r") as f:
+            self.valid_raw = f.readlines()
+
+            self.valid_size = len(self.valid_raw)
+
+        with open(test_file, "r") as f:
+            self.test_raw = f.readlines()
+
+            self.test_size = len(self.test_raw)
+
+    def process(self):
+        for rd in self.train_raw:
+            head, rel, tail, ts, _ = rd.strip().split('\t')
+            head = int(head)
+            rel = int(rel)
+            tail = int(tail)
+            ts = int(ts)
+            ts_id = ts
+
+            self.train_set['triple'].append([head, rel, tail])
+            self.train_set['timestamp_id'].append([ts_id])
+            self.train_set['timestamp_float'].append(ts)
+
+            self.all_triples.append([head, rel, tail])
+            self.all_quadruples.append([head, rel, tail, ts_id])
+
+        for rd in self.valid_raw:
+            head, rel, tail, ts, _ = rd.strip().split('\t')
+            head = int(head)
+            rel = int(rel)
+            tail = int(tail)
+            ts = int(ts)
+            ts_id = ts
+
+            self.valid_set['triple'].append([head, rel, tail])
+            self.valid_set['timestamp_id'].append([ts_id])
+            self.valid_set['timestamp_float'].append(ts)
+
+            self.all_triples.append([head, rel, tail])
+            self.all_quadruples.append([head, rel, tail, ts_id])
+
+        for rd in self.test_raw:
+            head, rel, tail, ts, _ = rd.strip().split('\t')
+            head = int(head)
+            rel = int(rel)
+            tail = int(tail)
+            ts = int(ts)
+            ts_id = ts
+
+            self.test_set['triple'].append([head, rel, tail])
+            self.test_set['timestamp_id'].append([ts_id])
+            self.test_set['timestamp_float'].append(ts)
+
+            self.all_triples.append([head, rel, tail])
+            self.all_quadruples.append([head, rel, tail, ts_id])
+
+    def process_time(self, origin: str):
+        raise NotImplementedError
+
+
+    def num_entities(self):
+        return 23033
+
+    def num_relations(self):
+        return 20
+
+    def num_timestamps(self):
+        return 1015

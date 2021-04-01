@@ -218,3 +218,4 @@ class TimeAwareFusion(HiddenRepresentationCombination):
 @TemporalFusion.register(name="self_attention_fusion")
 class SelfAttentioFusion(HiddenRepresentationCombination):
     pass
+

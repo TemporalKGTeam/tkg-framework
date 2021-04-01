@@ -14,7 +14,7 @@ from tkge.train.regularization import Regularizer, InplaceRegularizer
 from tkge.train.optim import get_optimizer, get_scheduler
 from tkge.common.config import Config
 from tkge.models.model import BaseModel
-from tkge.models.pipeline_model import PipelineModel
+from tkge.models.pipeline_model import TransSimpleModel
 from tkge.models.loss import Loss
 from tkge.eval.metrics import Evaluation
 
@@ -175,7 +175,7 @@ class TrainTask(Task):
                 scores, factors = self.model.fit(samples)
 
                 # TODO (gengyuan) assertion: size of scores and labels should be matched
-                assert scores.size() == labels.size(), f"Score's size {scores.shape} should match label's size {labels.shape}"
+                assert scores.size(0) == labels.size(0), f"Score's size {scores.shape} should match label's size {labels.shape}"
                 loss = self.loss(scores, labels)
 
                 # TODO (gengyuan) assert that regularizer and inplace-regularizer don't share same name
