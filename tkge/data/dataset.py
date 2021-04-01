@@ -137,6 +137,9 @@ class DatasetProcessor(ABC, Registrable, Configurable):
     def num_timestamps(self):
         return len(self.ts2id)
 
+    def num_time_identifier(self):
+        return len(self.ts2id)
+
     def filter(self, type="static", target="o") -> Dict[str, List]:
         """
         Returns generated link prediction queries.
@@ -174,6 +177,7 @@ class DatasetProcessor(ABC, Registrable, Configurable):
         self.config.log(f'Dataset type : {self.config.get("dataset.name")}')
         self.config.log(f"Number of entities : {self.num_entities()}")
         self.config.log(f"Number of relations : {self.num_relations()}")
+        self.config.log(f"Number of temporal identifiers : {self.num_timestamps()}")
         self.config.log(f"\n")
         self.config.log(f"Train set size : {self.train_size}")
         self.config.log(f"Valid set size : {self.valid_size}")

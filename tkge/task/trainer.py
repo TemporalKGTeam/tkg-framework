@@ -316,7 +316,7 @@ class TrainTask(Task):
         }
 
         torch.save(checkpoint,
-                   os.path.join(self.config.ex_folder, filename))  # os.path.join(model, dataset, folder, filename))
+                   os.path.join(self.config.ex_folder, 'ckpt', filename))  # os.path.join(model, dataset, folder, filename))
 
     def load_ckpt(self, ckpt_path):
         raise NotImplementedError

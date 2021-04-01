@@ -362,8 +362,8 @@ class Config:
             os.makedirs(base_folder)
 
         ex_ls = os.listdir(base_folder)
-        ex_max = reduce(lambda a, b: a if a > b else b, ex_ls)
-        ex_id = f"ex{int(ex_max[2:]) + 1:06d}"
+        ex_max = int(reduce(lambda a, b: a if a > b else b, ex_ls)[2:]) if ex_ls else -1
+        ex_id = f"ex{ex_max + 1:06d}"
         ex_folder = os.path.join(base_folder, ex_id)
         os.makedirs(ex_folder)
 

@@ -175,6 +175,9 @@ class ICEWS14TADatasetProcessor(DatasetProcessor):
 
         return ts
 
+    def num_time_identifier(self):
+        return 32
+
 
 # Deprecated: dataset used for debugging tcomplex training
 @DatasetProcessor.register(name="icews14_tcomplex")

@@ -25,13 +25,13 @@ from tkge.models.transformation import Transformation
 @BaseModel.register(name='pipeline_model')
 class PipelineModel(BaseModel):
     def __init__(self, config: Config, dataset: DatasetProcessor):
-        super(TransSimpleModel, self).__init__(config=config, dataset=dataset)
+        super(PipelineModel, self).__init__(config=config, dataset=dataset)
 
         # self._embedding_space: EmbeddingSpace = EmbeddingSpace.from_config(config)
         self._entity_embeddings = EntityEmbedding(config=config, dataset=dataset)
         self._relation_embeddings = RelationEmbedding(config=config, dataset=dataset)
 
-        if self.config.get('dataset.temporal.index'):
+        if not isinstance(self.config.get('model.embedding.temporal'), type(None)):
             self._temporal_embeddings = TemporalEmbedding(config=config, dataset=dataset)
 
         self._fusion: TemporalFusion = TemporalFusion.create_from_name(config)
@@ -62,6 +62,23 @@ class PipelineModel(BaseModel):
 
         temp = {}
 
+
+        # if self.config.get('dataset.temporal.index') and not self.config.get('dataset.temporal.float'):
+        #     if samples.size(1)==4:
+        #         temp_index = samples[:, -1]
+        #         temp.update(self._temporal_embeddings(temp_index.long()))
+        #     else:
+        #         temp_indexes = samples[:, 3:]
+        #         for i in range(temp_indexes.size(1)):
+        #             temp_embs = self._temporal_embeddings(temp_indexes[:, i:i + 1].long())
+        #             temp_embs = {f"level{i}_{k}": v for k, v in temp_embs.items()}
+        #             temp.update(temp_embs)
+
+        # if self.config.get('dataset.temporal.float'):
+        #     temp_float = samples[:, 3:-1] if self.config.get('dataset.temporal.index') else samples[:, 3:]
+        #     for i in range(temp_float.size(1)):
+        #         temp.update({f"level{i}": temp_float[:, i:i + 1]})
+
         if self.config.get('dataset.temporal.index'):
             temp_index = samples[:, -1]
             temp.update(self._temporal_embeddings(temp_index.long()))
@@ -69,7 +86,13 @@ class PipelineModel(BaseModel):
         if self.config.get('dataset.temporal.float'):
             temp_float = samples[:, 3:-1] if self.config.get('dataset.temporal.index') else samples[:, 3:]
             for i in range(temp_float.size(1)):
-                temp.update({f"level{i}": temp_float[:, i:i + 1]})
+                if not isinstance(self.config.get('model.embedding.temporal'), type(None)):
+                    # TODO: dangerous
+                    temp_embs = self._temporal_embeddings(temp_float[:, i:i + 1].long())
+                    temp_embs = {f"level{i}_{k}": v for k, v in temp_embs.items()}
+                    temp.update(temp_embs)
+                else:
+                    temp.update({f"level{i}": temp_float[:, i:i + 1]})
 
         spot_emb = {'s': self._entity_embeddings(head, 'head'),
                     'p': self._relation_embeddings(rel, inverse_relation=False),
