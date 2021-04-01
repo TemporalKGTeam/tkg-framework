@@ -50,3 +50,4 @@ class ResumeTask(Task):
         return subparser
 
     def __init__(self):
+        pass

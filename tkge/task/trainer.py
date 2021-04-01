@@ -149,6 +149,9 @@ class TrainTask(Task):
 
         sample_target = self.config.get("negative_sampling.target")
 
+        best_metric = 0.
+        best_epoch = 0
+
         for epoch in range(1, self.config.get("train.max_epochs") + 1):
             self.model.train()
 
@@ -223,7 +226,7 @@ class TrainTask(Task):
             self.config.log(f"Loss in iteration {epoch} : {avg_loss} comsuming {stop - start}s")
 
             if epoch % save_freq == 0:
-                self.save_ckpt(epoch)
+                self.save_ckpt(f"epoch_{epoch}")
 
             if epoch % eval_freq == 0:
                 with torch.no_grad():
@@ -265,27 +268,6 @@ class TrainTask(Task):
 
                         # TODO (gengyuan): reimplement ATISE eval
 
-                        # if self.config.get("task.reciprocal_relation"):
-                        #     samples_head_reciprocal = samples_head.clone().view(-1, dim)
-                        #     samples_tail_reciprocal = samples_tail.clone().view(-1, dim)
-                        #
-                        #     samples_head_reciprocal[:, 1] += 1
-                        #     samples_head_reciprocal[:, [0, 2]] = samples_head_reciprocal.index_select(1, torch.Tensor(
-                        #         [2, 0]).long().to(self.device))
-                        #
-                        #     samples_tail_reciprocal[:, 1] += 1
-                        #     samples_tail_reciprocal[:, [0, 2]] = samples_tail_reciprocal.index_select(1, torch.Tensor(
-                        #         [2, 0]).long().to(self.device))
-                        #
-                        #     samples_head_reciprocal = samples_head_reciprocal.view(bs, -1)
-                        #     samples_tail_reciprocal = samples_tail_reciprocal.view(bs, -1)
-                        #
-                        #     batch_scores_head_reci, _ = self.model.predict(samples_head_reciprocal)
-                        #     batch_scores_tail_reci, _ = self.model.predict(samples_tail_reciprocal)
-                        #
-                        #     batch_scores_head += batch_scores_head_reci
-                        #     batch_scores_tail += batch_scores_tail_reci
-
                         batch_metrics = dict()
 
                         batch_metrics['head'] = self.evaluation.eval(batch, batch_scores_head, miss='s')
@@ -306,6 +288,15 @@ class TrainTask(Task):
                     self.config.log(f"Metrics(tail prediction) in iteration {epoch} : {metrics['tail'].items()}")
                     self.config.log(
                         f"Metrics(both prediction) in iteration {epoch} : {avg} ")
+
+                    if avg['mrr'] > best_metric:
+                        best_metric = avg['mrr']
+                        best_epoch = epoch
+
+                        self.save_ckpt('best')
+
+            self.save_ckpt('latest')
+
 
     def eval(self):
         # TODO early stopping
