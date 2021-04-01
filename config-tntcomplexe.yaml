@@ -52,7 +52,7 @@ random_seed:
 
 dataset:
   # data folder includes train, val, test files
-  folder: /home/ubuntu/gengyuan/tkg-framework/data/icews14
+  folder: /home/ubuntu/gengyuan/tkg-framework/data/yago1830
 
   # indexes mapping [false, true]
   # TODO 可以保存到cache
@@ -69,7 +69,7 @@ dataset:
   # Specify a data here. There must be a folder of that name under "data/".
   # If this folder contains a data.yaml file, it overrides the defaults
   # specified below.
-  name: 'icews14'
+  name: 'yago1830_tntcomplex'
 
   # Number of entities. If set to -1, automatically determined from the
   # entity_ids file (see below).
@@ -110,8 +110,8 @@ dataset:
 # configuration files under kge/model.
 model:
   type: 'tntcomplex'
-  rank: 189
-  no_time_emb: True
+  rank: 156
+  no_time_emb: False
   init_size: 0.01
   args: ~
 
@@ -235,7 +235,7 @@ train:
       args: ~
     lambda3:
       type: lambda3_regularize
-      weight: 1
+      weight: 1e-2
       args: ~
 
   inplace_regularizer: ~
