@@ -27,8 +27,8 @@ dataset:
   filter: False
   temporal:
     resolution: "day"
-    index: True
-    float: False
+    index: False
+    float: True
   args: ~
 
   name: 'icews14'
@@ -63,11 +63,11 @@ model:
         real:
           dim: 160
           init: xavier_uniform
-    temporal:
-      keys:
-        real:
-          dim: 160
-          init: xavier_uniform
+    temporal: ~
+#      keys:
+#        real:
+#          dim: 160
+#          init: xavier_uniform
   fusion:
     type: addition_fusion
     target:

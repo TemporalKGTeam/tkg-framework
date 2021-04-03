@@ -59,36 +59,36 @@ model:
         real:
           dim: 160
           init: xavier_uniform
-#          ent_embs:
-#            dim: 108
-#            init: xavier_uniform
-#          amps_y:
-#            dim: 52
-#            init: xavier_uniform
-#          amps_m:
-#            dim: 52
-#            init: xavier_uniform
-#          amps_d:
-#            dim: 52
-#            init: xavier_uniform
-#          freq_y:
-#            dim: 52
-#            init: xavier_uniform
-#          freq_m:
-#            dim: 52
-#            init: xavier_uniform
-#          freq_d:
-#            dim: 52
-#            init: xavier_uniform
-#          phi_y:
-#            dim: 52
-#            init: xavier_uniform
-#          phi_m:
-#            dim: 52
-#            init: xavier_uniform
-#          phi_d:
-#            dim: 52
-#            init: xavier_uniform
+#        ent_embs:
+#          dim: 108
+#          init: xavier_uniform
+#        amps_y:
+#          dim: 52
+#          init: xavier_uniform
+#        amps_m:
+#          dim: 52
+#          init: xavier_uniform
+#        amps_d:
+#          dim: 52
+#          init: xavier_uniform
+#        freq_y:
+#          dim: 52
+#          init: xavier_uniform
+#        freq_m:
+#          dim: 52
+#          init: xavier_uniform
+#        freq_d:
+#          dim: 52
+#          init: xavier_uniform
+#        phi_y:
+#          dim: 52
+#          init: xavier_uniform
+#        phi_m:
+#          dim: 52
+#          init: xavier_uniform
+#        phi_d:
+#          dim: 52
+#          init: xavier_uniform
 
     relation:
       keys:
@@ -101,8 +101,9 @@ model:
           dim: 160
           init: xavier_uniform
   fusion:
-    type: elementwise_product_fusion
+    type: reproject_fusion
     target:
+      - 'ent+temp'
       - 'rel+temp'
     l1_flag: True
     p: 0.4

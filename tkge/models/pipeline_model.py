@@ -79,7 +79,7 @@ class PipelineModel(BaseModel):
         #     for i in range(temp_float.size(1)):
         #         temp.update({f"level{i}": temp_float[:, i:i + 1]})
 
-        if self.config.get('dataset.temporal.index'):
+        if self.config.get('dataset.temporal.index') and not self.config.get('dataset.temporal.float'):
             temp_index = samples[:, -1]
             temp.update(self._temporal_embeddings(temp_index.long()))
 
