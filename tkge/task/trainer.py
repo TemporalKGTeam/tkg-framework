@@ -65,11 +65,11 @@ class TrainTask(Task):
         self.lr_scheduler = None
         self.evaluation: Evaluation = None
 
-        self.train_bs = self.config.get("train.batchsize")
-        self.valid_bs = self.config.get("train.valid.batchsize")
+        self.train_bs = self.config.get("train.batch_size")
+        self.valid_bs = self.config.get("train.valid.batch_size")
         self.train_sub_bs = self.config.get("train.subbatch_size") if self.config.get(
             "train.subbatch_size") else self.train_bs
-        self.valid_sub_bs = self.config.get("train.valid.sub_batch_size") if self.config.get(
+        self.valid_sub_bs = self.config.get("train.valid.subbatch_size") if self.config.get(
             "train.valid.subbatch_size") else self.valid_bs
 
         self.datatype = (['timestamp_id'] if self.config.get("dataset.temporal.index") else []) + (
@@ -149,16 +149,16 @@ class TrainTask(Task):
         # validity checks and warnings
         if self.train_sub_bs >= self.train_bs or self.train_sub_bs < 1:
             # TODO(max) improve logging with different hierarchies/labels, i.e. merge with branch advannced_log_and_ckpt_management
-            self.config.log(f"WARNING: Specified train.sub_batch_size={self.train_sub_bs} is greater or equal to "
+            self.config.log(f"Specified train.sub_batch_size={self.train_sub_bs} is greater or equal to "
                             f"train.batch_size={self.train_bs} or smaller than 1, so use no sub batches. "
-                            f"Device(s) may run out of memory.")
+                            f"Device(s) may run out of memory.", level="warning")
             self.train_sub_bs = self.train_bs
 
         if self.valid_sub_bs >= self.valid_bs or self.valid_sub_bs < 1:
             # TODO(max) improve logging with different hierarchies/labels, i.e. merge with branch advannced_log_and_ckpt_management
-            self.config.log(f"WARNING: Specified train.valid.sub_batch_size={self.valid_sub_bs} is greater or equal to "
+            self.config.log(f"Specified train.valid.sub_batch_size={self.valid_sub_bs} is greater or equal to "
                             f"train.valid.batch_size={self.valid_bs} or smaller than 1, so use no sub batches. "
-                            f"Device(s) may run out of memory.")
+                            f"Device(s) may run out of memory.", level="warning")
             self.valid_sub_bs = self.valid_bs
 
     def main(self):
@@ -166,8 +166,6 @@ class TrainTask(Task):
 
         save_freq = self.config.get("train.checkpoint.every")
         eval_freq = self.config.get("train.valid.every")
-
-        sample_target = self.config.get("negative_sampling.target")
 
         best_metric = 0.
         best_epoch = 0
@@ -182,7 +180,7 @@ class TrainTask(Task):
             total_epoch_loss = 0.0
             train_size = self.dataset.train_size
 
-            start = time.time()
+            start_time = time.time()
 
             for pos_batch in self.train_loader:
                 self.optimizer.zero_grad()
@@ -219,7 +217,7 @@ class TrainTask(Task):
                 # if self.device=="cuda":
                 #     torch.cuda.empty_cache()
 
-            stop = time.time()
+            stop_time = time.time()
             avg_loss = total_epoch_loss / train_size
 
             if self.lr_scheduler:
@@ -228,7 +226,7 @@ class TrainTask(Task):
                 else:
                     self.lr_scheduler.step()
 
-            self.config.log(f"Loss in iteration {epoch} : {avg_loss} consuming {stop - start}s")
+            self.config.log(f"Loss in iteration {epoch} : {avg_loss} consuming {stop_time - start_time}s")
 
             if epoch % save_freq == 0:
                 self.save_ckpt(f"epoch_{epoch}", epoch=epoch)
