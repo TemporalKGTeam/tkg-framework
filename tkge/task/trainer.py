@@ -65,8 +65,13 @@ class TrainTask(Task):
         self.lr_scheduler = None
         self.evaluation: Evaluation = None
 
-        self.train_bs = self.config.get("train.batch_size")
-        self.valid_bs = self.config.get("train.valid.batch_size")
+        self.train_bs = self.config.get("train.batchsize")
+        self.valid_bs = self.config.get("train.valid.batchsize")
+        self.train_sub_bs = self.config.get("train.subbatch_size") if self.config.get(
+            "train.subbatch_size") else self.train_bs
+        self.valid_sub_bs = self.config.get("train.valid.sub_batch_size") if self.config.get(
+            "train.valid.subbatch_size") else self.valid_bs
+
         self.datatype = (['timestamp_id'] if self.config.get("dataset.temporal.index") else []) + (
             ['timestamp_float'] if self.config.get("dataset.temporal.float") else [])
 
@@ -141,6 +146,21 @@ class TrainTask(Task):
         self.config.log(f"Initializing evaluation")
         self.evaluation = Evaluation(config=self.config, dataset=self.dataset)
 
+        # validity checks and warnings
+        if self.train_sub_bs >= self.train_bs or self.train_sub_bs < 1:
+            # TODO(max) improve logging with different hierarchies/labels, i.e. merge with branch advannced_log_and_ckpt_management
+            self.config.log(f"WARNING: Specified train.sub_batch_size={self.train_sub_bs} is greater or equal to "
+                            f"train.batch_size={self.train_bs} or smaller than 1, so use no sub batches. "
+                            f"Device(s) may run out of memory.")
+            self.train_sub_bs = self.train_bs
+
+        if self.valid_sub_bs >= self.valid_bs or self.valid_sub_bs < 1:
+            # TODO(max) improve logging with different hierarchies/labels, i.e. merge with branch advannced_log_and_ckpt_management
+            self.config.log(f"WARNING: Specified train.valid.sub_batch_size={self.valid_sub_bs} is greater or equal to "
+                            f"train.valid.batch_size={self.valid_bs} or smaller than 1, so use no sub batches. "
+                            f"Device(s) may run out of memory.")
+            self.valid_sub_bs = self.valid_bs
+
     def main(self):
         self.config.log("BEGIN TRAINING")
 
@@ -159,7 +179,7 @@ class TrainTask(Task):
             # 1. metrics 变化小
             # 2. epoch
             # 3. valid koss
-            total_loss = 0.0
+            total_epoch_loss = 0.0
             train_size = self.dataset.train_size
 
             start = time.time()
@@ -167,41 +187,25 @@ class TrainTask(Task):
             for pos_batch in self.train_loader:
                 self.optimizer.zero_grad()
 
-                samples, labels = self.sampler.sample(pos_batch, sample_target)
+                batch_loss = 0.
 
-                samples = samples.to(self.device)
-                labels = labels.to(self.device)
+                # may be smaller than the specified batch size in last iteration
+                bs = pos_batch.size(0)
 
-                scores, factors = self.model.fit(samples)
+                for start in range(0, bs, self.train_sub_bs):
+                    stop = min(start + self.train_sub_bs, bs)
+                    pos_subbatch = pos_batch[start:stop]
+                    subbatch_loss, subbatch_factors = self._subbatch_forward(pos_subbatch)
 
-                # TODO (gengyuan) assertion: size of scores and labels should be matched
-                assert scores.size(0) == labels.size(
-                    0), f"Score's size {scores.shape} should match label's size {labels.shape}"
-                loss = self.loss(scores, labels)
+                    batch_loss += subbatch_loss
 
-                # TODO (gengyuan) assert that regularizer and inplace-regularizer don't share same name
-                assert not (factors and set(factors.keys()) - (set(self.regularizer) | set(
-                    self.inplace_regularizer))), f"Regularizer name defined in model {set(factors.keys())} should correspond to that in config file"
-
-                if factors:
-                    for name, tensors in factors.items():
-                        if name not in self.regularizer:
-                            continue
-
-                        if not isinstance(tensors, (tuple, list)):
-                            tensors = [tensors]
-
-                        reg_loss = self.regularizer[name](tensors)
-                        loss += reg_loss
-
-                loss.backward()
+                batch_loss.backward()
                 self.optimizer.step()
 
-                total_loss += loss.cpu().item()
+                total_epoch_loss += batch_loss.cpu().item()
 
-                # TODO(gengyuan) inplace regularize
-                if factors:
-                    for name, tensors in factors.items():
+                if subbatch_factors:
+                    for name, tensors in subbatch_factors.items():
                         if name not in self.inplace_regularizer:
                             continue
 
@@ -216,7 +220,7 @@ class TrainTask(Task):
                 #     torch.cuda.empty_cache()
 
             stop = time.time()
-            avg_loss = total_loss / train_size
+            avg_loss = total_epoch_loss / train_size
 
             if self.lr_scheduler:
                 if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
@@ -249,12 +253,6 @@ class TrainTask(Task):
 
                         queries_head = batch.clone()[:, :-1]
                         queries_tail = batch.clone()[:, :-1]
-
-                        # samples_head, _ = self.onevsall_sampler.sample(queries, "head")
-                        # samples_tail, _ = self.onevsall_sampler.sample(queries, "tail")
-
-                        # samples_head = samples_head.to(self.device)
-                        # samples_tail = samples_tail.to(self.device)
 
                         queries_head[:, 0] = float('nan')
                         queries_tail[:, 2] = float('nan')
@@ -298,6 +296,37 @@ class TrainTask(Task):
 
             self.save_ckpt('latest', epoch=epoch)
 
+        self.config.log(f"TRAINING FINISHED: Best model achieved at epoch {best_epoch}")
+
+    def _subbatch_forward(self, pos_subbatch):
+        sample_target = self.config.get("negative_sampling.target")
+        samples, labels = self.sampler.sample(pos_subbatch, sample_target)
+
+        samples = samples.to(self.device)
+        labels = labels.to(self.device)
+
+        scores, factors = self.model.fit(samples)
+
+        assert scores.size(0) == labels.size(
+            0), f"Score's size {scores.shape} should match label's size {labels.shape}"
+        loss = self.loss(scores, labels)
+
+        assert not (factors and set(factors.keys()) - (set(self.regularizer) | set(
+            self.inplace_regularizer))), f"Regularizer name defined in model {set(factors.keys())} should correspond to that in config file"
+
+        if factors:
+            for name, tensors in factors.items():
+                if name not in self.regularizer:
+                    continue
+
+                if not isinstance(tensors, (tuple, list)):
+                    tensors = [tensors]
+
+                reg_loss = self.regularizer[name](tensors)
+                loss += reg_loss
+
+        return loss, factors
+
     def eval(self):
         # TODO early stopping
 
@@ -316,7 +345,8 @@ class TrainTask(Task):
         }
 
         torch.save(checkpoint,
-                   os.path.join(self.config.ex_folder, 'ckpt', filename))  # os.path.join(model, dataset, folder, filename))
+                   os.path.join(self.config.ex_folder, 'ckpt',
+                                filename))  # os.path.join(model, dataset, folder, filename))
 
     def load_ckpt(self, ckpt_path):
         raise NotImplementedError
