@@ -170,6 +170,7 @@ eval:
 
 hpo:
   num_workers: -1
+  num_trials: 10
   hyperparam:
     - name: x1
       type: range

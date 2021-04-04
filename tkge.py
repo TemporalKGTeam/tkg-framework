@@ -2,10 +2,10 @@ import argparse
 import os
 
 from tkge.task.task import Task
-from tkge.task.trainer import TrainTask
-from tkge.task.tester import TestTask
-from tkge.task.search import SearchTask
-from tkge.task.resume import ResumeTask
+from tkge.task.train_task import TrainTask
+from tkge.task.test_task import TestTask
+from tkge.task.search_task import SearchTask
+from tkge.task.resume_task import ResumeTask
 from tkge.common.config import Config
 
 desc = 'Temporal KG Completion methods'

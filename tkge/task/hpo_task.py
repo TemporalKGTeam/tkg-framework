@@ -15,11 +15,25 @@ from tkge.common.config import Config
 from tkge.common.utils import LocalConfig
 from tkge.models.model import BaseModel
 from tkge.models.loss import Loss
-from tkge.models.fusion import TemporalFusion
-from tkge.models.transformation import Transformation
 from tkge.eval.metrics import Evaluation
 
-from typing import Dict
+from typing import Dict, Tuple
+
+
+class TrialMetric(ax.Metric):
+    def fetch_trial_data(self, trial):
+        records = []
+
+        for arm_name, arm in trial.arms_by_name.items():
+            params = arm.parameters
+            records.append({
+                "arm_name": arm_name,
+                "metric_name": self.name,
+                "mean": (params["x1"] + 2 * params["x2"] - 7) ** 2 + (2 * params["x1"] + params["x2"] - 5) ** 2,
+                "sem": 0.0,
+                "trial_index": trial.index,
+            })
+
 
 
 class HPOTask(Task):
@@ -54,14 +68,56 @@ class HPOTask(Task):
 
         self.device = self.config.get("task.device")
 
-    def _prepare(self):
-        pass
+    def _prepare_experiment(self):
+        # initialize a client
+        self.ax_client = ax.AxClient()
+
+        # define the search space
+        hp_group = {}
+        for hp in self.config.get("search.hyperparam"):
+            hp_group.update({hp.name: ax.Parameter()})
+
+        search_space = ax.SearchSpace(
+            parameters=hp_group.values()
+        )
+
+        self.ax_client.create_experiment(
+            name="hyperparam_search",
+            search_space=search_space
+        )
+
+        sobol = Models.SOBOL(search_space=search_space)
+        generator_run = sobol.gen(self.config.get("search.num_trials"))
+
+
+
+    def _evaluate(self, parameters) -> Dict[str, Tuple[float, float]]:
+        """
+        evaluate a trial given parameters and return the metrics
+        """
+
+        # overwrite the config
+
+        # initialize a trainer
+
+
+        # train
+
+        # evaluate
+        return {"mrr": (0, 0.0)}
+
+
 
     def main(self):
         # define the experiment
         experiment = None
 
         # generate trials/arms
+
+
+        # Metrics to evaluate trials
+
+
 
 
 
