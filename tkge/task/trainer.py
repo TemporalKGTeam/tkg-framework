@@ -14,7 +14,7 @@ from tkge.train.regularization import Regularizer, InplaceRegularizer
 from tkge.train.optim import get_optimizer, get_scheduler
 from tkge.common.config import Config
 from tkge.models.model import BaseModel
-from tkge.models.pipeline_model import PipelineModel
+from tkge.models.pipeline_model import TransSimpleModel
 from tkge.models.loss import Loss
 from tkge.eval.metrics import Evaluation
 
@@ -51,6 +51,9 @@ class TrainTask(Task):
     def __init__(self, config: Config):
         super().__init__(config)
 
+        # Initialize working folder
+        config.create_experiment()
+
         self.dataset: DatasetProcessor = self.config.get("dataset.name")
         self.train_loader: torch.utils.data.DataLoader = None
         self.valid_loader: torch.utils.data.DataLoader = None
@@ -62,12 +65,13 @@ class TrainTask(Task):
         self.lr_scheduler = None
         self.evaluation: Evaluation = None
 
-        self.train_bs = self.config.get("train.batch_size")
-        self.valid_bs = self.config.get("train.valid.batch_size")
-        self.train_sub_bs = self.config.get("train.sub_batch_size") if self.config.get(
-            "train.sub_batch_size") else self.train_bs
+        self.train_bs = self.config.get("train.batchsize")
+        self.valid_bs = self.config.get("train.valid.batchsize")
+        self.train_sub_bs = self.config.get("train.subbatch_size") if self.config.get(
+            "train.subbatch_size") else self.train_bs
         self.valid_sub_bs = self.config.get("train.valid.sub_batch_size") if self.config.get(
-            "train.valid.sub_batch_size") else self.valid_bs
+            "train.valid.subbatch_size") else self.valid_bs
+
         self.datatype = (['timestamp_id'] if self.config.get("dataset.temporal.index") else []) + (
             ['timestamp_float'] if self.config.get("dataset.temporal.float") else [])
 
@@ -127,7 +131,7 @@ class TrainTask(Task):
             scheduler_args = self.config.get("train.lr_scheduler.args")
             self.lr_scheduler = get_scheduler(self.optimizer, scheduler_type, scheduler_args)
 
-        self.config.log((f"Initializeing regularizer"))
+        self.config.log(f"Initializing regularizer")
         self.regularizer = dict()
         self.inplace_regularizer = dict()
 
@@ -163,6 +167,11 @@ class TrainTask(Task):
         save_freq = self.config.get("train.checkpoint.every")
         eval_freq = self.config.get("train.valid.every")
 
+        sample_target = self.config.get("negative_sampling.target")
+
+        best_metric = 0.
+        best_epoch = 0
+
         for epoch in range(1, self.config.get("train.max_epochs") + 1):
             self.model.train()
 
@@ -170,7 +179,7 @@ class TrainTask(Task):
             # 1. metrics 变化小
             # 2. epoch
             # 3. valid koss
-            total_loss = 0.0
+            total_epoch_loss = 0.0
             train_size = self.dataset.train_size
 
             start = time.time()
@@ -178,14 +187,32 @@ class TrainTask(Task):
             for pos_batch in self.train_loader:
                 self.optimizer.zero_grad()
 
+                batch_loss = 0.
+
                 # may be smaller than the specified batch size in last iteration
-                current_bs = pos_batch.size(0)
+                bs = pos_batch.size(0)
 
-                for start in range(0, current_bs, self.train_sub_bs):
-                    stop = min(start + self.train_sub_bs, current_bs)
-                    total_loss += self._forward_pass(pos_batch, start, stop)
+                for start in range(0, bs, self.train_sub_bs):
+                    stop = min(start + self.train_sub_bs, bs)
+                    pos_subbatch = pos_batch[start:stop]
+                    subbatch_loss, subbatch_factors = self._subbatch_forward(pos_subbatch)
 
+                    batch_loss += subbatch_loss
+
+                batch_loss.backward()
                 self.optimizer.step()
+
+                total_epoch_loss += batch_loss.cpu().item()
+
+                if subbatch_factors:
+                    for name, tensors in subbatch_factors.items():
+                        if name not in self.inplace_regularizer:
+                            continue
+
+                        if not isinstance(tensors, (tuple, list)):
+                            tensors = [tensors]
+
+                        self.inplace_regularizer[name](tensors)
 
                 # empty caches
                 # del samples, labels, scores, factors
@@ -193,7 +220,7 @@ class TrainTask(Task):
                 #     torch.cuda.empty_cache()
 
             stop = time.time()
-            avg_loss = total_loss / train_size
+            avg_loss = total_epoch_loss / train_size
 
             if self.lr_scheduler:
                 if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
@@ -201,10 +228,10 @@ class TrainTask(Task):
                 else:
                     self.lr_scheduler.step()
 
-            self.config.log(f"Loss in iteration {epoch} : {avg_loss} comsuming {stop - start}s")
+            self.config.log(f"Loss in iteration {epoch} : {avg_loss} consuming {stop - start}s")
 
             if epoch % save_freq == 0:
-                self.save_ckpt(epoch)
+                self.save_ckpt(f"epoch_{epoch}", epoch=epoch)
 
             if epoch % eval_freq == 0:
                 with torch.no_grad():
@@ -218,66 +245,27 @@ class TrainTask(Task):
 
                     for batch in self.valid_loader:
                         bs = batch.size(0)
+                        dim = batch.size(1)
 
                         batch = batch.to(self.device)
 
                         counter += bs
 
-                        # samples_head, _ = self.onevsall_sampler.sample(queries, "head")
-                        # samples_tail, _ = self.onevsall_sampler.sample(queries, "tail")
+                        queries_head = batch.clone()[:, :-1]
+                        queries_tail = batch.clone()[:, :-1]
 
-                        # samples_head = samples_head.to(self.device)
-                        # samples_tail = samples_tail.to(self.device)
+                        queries_head[:, 0] = float('nan')
+                        queries_tail[:, 2] = float('nan')
 
-                        batch_scores_head = []
-                        batch_scores_tail = []
-
-                        for start in range(0, bs, self.valid_sub_bs):
-                            stop = min(start + self.valid_sub_bs, bs)
-                            sub_batch = batch[start:stop]
-
-                            sub_queries_head = sub_batch.clone()[:, :-1]
-                            sub_queries_tail = sub_batch.clone()[:, :-1]
-
-                            sub_queries_head[:, 0] = float('nan')
-                            sub_queries_tail[:, 2] = float('nan')
-
-                            sub_batch_scores_head = self.model.predict(sub_queries_head)
-                            sub_batch_scores_tail = self.model.predict(sub_queries_tail)
-
-                            batch_scores_head.append(sub_batch_scores_head)
-                            batch_scores_tail.append(sub_batch_scores_tail)
-
-                        batch_scores_head = torch.cat(batch_scores_head, dim=0)
-                        batch_scores_tail = torch.cat(batch_scores_tail, dim=0)
-
+                        batch_scores_head = self.model.predict(queries_head)
                         assert list(batch_scores_head.shape) == [bs,
                                                                  self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
+
+                        batch_scores_tail = self.model.predict(queries_tail)
                         assert list(batch_scores_tail.shape) == [bs,
                                                                  self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
 
                         # TODO (gengyuan): reimplement ATISE eval
-
-                        # if self.config.get("task.reciprocal_relation"):
-                        #     samples_head_reciprocal = samples_head.clone().view(-1, dim)
-                        #     samples_tail_reciprocal = samples_tail.clone().view(-1, dim)
-                        #
-                        #     samples_head_reciprocal[:, 1] += 1
-                        #     samples_head_reciprocal[:, [0, 2]] = samples_head_reciprocal.index_select(1, torch.Tensor(
-                        #         [2, 0]).long().to(self.device))
-                        #
-                        #     samples_tail_reciprocal[:, 1] += 1
-                        #     samples_tail_reciprocal[:, [0, 2]] = samples_tail_reciprocal.index_select(1, torch.Tensor(
-                        #         [2, 0]).long().to(self.device))
-                        #
-                        #     samples_head_reciprocal = samples_head_reciprocal.view(bs, -1)
-                        #     samples_tail_reciprocal = samples_tail_reciprocal.view(bs, -1)
-                        #
-                        #     batch_scores_head_reci, _ = self.model.predict(samples_head_reciprocal)
-                        #     batch_scores_tail_reci, _ = self.model.predict(samples_tail_reciprocal)
-                        #
-                        #     batch_scores_head += batch_scores_head_reci
-                        #     batch_scores_tail += batch_scores_tail_reci
 
                         batch_metrics = dict()
 
@@ -300,36 +288,27 @@ class TrainTask(Task):
                     self.config.log(
                         f"Metrics(both prediction) in iteration {epoch} : {avg} ")
 
-    def _forward_pass(self, pos_batch, start, stop):
+                    if avg['mean_reciprocal_ranking'] > best_metric:
+                        best_metric = avg['mean_reciprocal_ranking']
+                        best_epoch = epoch
+
+                        self.save_ckpt('best', epoch=epoch)
+
+            self.save_ckpt('latest', epoch=epoch)
+
+    def _subbatch_forward(self, pos_subbatch):
         sample_target = self.config.get("negative_sampling.target")
-        samples, labels = self.sampler.sample(pos_batch, sample_target)
+        samples, labels = self.sampler.sample(pos_subbatch, sample_target)
 
-        if sample_target == "both":
-            pos_batch_size, _ = pos_batch.size()
+        samples = samples.to(self.device)
+        labels = labels.to(self.device)
 
-            samples_h, samples_t = torch.split(samples, pos_batch_size)
-            sub_samples_h = samples_h[start:stop]
-            sub_samples_t = samples_t[start:stop]
-            sub_samples = torch.cat((sub_samples_h, sub_samples_t), dim=0)
+        scores, factors = self.model.fit(samples)
 
-            labels_h, labels_t = torch.split(labels, pos_batch_size)
-            sub_labels_h = labels_h[start:stop]
-            sub_labels_t = labels_t[start:stop]
-            sub_labels = torch.cat((sub_labels_h, sub_labels_t), dim=0)
-        else:
-            sub_samples = samples[start:stop]
-            sub_labels = labels[start:stop]
+        assert scores.size(0) == labels.size(
+            0), f"Score's size {scores.shape} should match label's size {labels.shape}"
+        loss = self.loss(scores, labels)
 
-        sub_samples = sub_samples.to(self.device)
-        sub_labels = sub_labels.to(self.device)
-
-        scores, factors = self.model.fit(sub_samples)
-
-        # TODO (gengyuan) assertion: size of scores and labels should be matched
-        assert scores.size() == sub_labels.size(), f"Score's size {scores.shape} should match label's size {sub_labels.shape}"
-        loss = self.loss(scores, sub_labels)
-
-        # TODO (gengyuan) assert that regularizer and inplace-regularizer don't share same name
         assert not (factors and set(factors.keys()) - (set(self.regularizer) | set(
             self.inplace_regularizer))), f"Regularizer name defined in model {set(factors.keys())} should correspond to that in config file"
 
@@ -344,37 +323,17 @@ class TrainTask(Task):
                 reg_loss = self.regularizer[name](tensors)
                 loss += reg_loss
 
-        # TODO(gengyuan) inplace regularize
-        if factors:
-            for name, tensors in factors.items():
-                if name not in self.inplace_regularizer:
-                    continue
-
-                if not isinstance(tensors, (tuple, list)):
-                    tensors = [tensors]
-
-                self.inplace_regularizer[name](tensors)
-
-        loss.backward()
-
-        return loss.item()
+        return loss, factors
 
     def eval(self):
         # TODO early stopping
 
         raise NotImplementedError
 
-    def save_ckpt(self, epoch):
-        model = self.config.get("model.type")
-        dataset = self.config.get("dataset.name")
-        folder = self.config.get("train.checkpoint.folder")
-        filename = f"epoch_{epoch}_model_{model}_dataset_{dataset}.ckpt"
+    def save_ckpt(self, ckpt_name, epoch):
+        filename = f"{ckpt_name}.ckpt"
 
-        import os
-        if not os.path.exists(folder):
-            os.makedirs(folder, exist_ok=True)
-
-        self.config.log(f"Save the model to {folder} as file {filename}")
+        self.config.log(f"Save the model checkpoint to {self.config.ex_folder} as file {filename}")
 
         checkpoint = {
             'last_epoch': epoch,
@@ -383,7 +342,9 @@ class TrainTask(Task):
             'lr_scheduler': self.lr_scheduler.state_dict() if self.lr_scheduler else None
         }
 
-        torch.save(checkpoint, os.path.join(folder, filename))  # os.path.join(model, dataset, folder, filename))
+        torch.save(checkpoint,
+                   os.path.join(self.config.ex_folder, 'ckpt',
+                                filename))  # os.path.join(model, dataset, folder, filename))
 
     def load_ckpt(self, ckpt_path):
         raise NotImplementedError

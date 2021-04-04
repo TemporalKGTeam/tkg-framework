@@ -4,7 +4,6 @@
 console:
   # If set, no console output is produced
   quiet: False
-  folder: /home/ubuntu/gengyuan/logging/tcomplex
 
   # Formatting of trace entries for console output after certain events, such as
   # finishing an epoch. Each entry is a key-value pair, where the key refers to
@@ -21,9 +20,13 @@ console:
   #   eval_epoch: 'f"{config.get(''eval.type'')}: epoch={epoch:3d} {config.get(''valid.metric'')}={trace[config.get(''valid.metric'')]:.4E} time={epoch_time:.2f}"'
   format: {}
 
+  echo: True
+  log_level: info
+
 
 # Job-level configuration options.
 task:
+  folder: /home/ubuntu/gengyuan/experiments
   # Type of job to run. Possible values are "train", "eval", and "search". See
   # the corresponding configuration keys for mode information.
   type: train
@@ -52,7 +55,7 @@ random_seed:
 
 dataset:
   # data folder includes train, val, test files
-  folder: /home/ubuntu/gengyuan/tkg-framework/data/icews14
+  folder: /home/ubuntu/gengyuan/tkg-framework/data/yago1830
 
   # indexes mapping [false, true]
   # TODO 可以保存到cache
@@ -69,7 +72,7 @@ dataset:
   # Specify a data here. There must be a folder of that name under "data/".
   # If this folder contains a data.yaml file, it overrides the defaults
   # specified below.
-  name: 'icews14'
+  name: 'yago1830_tntcomplex'
 
   # Number of entities. If set to -1, automatically determined from the
   # entity_ids file (see below).
@@ -109,7 +112,7 @@ dataset:
 # "transe", or "conve". For available models, see the project homepage and/or
 # configuration files under kge/model.
 model:
-  type: 'tcomplex'
+  type: 'tntcomplex'
   rank: 156
   no_time_emb: False
   init_size: 0.01

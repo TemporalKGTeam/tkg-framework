@@ -145,12 +145,15 @@ class TemporalEmbedding(BaseEmbedding):
 
     def register_embedding(self):
         for k in self.config.get('model.embedding.temporal.keys'):
-            self._temporal[k] = nn.Embedding(num_embeddings=self.dataset.num_timestamps(),
+            self._temporal[k] = nn.Embedding(num_embeddings=self.dataset.num_time_identifier(),
                                              embedding_dim=self.config.get(f"model.embedding.temporal.keys.{k}.dim"))
             self.initialize(self.config.get(f"model.embedding.temporal.keys.{k}.init"))(self._temporal[k].weight)
 
 
         self._temporal = nn.ModuleDict(self._temporal)
+
+    def get_weight(self, key):
+        return self._temporal[key].weight
 
     def __call__(self, index: torch.Tensor):
         return {k: v(index) for k, v in self._temporal.items()}

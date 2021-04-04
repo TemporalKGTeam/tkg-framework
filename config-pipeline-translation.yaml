@@ -1,10 +1,12 @@
 console:
   quiet: False
-  folder: /home/ubuntu/gengyuan/logging/pipeline
   format: {}
+  echo: True
+  log_level: info
 
 #local
 task:
+  folder: /home/ubuntu/gengyuan/experiments
   type: train
   device: 'cuda'
   reciprocal_training: False
@@ -31,7 +33,7 @@ dataset:
     float: True
   args: ~
 
-  name: 'icews14'
+  name: 'icews14_TA'
   num_entities: -1
   num_relations: -1
   pickle: True
@@ -48,69 +50,63 @@ negative_sampling:
 model:
   type: pipeline_model
 
+  p: 0.4
+
   embedding:
     entity:
       pos_aware: True
       keys:
-#        real:
-#          dim: 100
-#          init: xavier_uniform
-#        imag:
-#          dim: 100
-#          init: xavier_uniform
-        ent_embs:
-          dim: 68
+        real:
+          dim: 160
           init: xavier_uniform
-        amps_y:
-          dim: 32
-          init: xavier_uniform
-        amps_m:
-          dim: 32
-          init: xavier_uniform
-        amps_d:
-          dim: 32
-          init: xavier_uniform
-        freq_y:
-          dim: 32
-          init: xavier_uniform
-        freq_m:
-          dim: 32
-          init: xavier_uniform
-        freq_d:
-          dim: 32
-          init: xavier_uniform
-        phi_y:
-          dim: 32
-          init: xavier_uniform
-        phi_m:
-          dim: 32
-          init: xavier_uniform
-        phi_d:
-          dim: 32
-          init: xavier_uniform
+#          ent_embs:
+#            dim: 108
+#            init: xavier_uniform
+#          amps_y:
+#            dim: 52
+#            init: xavier_uniform
+#          amps_m:
+#            dim: 52
+#            init: xavier_uniform
+#          amps_d:
+#            dim: 52
+#            init: xavier_uniform
+#          freq_y:
+#            dim: 52
+#            init: xavier_uniform
+#          freq_m:
+#            dim: 52
+#            init: xavier_uniform
+#          freq_d:
+#            dim: 52
+#            init: xavier_uniform
+#          phi_y:
+#            dim: 52
+#            init: xavier_uniform
+#          phi_m:
+#            dim: 52
+#            init: xavier_uniform
+#          phi_d:
+#            dim: 52
+#            init: xavier_uniform
 
     relation:
       keys:
         real:
-          dim: 100
+          dim: 160
           init: xavier_uniform
-#        imag:
-#          dim: 100
-#          init: xavier_uniform
-    # if temporal: ~ then we use float, otherwise we use the index
     temporal:
       keys:
         real:
-          dim: 32
+          dim: 160
           init: xavier_uniform
-#        imag:
-#          dim: 100
-#          init: xavier_uniform
-
   fusion:
-    type: diachronic_entity_fusion
+    type: time_aware_fusion
     target:
-      - 'ent+temp'
+      - 'rel+temp'
+    l1_flag: True
+    p: 0.4
+    emb_dim: 160
     args: ~
   transformation:
     type: translation_tf
@@ -119,7 +115,7 @@ model:
     range: 10
     args: ~
   scorer:
-    inverse: True
+    inverse: False
 
   args: ~
 
@@ -134,7 +130,7 @@ train:
     type: cross_entropy_loss
     args: ~
 
-  max_epochs: 500
+  max_epochs: 200
 
 
   loader:
@@ -146,12 +142,12 @@ train:
   valid:
     split: test # in [test or valid]
     every: 10
-    batch_size: 100
+    batch_size: 64
     filter: time-aware  # in [off, static, time-aware]
     ordering: optimistic    # in [optimistic, peesimistic]
     k: [1, 3, 10]
 
-  batch_size: 512
+  batch_size: 128 #512
   subbatch_size: -1
   subbatch_auto_tune: False
   optimizer:
@@ -165,7 +161,15 @@ train:
       args:
         +++: +++
 
-  regularizer: ~
+  regularizer:
+    lambda3:
+      type: lambda3_regularize
+      weight: 1e-2
+      args: ~
+    n3:
+      type: n3_regularize
+      weight: 1e-2
+      args: ~
   inplace_regularizer: ~
 
   lr_scheduler: ""
@@ -176,7 +180,6 @@ train:
   trace_level: epoch           # batch, epoch
 
   checkpoint:
-    folder: /home/ubuntu/gengyuan/ckpt/
     every: 10
     keep: 3
 

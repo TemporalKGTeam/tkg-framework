@@ -37,7 +37,6 @@ class Transformation(ABC, nn.Module, Registrable, Configurable):
     def forward(self, *input):
         raise NotImplementedError
 
-
     @staticmethod
     @abstractmethod
     def embedding_constraint():
@@ -72,6 +71,9 @@ class TranslationTransformation(Transformation):
         return constraints
 
 
+
+
+
 @Transformation.register(name="rotation_tf")
 class RotationTransformation(Transformation):
     gamma = NumberParam('gamma', default_value=100)
@@ -103,6 +105,41 @@ class RotationTransformation(Transformation):
 
         scores = self.gamma - scores.sum(dim=-1)
         return scores
+
+    @staticmethod
+    def embedding_constraint():
+        constraints = {'entity': ['real', 'imag'],
+                       'relation': ['real', 'imag']}
+
+
+@Transformation.register(name="chrono_rotation_tf")
+class ChronoRotationTransflormation(Transformation):
+    def __init__(self, config):
+        super(ChronoRotationTransflormation, self).__init__(config=config)
+
+    def forward(self, head: Dict[str, torch.Tensor], rel: Dict[str, torch.Tensor], tail: Dict[str, torch.Tensor]):
+        mat_head = torch.cat(head.values(), dim=2)
+        mat_rel = torch.cat(rel.values(), dim=2)
+        mat_tail = torch.cat(tail.values(), dim=2)
+
+        rotated_head = [mat_head[:, :, 0] * mat_rel[:, :, 0] - mat_head[:, :, 1] * mat_rel[:, :, 1],
+                        -mat_head[:, :, 1] * mat_rel[:, :, 0] - mat_head[:, :, 0] * mat_rel[:, :, 1]]    # complex product
+        rotated_head = torch.cat(rotated_head, dim=2)
+
+        ab = torch.matmul(rotated_head, mat_tail.permute((0,2,1)))
+        ab = torch.einsum('bii->b', ab)
+
+        aa = torch.matmul(rotated_head, rotated_head.permute((0,2,1)))
+        aa = torch.einsum('bii->b', aa)
+
+        bb = torch.matmul(mat_tail, mat_tail.permute((0,2,1)))
+        bb = torch.einsum('bii->b', bb)
+
+        scores = ab / torch.sqrt(aa * bb)
+
+        return scores
+
+
 
     @staticmethod
     def embedding_constraint():
