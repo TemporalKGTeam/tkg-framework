@@ -296,6 +296,8 @@ class TrainTask(Task):
 
             self.save_ckpt('latest', epoch=epoch)
 
+        self.config.log(f"TRAINING FINISHED: Best model achieved at epoch {best_epoch}")
+
     def _subbatch_forward(self, pos_subbatch):
         sample_target = self.config.get("negative_sampling.target")
         samples, labels = self.sampler.sample(pos_subbatch, sample_target)
