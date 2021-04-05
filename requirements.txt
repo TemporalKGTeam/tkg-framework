@@ -3,3 +3,4 @@ arrow
 numba
 --find-links https://download.pytorch.org/whl/cu100/torch_stable.html
 torch==1.4.0
+ax-platform

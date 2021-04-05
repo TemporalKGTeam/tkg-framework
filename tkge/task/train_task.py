@@ -334,7 +334,7 @@ class TrainTask(Task):
     def save_ckpt(self, ckpt_name, epoch):
         filename = f"{ckpt_name}.ckpt"
 
-        self.config.log(f"Save the model checkpoint to {self.config.ex_folder} as file {filename}")
+        self.config.log(f"Save the model checkpoint to {self.config.checkpoint_folder} as file {filename}")
 
         checkpoint = {
             'last_epoch': epoch,
@@ -344,7 +344,7 @@ class TrainTask(Task):
         }
 
         torch.save(checkpoint,
-                   os.path.join(self.config.ex_folder, 'ckpt',
+                   os.path.join(self.config.checkpoint_folder,
                                 filename))  # os.path.join(model, dataset, folder, filename))
 
     def load_ckpt(self, ckpt_path):

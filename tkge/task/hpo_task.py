@@ -3,7 +3,12 @@ import argparse
 
 import ax
 import random
+import copy
+
+from ax import Models
 from ax.service.ax_client import AxClient
+from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+
 
 from tkge.task.task import Task
 from tkge.task.train_task import TrainTask
@@ -40,6 +45,21 @@ class HPOTask(Task):
         # define the search space
         hp_group = self.config.get("hpo.hyperparam")
 
+        # generation strategy
+        # generation_strategy = GenerationStrategy(
+        #     name="Sobol+GPEI",
+        #     steps=[
+        #         GenerationStep(
+        #             model=Models.SOBOL,
+        #             num_trials=self.config.get("hpo.num_trials"),
+        #             min_trials_observed=ceil(self.config.get("hpo.num_trials") / 2),
+        #             enforce_num_trials=True,
+        #             model_kwargs={"seed": self.config.get("hpo.sobol_seed")},
+        #         ),
+        #         GenerationStep(model=Models.GPEI, num_trials=-1, max_parallelism=3),
+        #     ],
+        # )
+
         self.ax_client.create_experiment(
             name="hyperparam_search",
             parameters=hp_group,
@@ -57,7 +77,7 @@ class HPOTask(Task):
         self.config.log(f"with parameters {parameters}")
 
         # overwrite the config
-        trial_config: Config = self.config.clone()
+        trial_config: Config = copy.deepcopy(self.config)
         for k, v in parameters.items():
             trial_config.set(k, v)
 
