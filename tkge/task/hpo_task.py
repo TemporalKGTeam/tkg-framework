@@ -1,39 +1,15 @@
-import torch
-
-import time
 import os
-from collections import defaultdict
 import argparse
 
-from ax import *
+import ax
+import random
+from ax.service.ax_client import AxClient
 
 from tkge.task.task import Task
-from tkge.data.dataset import DatasetProcessor, SplitDataset
-from tkge.train.sampling import NegativeSampler, NonNegativeSampler
-from tkge.train.regularization import Regularizer, InplaceRegularizer
+from tkge.task.train_task import TrainTask
 from tkge.common.config import Config
-from tkge.common.utils import LocalConfig
-from tkge.models.model import BaseModel
-from tkge.models.loss import Loss
-from tkge.eval.metrics import Evaluation
 
 from typing import Dict, Tuple
-
-
-class TrialMetric(ax.Metric):
-    def fetch_trial_data(self, trial):
-        records = []
-
-        for arm_name, arm in trial.arms_by_name.items():
-            params = arm.parameters
-            records.append({
-                "arm_name": arm_name,
-                "metric_name": self.name,
-                "mean": (params["x1"] + 2 * params["x2"] - 7) ** 2 + (2 * params["x1"] + params["x2"] - 5) ** 2,
-                "sem": 0.0,
-                "trial_index": trial.index,
-            })
-
 
 
 class HPOTask(Task):
@@ -54,71 +30,67 @@ class HPOTask(Task):
     def __init__(self, config: Config):
         super(HPOTask, self).__init__(config=config)
 
-        self.dataset = self.config.get("dataset.name")
-        self.train_loader: torch.utils.data.DataLoader = None
-        self.valid_loader: torch.utils.data.DataLoader = None
+        self._prepare_experiment()
 
-        self.sampler: NegativeSampler = None
-
-        self.loss: Loss = None
-
-        self.optimizer: torch.optim.optimizer.Optimizer = None
-        self.lr_scheduler = None
-        self.evaluation: Evaluation = None
-
-        self.device = self.config.get("task.device")
 
     def _prepare_experiment(self):
         # initialize a client
-        self.ax_client = ax.AxClient()
+        self.ax_client = AxClient()
 
         # define the search space
-        hp_group = {}
-        for hp in self.config.get("search.hyperparam"):
-            hp_group.update({hp.name: ax.Parameter()})
-
-        search_space = ax.SearchSpace(
-            parameters=hp_group.values()
-        )
+        hp_group = self.config.get("hpo.hyperparam")
 
         self.ax_client.create_experiment(
             name="hyperparam_search",
-            search_space=search_space
+            parameters=hp_group,
+            objective_name="mrr",
+            minimize=False,
         )
 
-        sobol = Models.SOBOL(search_space=search_space)
-        generator_run = sobol.gen(self.config.get("search.num_trials"))
 
-
-
-    def _evaluate(self, parameters) -> Dict[str, Tuple[float, float]]:
+    def _evaluate(self, parameters, trial_id) -> Dict[str, Tuple[float, float]]:
         """
         evaluate a trial given parameters and return the metrics
         """
 
+        self.config.log(f"Start trial {trial_id}")
+        self.config.log(f"with parameters {parameters}")
+
         # overwrite the config
+        trial_config: Config = self.config.clone()
+        for k, v in parameters.items():
+            trial_config.set(k, v)
+
+        trial_config.create_trial(trial_id)
 
         # initialize a trainer
-
+        trial_trainer: TrainTask = TrainTask(trial_config)
 
         # train
+        trial_trainer.main()
+        best_metric = trial_trainer.best_metric
+
+        self.config.log(f"End trial {trial_id}")
+        self.config.log(f"best metric achieved at {best_metric}")
 
         # evaluate
-        return {"mrr": (0, 0.0)}
-
-
+        return {"mrr": (best_metric, 0.0)}
 
     def main(self):
-        # define the experiment
-        experiment = None
-
         # generate trials/arms
+        for i in range(self.config.get("hpo.num_trials")):
+            parameters, trial_index = self.ax_client.get_next_trial()
+            self.ax_client.complete_trial(trial_index=trial_index, raw_data=self._evaluate(parameters, trial_index))
 
+        best_parameters, values = self.ax_client.get_best_parameters()
 
-        # Metrics to evaluate trials
+        self.config.log("Search task finished.")
+        self.config.log(f"Best parameter:"
+                        f"{best_parameters}"
+                        f""
+                        f"Best metrics:"
+                        f"{values}")
 
-
-
-
-
-
+        result_df = self.ax_client.generation_strategy.trials_as_df
+        result_df.to_pickle(os.path.join(self.config.ex_folder, 'trials_as_tf.pkl'))
+        self.ax_client.save_to_json_file(filepath=self.config.ex_folder)

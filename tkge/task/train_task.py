@@ -51,9 +51,6 @@ class TrainTask(Task):
     def __init__(self, config: Config):
         super().__init__(config)
 
-        # Initialize working folder
-        config.create_experiment()
-
         self.dataset: DatasetProcessor = self.config.get("dataset.name")
         self.train_loader: torch.utils.data.DataLoader = None
         self.valid_loader: torch.utils.data.DataLoader = None
@@ -167,8 +164,8 @@ class TrainTask(Task):
         save_freq = self.config.get("train.checkpoint.every")
         eval_freq = self.config.get("train.valid.every")
 
-        best_metric = 0.
-        best_epoch = 0
+        self.best_metric = 0.
+        self.best_epoch = 0
 
         for epoch in range(1, self.config.get("train.max_epochs") + 1):
             self.model.train()
@@ -232,69 +229,22 @@ class TrainTask(Task):
                 self.save_ckpt(f"epoch_{epoch}", epoch=epoch)
 
             if epoch % eval_freq == 0:
-                with torch.no_grad():
-                    self.model.eval()
+                metrics = self.eval()
 
-                    counter = 0
+                self.config.log(f"Metrics(head prediction) in iteration {epoch} : {metrics['head'].items()}")
+                self.config.log(f"Metrics(tail prediction) in iteration {epoch} : {metrics['tail'].items()}")
+                self.config.log(f"Metrics(both prediction) in iteration {epoch} : {metrics['avg'].items()} ")
 
-                    metrics = dict()
-                    metrics['head'] = defaultdict(float)
-                    metrics['tail'] = defaultdict(float)
 
-                    for batch in self.valid_loader:
-                        bs = batch.size(0)
-                        dim = batch.size(1)
+                if metrics['avg']['mean_reciprocal_ranking'] > self.best_metric:
+                    self.best_metric = metrics['mean_reciprocal_ranking']
+                    self.best_epoch = epoch
 
-                        batch = batch.to(self.device)
-
-                        counter += bs
-
-                        queries_head = batch.clone()[:, :-1]
-                        queries_tail = batch.clone()[:, :-1]
-
-                        queries_head[:, 0] = float('nan')
-                        queries_tail[:, 2] = float('nan')
-
-                        batch_scores_head = self.model.predict(queries_head)
-                        assert list(batch_scores_head.shape) == [bs,
-                                                                 self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
-
-                        batch_scores_tail = self.model.predict(queries_tail)
-                        assert list(batch_scores_tail.shape) == [bs,
-                                                                 self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
-
-                        # TODO (gengyuan): reimplement ATISE eval
-
-                        batch_metrics = dict()
-
-                        batch_metrics['head'] = self.evaluation.eval(batch, batch_scores_head, miss='s')
-                        batch_metrics['tail'] = self.evaluation.eval(batch, batch_scores_tail, miss='o')
-
-                        # TODO(gengyuan) refactor
-                        for pos in ['head', 'tail']:
-                            for key in batch_metrics[pos].keys():
-                                metrics[pos][key] += batch_metrics[pos][key] * bs
-
-                    for pos in ['head', 'tail']:
-                        for key in metrics[pos].keys():
-                            metrics[pos][key] /= counter
-
-                    avg = {k: (metrics['head'][k] + metrics['tail'][k]) / 2 for k in metrics['head'].keys()}
-
-                    self.config.log(f"Metrics(head prediction) in iteration {epoch} : {metrics['head'].items()}")
-                    self.config.log(f"Metrics(tail prediction) in iteration {epoch} : {metrics['tail'].items()}")
-                    self.config.log(
-                        f"Metrics(both prediction) in iteration {epoch} : {avg} ")
-
-                    if avg['mean_reciprocal_ranking'] > best_metric:
-                        best_metric = avg['mean_reciprocal_ranking']
-                        best_epoch = epoch
-
-                        self.save_ckpt('best', epoch=epoch)
+                    self.save_ckpt('best', epoch=epoch)
 
             self.save_ckpt('latest', epoch=epoch)
 
-        self.config.log(f"TRAINING FINISHED: Best model achieved at epoch {best_epoch}")
+        self.config.log(f"TRAINING FINISHED: Best model achieved at epoch {self.best_epoch}")
 
     def _subbatch_forward(self, pos_subbatch):
         sample_target = self.config.get("negative_sampling.target")
@@ -326,9 +276,60 @@ class TrainTask(Task):
         return loss, factors
 
     def eval(self):
-        # TODO early stopping
+        with torch.no_grad():
+            self.model.eval()
 
-        raise NotImplementedError
+            counter = 0
+
+            metrics = dict()
+            metrics['head'] = defaultdict(float)
+            metrics['tail'] = defaultdict(float)
+
+            for batch in self.valid_loader:
+                bs = batch.size(0)
+                dim = batch.size(1)
+
+                batch = batch.to(self.device)
+
+                counter += bs
+
+                queries_head = batch.clone()[:, :-1]
+                queries_tail = batch.clone()[:, :-1]
+
+                queries_head[:, 0] = float('nan')
+                queries_tail[:, 2] = float('nan')
+
+                batch_scores_head = self.model.predict(queries_head)
+                assert list(batch_scores_head.shape) == [bs,
+                                                         self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
+
+                batch_scores_tail = self.model.predict(queries_tail)
+                assert list(batch_scores_tail.shape) == [bs,
+                                                         self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
+
+                # TODO (gengyuan): reimplement ATISE eval
+
+                batch_metrics = dict()
+
+                batch_metrics['head'] = self.evaluation.eval(batch, batch_scores_head, miss='s')
+                batch_metrics['tail'] = self.evaluation.eval(batch, batch_scores_tail, miss='o')
+
+                # TODO(gengyuan) refactor
+                for pos in ['head', 'tail']:
+                    for key in batch_metrics[pos].keys():
+                        metrics[pos][key] += batch_metrics[pos][key] * bs
+
+            for pos in ['head', 'tail']:
+                for key in metrics[pos].keys():
+                    metrics[pos][key] /= counter
+
+            avg = {k: (metrics['head'][k] + metrics['tail'][k]) / 2 for k in metrics['head'].keys()}
+
+            metrics.update(avg)
+
+            return metrics
+
+
 
     def save_ckpt(self, ckpt_name, epoch):
         filename = f"{ckpt_name}.ckpt"

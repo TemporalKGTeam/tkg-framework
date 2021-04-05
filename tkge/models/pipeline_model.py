@@ -28,11 +28,11 @@ class PipelineModel(BaseModel):
         super(PipelineModel, self).__init__(config=config, dataset=dataset)
 
         # self._embedding_space: EmbeddingSpace = EmbeddingSpace.from_config(config)
-        self._entity_embeddings = EntityEmbedding(config=config, dataset=dataset)
-        self._relation_embeddings = RelationEmbedding(config=config, dataset=dataset)
+        self._entity_embeddings: EntityEmbedding = EntityEmbedding(config=config, dataset=dataset)
+        self._relation_embeddings: RelationEmbedding = RelationEmbedding(config=config, dataset=dataset)
 
         if not isinstance(self.config.get('model.embedding.temporal'), type(None)):
-            self._temporal_embeddings = TemporalEmbedding(config=config, dataset=dataset)
+            self._temporal_embeddings: TemporalEmbedding = TemporalEmbedding(config=config, dataset=dataset)
 
         self._fusion: TemporalFusion = TemporalFusion.create_from_name(config)
         self._transformation: Transformation = Transformation.create_from_name(config)
@@ -61,7 +61,6 @@ class PipelineModel(BaseModel):
         tail = samples[:, 2].long()
 
         temp = {}
-
 
         # if self.config.get('dataset.temporal.index') and not self.config.get('dataset.temporal.float'):
         #     if samples.size(1)==4:
@@ -129,7 +128,14 @@ class PipelineModel(BaseModel):
 
             scores = (scores + scores_inv) / 2
 
-        return scores, None
+        factors = {"entity_reg": list(self._entity_embeddings.parameters()),
+                   "relation_reg": list(self._relation_embeddings.parameters())
+                   }
+
+        if hasattr(self, '_temporal_embeddings'):
+            factors.update({'temporal_reg': getattr(self, '_temporal_embeddings').parameters()})
+
+        return scores, factors
 
     def _fuse(self, spot_emb, fuse_target):
         fused_spo_emb = dict()

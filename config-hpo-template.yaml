@@ -103,7 +103,7 @@ train:
     type: binary_cross_entropy_loss
     args: ~
 
-  max_epochs: 200
+  max_epochs: 20
 
 
   loader:
@@ -114,8 +114,8 @@ train:
 
   valid:
     split: test # in [test or valid]
-    every: 10
-    batch_size: 64
+    every: 5
+    batch_size: 8
     subbatch_size: -1
     filter: time-aware  # in [off, static, time-aware]
     ordering: optimistic    # in [optimistic, peesimistic]
@@ -136,11 +136,15 @@ train:
         +++: +++
 
   regularizer:
-    lambda3:
+    entity_reg:
       type: lambda3_regularize
       weight: 1e-2
       args: ~
-    n3:
+    relation_reg:
+      type: lambda3_regularize
+      weight: 1e-2
+      args: ~
+    temporal_reg:
       type: n3_regularize
       weight: 1e-2
       args: ~
@@ -172,15 +176,42 @@ hpo:
   num_workers: -1
   num_trials: 10
   hyperparam:
-    - name: x1
-      type: range
-      bounds: [0.0, 1.0]
-      value_type: float
-    - name: x2
-      type: range
-      bounds: [0.0, 1.0]
-    - name: x3
+    - name: model.embedding.global.dim
       type: choice
-      values: ["foo", "bar"]
+      values: [2048, 1024, 512, 256, 128]
+      value_type: int
+    - name: model.embedding.global.init
+      type: choice
+      values: ['xavier_uniform', 'xavier_normal']
+      value_type: str
+    - name: train.regularizer.entity_reg.type
+      type: choice
+      values: ['none_regularize', 'f2_regularize', 'lambda3_regularize']
+      value_type: str
+    - name: train.regularizer.enrity_reg.weight
+      type: range
+      bounds: [0.0, 0.1]
+      value_type: float
+    - name: train.regularizer.relation_reg.type
+      type: choice
+      values: ['none_regularize', 'f2_regularize', 'lambda3_regularize']
+      value_type: str
+    - name: train.regularizer.relation_reg.weight
+      type: range
+      bounds: [0.0, 0.1]
+      value_type: float
+    - name: train.regularizer.temporal_reg.weight
+      type: range
+      bounds: [0.0, 0.1]
+      value_type: float
+    - name: train.batch_size
+      type: choice
+      values: [256, 512, 1024]
+      value_type: int
+    - name: train.optimizer.args.lr
+      type: range
+      bounds: [0.0000001, 0.01]
+      value_type: float
+
 
 

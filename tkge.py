@@ -6,6 +6,7 @@ from tkge.task.train_task import TrainTask
 from tkge.task.test_task import TestTask
 from tkge.task.search_task import SearchTask
 from tkge.task.resume_task import ResumeTask
+from tkge.task.hpo_task import HPOTask
 from tkge.common.config import Config
 
 desc = 'Temporal KG Completion methods'
@@ -28,6 +29,7 @@ subparsers = parser.add_subparsers(title="task",
 # subparser train
 parser_train = TrainTask.parse_arguments(subparsers)
 parser_eval = TestTask.parse_arguments(subparsers)
+parser_hpo = HPOTask.parse_arguments(subparsers)
 
 args = parser.parse_args()
 
@@ -35,11 +37,19 @@ task_dict = {
     'train': TrainTask,
     'eval': TestTask,
     'search': SearchTask,
-    'resume': ResumeTask
+    'resume': ResumeTask,
+    'hpo': HPOTask
 }
 
-config_path = args.config if args.task is not 'resume' else os.path.join(args.experiment, 'config.yaml')
+config_path = args.config if args.task != 'resume' else os.path.join(args.experiment, 'config.yaml')
 config = Config.create_from_yaml(config_path)  # TODO load_default is false
+
+# Initialize working folder
+if args.task in ['search', 'train', 'hpo']:
+    config.create_experiment()
+else:
+    raise NotImplementedError
+
 task = task_dict[args.task](config)
 
 task.main()
