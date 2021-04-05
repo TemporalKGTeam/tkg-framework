@@ -133,7 +133,7 @@ class PipelineModel(BaseModel):
                    }
 
         if hasattr(self, '_temporal_embeddings'):
-            factors.update({'temporal_reg': getattr(self, '_temporal_embeddings').parameters()})
+            factors.update({'temporal_reg': list(getattr(self, '_temporal_embeddings').parameters())})
 
         return scores, factors
 
@@ -170,10 +170,10 @@ class PipelineModel(BaseModel):
 
         samples = samples.view(-1, dim)
 
-        scores, factor = self.forward(samples)
+        scores, factors = self.forward(samples)
         scores = scores.view(bs, -1)
 
-        return scores, factor
+        return scores, factors
 
 
 @BaseModel.register(name='translation_simple_model')

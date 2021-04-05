@@ -237,7 +237,7 @@ class TrainTask(Task):
 
 
                 if metrics['avg']['mean_reciprocal_ranking'] > self.best_metric:
-                    self.best_metric = metrics['mean_reciprocal_ranking']
+                    self.best_metric = metrics['avg']['mean_reciprocal_ranking']
                     self.best_epoch = epoch
 
                     self.save_ckpt('best', epoch=epoch)
@@ -325,7 +325,7 @@ class TrainTask(Task):
 
             avg = {k: (metrics['head'][k] + metrics['tail'][k]) / 2 for k in metrics['head'].keys()}
 
-            metrics.update(avg)
+            metrics.update({'avg': avg})
 
             return metrics
 

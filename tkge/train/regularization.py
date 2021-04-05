@@ -131,7 +131,7 @@ class NoneReg(Regularizer):
         super().__init__(config, name)
 
     def forward(self, factors: Tuple[torch.Tensor], **kwargs):
-        return torch.Tensor([0.])
+        return 0.
 
 @Regularizer.register(name="lambda3_regularize")
 class Lambda3Reg(Regularizer):
