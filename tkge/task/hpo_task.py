@@ -9,7 +9,6 @@ from ax import Models
 from ax.service.ax_client import AxClient
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 
-
 from tkge.task.task import Task
 from tkge.task.train_task import TrainTask
 from tkge.common.config import Config
@@ -36,7 +35,6 @@ class HPOTask(Task):
         super(HPOTask, self).__init__(config=config)
 
         self._prepare_experiment()
-
 
     def _prepare_experiment(self):
         # initialize a client
@@ -66,7 +64,6 @@ class HPOTask(Task):
             objective_name="mrr",
             minimize=False,
         )
-
 
     def _evaluate(self, parameters, trial_id) -> Dict[str, Tuple[float, float]]:
         """
@@ -100,7 +97,13 @@ class HPOTask(Task):
         # generate trials/arms
         for i in range(self.config.get("hpo.num_trials")):
             parameters, trial_index = self.ax_client.get_next_trial()
-            self.ax_client.complete_trial(trial_index=trial_index, raw_data=self._evaluate(parameters, trial_index))
+
+            try:
+                data = self._evaluate(parameters, trial_index)
+            except RuntimeError:
+                self.ax_client.log_trial_failure(trial_index=trial_index)
+            else:
+                self.ax_client.complete_trial(trial_index=trial_index, raw_data=data)
 
         best_parameters, values = self.ax_client.get_best_parameters()
 
