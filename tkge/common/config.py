@@ -31,9 +31,30 @@ class Config:
     def create_experiment(self):
         self.ex_folder, self.ex_id = self.create_exid(self.root_folder)
 
+        self.save(os.path.join(self.ex_folder, 'config.yaml'))
+
         self.checkpoint_folder = os.path.join(self.ex_folder, 'ckpt')
         self.log_folder = os.path.join(self.ex_folder,
                                        'logging')  # None means use self.folder; used for kge.log, trace.yaml
+        self.log_prefix: str = None
+
+        os.makedirs(self.checkpoint_folder)
+        os.makedirs(self.log_folder)
+
+        self.start_time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        self.log_file = os.path.join(self.log_folder, f"{self.start_time}.log")
+        self.log_level = self.get("console.log_level")
+        self.echo = self.get("console.echo")
+
+    def create_trial(self, trial_id: int):
+        self.trial_id = trial_id
+        self.trial_folder = os.path.join(self.ex_folder, 'trial'+str(trial_id))
+        os.makedirs(self.trial_folder)
+
+        self.save(os.path.join(self.trial_folder, 'config.yaml'))
+
+        self.checkpoint_folder = os.path.join(self.trial_folder, 'ckpt')
+        self.log_folder = os.path.join(self.trial_folder, 'logging')
         self.log_prefix: str = None
 
         os.makedirs(self.checkpoint_folder)
@@ -245,21 +266,6 @@ class Config:
 
     # -- FOLDERS AND CHECKPOINTS ----------------------------------------------
 
-    def init_folder(self):
-        """Initialize the output folder.
-
-        If the folder does not exists, create it, dump the configuration
-        there and return ``True``. Else do nothing and return ``False``.
-
-        """
-        # if not os.path.exists(self.folder):
-        #     os.makedirs(self.folder)
-        #     os.makedirs(os.path.join(self.folder, "config"))
-        #     self.save(os.path.join(self.folder, "config.yaml"))
-        #     return True
-        # return False
-
-        self.ex_folder, self.ex_id = self.create_exid()
 
     def checkpoint_file(self, cpt_id: Union[str, int]) -> str:
         """Returns path of checkpoint file for given checkpoint id"""
@@ -367,7 +373,6 @@ class Config:
         ex_folder = os.path.join(base_folder, ex_id)
         os.makedirs(ex_folder)
 
-        self.save(os.path.join(ex_folder, 'config.yaml'))
 
         return ex_folder, ex_id
 

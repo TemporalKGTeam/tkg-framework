@@ -53,6 +53,9 @@ model:
   p: 0.4
 
   embedding:
+    global:
+      dim: 160
+      init: xavier_uniform
     entity:
       pos_aware: True
       keys:
@@ -142,7 +145,7 @@ train:
 
   valid:
     split: test # in [test or valid]
-    every: 10
+    every: 5
     batch_size: 64
     subbatch_size: -1
     filter: time-aware  # in [off, static, time-aware]
@@ -164,11 +167,15 @@ train:
         +++: +++
 
   regularizer:
-    lambda3:
-      type: lambda3_regularize
+    entity_reg:
+      type: none_regularize
       weight: 1e-2
       args: ~
-    n3:
+    relation_reg:
+      type: none_regularize
+      weight: 1e-2
+      args: ~
+    temporal_reg:
       type: n3_regularize
       weight: 1e-2
       args: ~

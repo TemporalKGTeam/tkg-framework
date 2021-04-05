@@ -51,9 +51,6 @@ class TrainTask(Task):
     def __init__(self, config: Config):
         super().__init__(config)
 
-        # Initialize working folder
-        config.create_experiment()
-
         self.dataset: DatasetProcessor = self.config.get("dataset.name")
         self.train_loader: torch.utils.data.DataLoader = None
         self.valid_loader: torch.utils.data.DataLoader = None
@@ -65,11 +62,11 @@ class TrainTask(Task):
         self.lr_scheduler = None
         self.evaluation: Evaluation = None
 
-        self.train_bs = self.config.get("train.batchsize")
-        self.valid_bs = self.config.get("train.valid.batchsize")
+        self.train_bs = self.config.get("train.batch_size")
+        self.valid_bs = self.config.get("train.valid.batch_size")
         self.train_sub_bs = self.config.get("train.subbatch_size") if self.config.get(
             "train.subbatch_size") else self.train_bs
-        self.valid_sub_bs = self.config.get("train.valid.sub_batch_size") if self.config.get(
+        self.valid_sub_bs = self.config.get("train.valid.subbatch_size") if self.config.get(
             "train.valid.subbatch_size") else self.valid_bs
 
         self.datatype = (['timestamp_id'] if self.config.get("dataset.temporal.index") else []) + (
@@ -149,16 +146,16 @@ class TrainTask(Task):
         # validity checks and warnings
         if self.train_sub_bs >= self.train_bs or self.train_sub_bs < 1:
             # TODO(max) improve logging with different hierarchies/labels, i.e. merge with branch advannced_log_and_ckpt_management
-            self.config.log(f"WARNING: Specified train.sub_batch_size={self.train_sub_bs} is greater or equal to "
+            self.config.log(f"Specified train.sub_batch_size={self.train_sub_bs} is greater or equal to "
                             f"train.batch_size={self.train_bs} or smaller than 1, so use no sub batches. "
-                            f"Device(s) may run out of memory.")
+                            f"Device(s) may run out of memory.", level="warning")
             self.train_sub_bs = self.train_bs
 
         if self.valid_sub_bs >= self.valid_bs or self.valid_sub_bs < 1:
             # TODO(max) improve logging with different hierarchies/labels, i.e. merge with branch advannced_log_and_ckpt_management
-            self.config.log(f"WARNING: Specified train.valid.sub_batch_size={self.valid_sub_bs} is greater or equal to "
+            self.config.log(f"Specified train.valid.sub_batch_size={self.valid_sub_bs} is greater or equal to "
                             f"train.valid.batch_size={self.valid_bs} or smaller than 1, so use no sub batches. "
-                            f"Device(s) may run out of memory.")
+                            f"Device(s) may run out of memory.", level="warning")
             self.valid_sub_bs = self.valid_bs
 
     def main(self):
@@ -167,10 +164,8 @@ class TrainTask(Task):
         save_freq = self.config.get("train.checkpoint.every")
         eval_freq = self.config.get("train.valid.every")
 
-        sample_target = self.config.get("negative_sampling.target")
-
-        best_metric = 0.
-        best_epoch = 0
+        self.best_metric = 0.
+        self.best_epoch = 0
 
         for epoch in range(1, self.config.get("train.max_epochs") + 1):
             self.model.train()
@@ -182,7 +177,7 @@ class TrainTask(Task):
             total_epoch_loss = 0.0
             train_size = self.dataset.train_size
 
-            start = time.time()
+            start_time = time.time()
 
             for pos_batch in self.train_loader:
                 self.optimizer.zero_grad()
@@ -219,7 +214,7 @@ class TrainTask(Task):
                 # if self.device=="cuda":
                 #     torch.cuda.empty_cache()
 
-            stop = time.time()
+            stop_time = time.time()
             avg_loss = total_epoch_loss / train_size
 
             if self.lr_scheduler:
@@ -228,75 +223,28 @@ class TrainTask(Task):
                 else:
                     self.lr_scheduler.step()
 
-            self.config.log(f"Loss in iteration {epoch} : {avg_loss} consuming {stop - start}s")
+            self.config.log(f"Loss in iteration {epoch} : {avg_loss} consuming {stop_time - start_time}s")
 
             if epoch % save_freq == 0:
                 self.save_ckpt(f"epoch_{epoch}", epoch=epoch)
 
             if epoch % eval_freq == 0:
-                with torch.no_grad():
-                    self.model.eval()
+                metrics = self.eval()
 
-                    counter = 0
+                self.config.log(f"Metrics(head prediction) in iteration {epoch} : {metrics['head'].items()}")
+                self.config.log(f"Metrics(tail prediction) in iteration {epoch} : {metrics['tail'].items()}")
+                self.config.log(f"Metrics(both prediction) in iteration {epoch} : {metrics['avg'].items()} ")
 
-                    metrics = dict()
-                    metrics['head'] = defaultdict(float)
-                    metrics['tail'] = defaultdict(float)
 
-                    for batch in self.valid_loader:
-                        bs = batch.size(0)
-                        dim = batch.size(1)
+                if metrics['avg']['mean_reciprocal_ranking'] > self.best_metric:
+                    self.best_metric = metrics['avg']['mean_reciprocal_ranking']
+                    self.best_epoch = epoch
 
-                        batch = batch.to(self.device)
-
-                        counter += bs
-
-                        queries_head = batch.clone()[:, :-1]
-                        queries_tail = batch.clone()[:, :-1]
-
-                        queries_head[:, 0] = float('nan')
-                        queries_tail[:, 2] = float('nan')
-
-                        batch_scores_head = self.model.predict(queries_head)
-                        assert list(batch_scores_head.shape) == [bs,
-                                                                 self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
-
-                        batch_scores_tail = self.model.predict(queries_tail)
-                        assert list(batch_scores_tail.shape) == [bs,
-                                                                 self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
-
-                        # TODO (gengyuan): reimplement ATISE eval
-
-                        batch_metrics = dict()
-
-                        batch_metrics['head'] = self.evaluation.eval(batch, batch_scores_head, miss='s')
-                        batch_metrics['tail'] = self.evaluation.eval(batch, batch_scores_tail, miss='o')
-
-                        # TODO(gengyuan) refactor
-                        for pos in ['head', 'tail']:
-                            for key in batch_metrics[pos].keys():
-                                metrics[pos][key] += batch_metrics[pos][key] * bs
-
-                    for pos in ['head', 'tail']:
-                        for key in metrics[pos].keys():
-                            metrics[pos][key] /= counter
-
-                    avg = {k: (metrics['head'][k] + metrics['tail'][k]) / 2 for k in metrics['head'].keys()}
-
-                    self.config.log(f"Metrics(head prediction) in iteration {epoch} : {metrics['head'].items()}")
-                    self.config.log(f"Metrics(tail prediction) in iteration {epoch} : {metrics['tail'].items()}")
-                    self.config.log(
-                        f"Metrics(both prediction) in iteration {epoch} : {avg} ")
-
-                    if avg['mean_reciprocal_ranking'] > best_metric:
-                        best_metric = avg['mean_reciprocal_ranking']
-                        best_epoch = epoch
-
-                        self.save_ckpt('best', epoch=epoch)
+                    self.save_ckpt('best', epoch=epoch)
 
             self.save_ckpt('latest', epoch=epoch)
 
-        self.config.log(f"TRAINING FINISHED: Best model achieved at epoch {best_epoch}")
+        self.config.log(f"TRAINING FINISHED: Best model achieved at epoch {self.best_epoch}")
 
     def _subbatch_forward(self, pos_subbatch):
         sample_target = self.config.get("negative_sampling.target")
@@ -328,14 +276,65 @@ class TrainTask(Task):
         return loss, factors
 
     def eval(self):
-        # TODO early stopping
+        with torch.no_grad():
+            self.model.eval()
 
-        raise NotImplementedError
+            counter = 0
+
+            metrics = dict()
+            metrics['head'] = defaultdict(float)
+            metrics['tail'] = defaultdict(float)
+
+            for batch in self.valid_loader:
+                bs = batch.size(0)
+                dim = batch.size(1)
+
+                batch = batch.to(self.device)
+
+                counter += bs
+
+                queries_head = batch.clone()[:, :-1]
+                queries_tail = batch.clone()[:, :-1]
+
+                queries_head[:, 0] = float('nan')
+                queries_tail[:, 2] = float('nan')
+
+                batch_scores_head = self.model.predict(queries_head)
+                assert list(batch_scores_head.shape) == [bs,
+                                                         self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
+
+                batch_scores_tail = self.model.predict(queries_tail)
+                assert list(batch_scores_tail.shape) == [bs,
+                                                         self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
+
+                # TODO (gengyuan): reimplement ATISE eval
+
+                batch_metrics = dict()
+
+                batch_metrics['head'] = self.evaluation.eval(batch, batch_scores_head, miss='s')
+                batch_metrics['tail'] = self.evaluation.eval(batch, batch_scores_tail, miss='o')
+
+                # TODO(gengyuan) refactor
+                for pos in ['head', 'tail']:
+                    for key in batch_metrics[pos].keys():
+                        metrics[pos][key] += batch_metrics[pos][key] * bs
+
+            for pos in ['head', 'tail']:
+                for key in metrics[pos].keys():
+                    metrics[pos][key] /= counter
+
+            avg = {k: (metrics['head'][k] + metrics['tail'][k]) / 2 for k in metrics['head'].keys()}
+
+            metrics.update({'avg': avg})
+
+            return metrics
+
+
 
     def save_ckpt(self, ckpt_name, epoch):
         filename = f"{ckpt_name}.ckpt"
 
-        self.config.log(f"Save the model checkpoint to {self.config.ex_folder} as file {filename}")
+        self.config.log(f"Save the model checkpoint to {self.config.checkpoint_folder} as file {filename}")
 
         checkpoint = {
             'last_epoch': epoch,
@@ -345,7 +344,7 @@ class TrainTask(Task):
         }
 
         torch.save(checkpoint,
-                   os.path.join(self.config.ex_folder, 'ckpt',
+                   os.path.join(self.config.checkpoint_folder,
                                 filename))  # os.path.join(model, dataset, folder, filename))
 
     def load_ckpt(self, ckpt_path):

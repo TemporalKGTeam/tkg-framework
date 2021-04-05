@@ -6,7 +6,7 @@ console:
 
 #local
 task:
-  folder: /home/ubuntu/gengyuan/experiments
+  folder: /home/ubuntu/gengyuan/search_experiments
   type: train
   device: 'cuda'
   reciprocal_training: true
@@ -53,43 +53,16 @@ model:
   p: 0.4
 
   embedding:
+    global:
+      dim: 160
+      init: xavier_uniform
+
     entity:
       pos_aware: True
       keys:
         real:
           dim: 160
           init: xavier_uniform
-#        ent_embs:
-#          dim: 108
-#          init: xavier_uniform
-#        amps_y:
-#          dim: 52
-#          init: xavier_uniform
-#        amps_m:
-#          dim: 52
-#          init: xavier_uniform
-#        amps_d:
-#          dim: 52
-#          init: xavier_uniform
-#        freq_y:
-#          dim: 52
-#          init: xavier_uniform
-#        freq_m:
-#          dim: 52
-#          init: xavier_uniform
-#        freq_d:
-#          dim: 52
-#          init: xavier_uniform
-#        phi_y:
-#          dim: 52
-#          init: xavier_uniform
-#        phi_m:
-#          dim: 52
-#          init: xavier_uniform
-#        phi_d:
-#          dim: 52
-#          init: xavier_uniform
-
     relation:
       keys:
         real:
@@ -101,16 +74,15 @@ model:
           dim: 160
           init: xavier_uniform
   fusion:
-    type: reproject_fusion
+    type: elementwise_product_fusion
     target:
-      - 'ent+temp'
       - 'rel+temp'
     l1_flag: True
     p: 0.4
     emb_dim: 160
     args: ~
   transformation:
-    type: translation_tf
+    type: distmult_tf
     gamma: 100
     p: 1
     range: 10
@@ -131,7 +103,7 @@ train:
     type: binary_cross_entropy_loss
     args: ~
 
-  max_epochs: 200
+  max_epochs: 15
 
 
   loader:
@@ -142,15 +114,15 @@ train:
 
   valid:
     split: test # in [test or valid]
-    every: 10
-    batch_size: 64
+    every: 5
+    batch_size: 8
     subbatch_size: -1
     filter: time-aware  # in [off, static, time-aware]
     ordering: optimistic    # in [optimistic, peesimistic]
     k: [1, 3, 10]
 
   batch_size: 512
-  subbatch_size: -1
+  subbatch_size: 64
   subbatch_auto_tune: False
   optimizer:
     type: Adam
@@ -164,13 +136,17 @@ train:
         +++: +++
 
   regularizer:
-    lambda3:
+    entity_reg:
       type: lambda3_regularize
-      weight: 1e-2
+      weight: 0.01
       args: ~
-    n3:
+    relation_reg:
+      type: lambda3_regularize
+      weight: 0.01
+      args: ~
+    temporal_reg:
       type: n3_regularize
-      weight: 1e-2
+      weight: 0.01
       args: ~
   inplace_regularizer: ~
 
@@ -182,7 +158,7 @@ train:
   trace_level: epoch           # batch, epoch
 
   checkpoint:
-    every: 10
+    every: 5
     keep: 3
 
   auto_correct: False
@@ -194,5 +170,48 @@ eval:
   ordering: descending
   preference: optimistic
   k: [1,3,10]
+
+
+hpo:
+  num_workers: -1
+  num_trials: 30
+  hyperparam:
+    - name: model.embedding.global.dim
+      type: choice
+      values: [2048, 1024, 512, 256, 128]
+      value_type: int
+    - name: model.embedding.global.init
+      type: choice
+      values: ['xavier_uniform', 'xavier_normal']
+      value_type: str
+    - name: train.regularizer.entity_reg.type
+      type: choice
+      values: ['none_regularize', 'f2_regularize', 'lambda3_regularize']
+      value_type: str
+    - name: train.regularizer.entity_reg.weight
+      type: range
+      bounds: [0.0, 0.1]
+      value_type: float
+    - name: train.regularizer.relation_reg.type
+      type: choice
+      values: ['none_regularize', 'f2_regularize', 'lambda3_regularize']
+      value_type: str
+    - name: train.regularizer.relation_reg.weight
+      type: range
+      bounds: [0.0, 0.1]
+      value_type: float
+    - name: train.regularizer.temporal_reg.weight
+      type: range
+      bounds: [0.0, 0.1]
+      value_type: float
+    - name: train.batch_size
+      type: choice
+      values: [256, 512, 1024]
+      value_type: int
+    - name: train.optimizer.args.lr
+      type: range
+      bounds: [0.0000001, 0.01]
+      value_type: float
+
 
 
