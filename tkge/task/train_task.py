@@ -257,7 +257,7 @@ class TrainTask(Task):
         samples = samples.to(self.device)
         labels = labels.to(self.device)
 
-        scores, factors = self.model.fit(samples)
+        scores, factors = self.model.forward(samples)
 
         assert scores.size(0) == labels.size(
             0), f"Score's size {scores.shape} should match label's size {labels.shape}"

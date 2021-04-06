@@ -6,7 +6,7 @@ from tkge.task.train_task import TrainTask
 from tkge.task.test_task import TestTask
 from tkge.task.search_task import SearchTask
 from tkge.task.resume_task import ResumeTask
-from tkge.task.hpo_task import HPOTask
+# from tkge.task.hpo_task import HPOTask
 from tkge.common.config import Config
 
 desc = 'Temporal KG Completion methods'
@@ -29,7 +29,7 @@ subparsers = parser.add_subparsers(title="task",
 # subparser train
 parser_train = TrainTask.parse_arguments(subparsers)
 parser_eval = TestTask.parse_arguments(subparsers)
-parser_hpo = HPOTask.parse_arguments(subparsers)
+# parser_hpo = HPOTask.parse_arguments(subparsers)
 
 args = parser.parse_args()
 
@@ -38,7 +38,7 @@ task_dict = {
     'eval': TestTask,
     'search': SearchTask,
     'resume': ResumeTask,
-    'hpo': HPOTask
+    # 'hpo': HPOTask
 }
 
 config_path = args.config if args.task != 'resume' else os.path.join(args.experiment, 'config.yaml')

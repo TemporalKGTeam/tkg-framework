@@ -1,9 +1,11 @@
 console:
+  log_level: info
   quiet: False
-  execution_dir: /mnt/data1/ma/gengyuan/experiment/results
   format: {}
+  echo: True
 
 task:
+  folder: /mnt/data1/ma/gengyuan/experiment/results1
   type: train
   device: cpu
   devices: [0, 1]
@@ -25,8 +27,8 @@ dataset:
   filter: FALSE
   temporal:
     resolution: day  #deprecated
-    index: False
-    float: True
+    index: True
+    float: False
   args: ~
   name: icews14
   num_entities: -1
@@ -41,7 +43,6 @@ model:
   type: ttranse
   emb_dim: 100
   l1_flag: True
-  dropout: 0.0
   args: ~
 
 
@@ -64,7 +65,7 @@ train:
     args: ~
   max_epochs: 500
   batch_size: 512
-  sub_batch_size: 64
+  subbatch_size: 64
   subbatch_auto_tune: False
   optimizer:
     type: Adam
@@ -79,7 +80,7 @@ train:
     split: test # in [test or valid]
     every: 5
     batch_size: 64
-    sub_batch_size: ~
+    subbatch_size: ~
     filter: time-aware  # in [off, static, time-aware]
     ordering: optimistic    # in [optimistic, peesimistic]
     k: [1, 3, 10]
