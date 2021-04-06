@@ -1,5 +1,5 @@
 console:
-  log_level: info
+  log_level: debug
   quiet: False
   format: {}
   echo: True
