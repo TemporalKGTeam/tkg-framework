@@ -85,6 +85,7 @@ class TrainTask(Task):
             SplitDataset(self.dataset.get("train"), self.datatype),
             shuffle=True,
             batch_size=self.train_bs,
+            # TODO(max) is a custom collate_fn=collate_batch needed?
             num_workers=self.config.get("train.loader.num_workers"),
             pin_memory=self.config.get("train.loader.pin_memory"),
             drop_last=self.config.get("train.loader.drop_last"),
