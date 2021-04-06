@@ -3,6 +3,7 @@ from torch import nn
 from torch.nn import functional as F
 
 import numpy as np
+import math
 
 from collections import defaultdict
 from typing import Dict
@@ -324,7 +325,7 @@ class TComplExModel(BaseModel):
     def forward(self, samples, **kwargs):
         fit_samples = self._fit(samples)
         scores, factors = self._forward_model(fit_samples)
-        # TODO refit the samples if needed
+        scores = scores.view(bs, -1)  # refit
         return scores, factors
 
     def _forward_model(self, samples: torch.Tensor, **kwargs):
@@ -360,7 +361,13 @@ class TComplExModel(BaseModel):
         return scores, factors
 
     def _fit(self, samples: torch.Tensor):
-        # TODO fit the samples
+        assert self.config.get("negative_sampling.type") == 'pseudo_sampling'
+
+        bs = samples.size(0)
+        dim = samples.size(1)
+
+        samples = samples.view(-1, dim)
+
         return samples
 
     def predict(self, x):

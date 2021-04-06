@@ -46,7 +46,6 @@ class BaseEmbedding(ABC, nn.Module, Configurable):
         return init_dict[type]
 
 
-
 class EntityEmbedding(BaseEmbedding):
     def __init__(self, config: Config, dataset: DatasetProcessor):
         super(EntityEmbedding, self).__init__(config=config, dataset=dataset)
@@ -70,15 +69,20 @@ class EntityEmbedding(BaseEmbedding):
 
     def register_embedding(self):
         for k in self.config.get('model.embedding.entity.keys'):
-            self._head[k] = nn.Embedding(num_embeddings=self.dataset.num_entities(),
-                                         embedding_dim=self.config.get(f"model.embedding.entity.keys.{k}.dim"))
-            self.initialize(self.config.get(f"model.embedding.entity.keys.{k}.init"))(self._head[k].weight)
+            embedding_dim = self.config.get(f"model.embedding.entity.keys.{k}.dim") if self.config.get(
+                f"model.embedding.global.dim") == -1 else self.config.get(f"model.embedding.global.dim")
+            init_method = self.config.get(
+                self.config.get(f"model.embedding.entity.keys.{k}.init")) if not self.config.get(
+                f"model.embedding.global.init") else self.config.get(f"model.embedding.global.init")
 
+            self._head[k] = nn.Embedding(num_embeddings=self.dataset.num_entities(),
+                                         embedding_dim=embedding_dim)
+            self.initialize(init_method)(self._head[k].weight)
 
             if self._pos_aware:
                 self._tail[k] = nn.Embedding(num_embeddings=self.dataset.num_entities(),
-                                             embedding_dim=self.config.get(f"model.embedding.entity.keys.{k}.dim"))
-                self.initialize(self.config.get(f"model.embedding.entity.keys.{k}.init"))(self._tail[k].weight)
+                                             embedding_dim=embedding_dim)
+                self.initialize(init_method)(self._tail[k].weight)
 
         self._head = nn.ModuleDict(self._head)
         self._tail = nn.ModuleDict(self._tail)
@@ -90,6 +94,7 @@ class EntityEmbedding(BaseEmbedding):
             return {k: v(index) for k, v in self._head.items()}
         else:
             return {k: v(index) for k, v in self._tail.items()}
+
 
 
 class RelationEmbedding(BaseEmbedding):
@@ -115,11 +120,19 @@ class RelationEmbedding(BaseEmbedding):
         num_emb = num_emb * 2 if self.config.get("model.scorer.inverse") or self.config.get(
             "task.reciprocal_training") else num_emb
 
-        for k in self.config.get('model.embedding.relation.keys'):
-            self._relation[k] = nn.Embedding(num_embeddings=num_emb,
-                                             embedding_dim=self.config.get(f"model.embedding.relation.keys.{k}.dim"))
 
-            self.initialize(self.config.get(f"model.embedding.relation.keys.{k}.init"))(self._relation[k].weight)
+        for k in self.config.get('model.embedding.relation.keys'):
+            embedding_dim = self.config.get(f"model.embedding.relation.keys.{k}.dim") if self.config.get(
+                f"model.embedding.global.dim") == -1 else self.config.get(f"model.embedding.global.dim")
+            init_method = self.config.get(
+                self.config.get(f"model.embedding.relation.keys.{k}.init")) if not self.config.get(
+                f"model.embedding.global.init") else self.config.get(f"model.embedding.global.init")
+
+
+            self._relation[k] = nn.Embedding(num_embeddings=num_emb,
+                                             embedding_dim=embedding_dim)
+
+            self.initialize(init_method)(self._relation[k].weight)
 
         self._relation = nn.ModuleDict(self._relation)
         self._num_emb = num_emb
@@ -145,12 +158,21 @@ class TemporalEmbedding(BaseEmbedding):
 
     def register_embedding(self):
         for k in self.config.get('model.embedding.temporal.keys'):
-            self._temporal[k] = nn.Embedding(num_embeddings=self.dataset.num_timestamps(),
-                                             embedding_dim=self.config.get(f"model.embedding.temporal.keys.{k}.dim"))
-            self.initialize(self.config.get(f"model.embedding.temporal.keys.{k}.init"))(self._temporal[k].weight)
+            embedding_dim = self.config.get(f"model.embedding.temporal.keys.{k}.dim") if self.config.get(
+                f"model.embedding.global.dim") == -1 else self.config.get(f"model.embedding.global.dim")
+            init_method = self.config.get(
+                self.config.get(f"model.embedding.temporal.keys.{k}.init")) if not self.config.get(
+                f"model.embedding.global.init") else self.config.get(f"model.embedding.global.init")
 
+
+            self._temporal[k] = nn.Embedding(num_embeddings=self.dataset.num_time_identifier(),
+                                             embedding_dim=embedding_dim)
+            self.initialize(init_method)(self._temporal[k].weight)
 
         self._temporal = nn.ModuleDict(self._temporal)
+
+    def get_weight(self, key):
+        return self._temporal[key].weight
 
     def __call__(self, index: torch.Tensor):
         return {k: v(index) for k, v in self._temporal.items()}

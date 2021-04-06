@@ -1,14 +1,14 @@
-from typing import Any, Dict, Optional, Union, TypeVar
-import yaml
-import copy
-import collections
-import os
-import sys
-import re
-from enum import Enum
 import datetime
+import os
+import re
+import sys
 import time
 import uuid
+from enum import Enum
+from functools import reduce
+from typing import Any, Dict, Optional, Union, TypeVar, Tuple
+
+import yaml
 
 from tkge.common.error import ConfigurationError
 
@@ -18,7 +18,7 @@ T = TypeVar("T", bound="Config")
 class Config:
     """Configuration class for all configurable classes.
 
-    `Condig` instance could be created from a configuration file (.yaml), from a param dict.
+    `Config` instance could be created from a configuration file (.yaml) or from a param dict.
     """
 
     Overwrite = Enum("Overwrite", "Yes No Error")
@@ -26,22 +26,52 @@ class Config:
     def __init__(self, options: Dict[str, Any]):
         self.options = options
 
-        self.config_file = self.get("file")
-        self.execution_dir = self.get("console.execution_dir") if self.get("console.execution_dir") else "./execution"
-        self.execution_id = self.next_execution_id()
-        self.log_folder = os.path.join(self.execution_dir, self.get("task.type"), self.get("model.type"),
-                                       self.config_file[:-5], "exec-" + str(self.execution_id), "log")
-        self.ckpt_folder = os.path.join(self.execution_dir, self.get("task.type"), self.get("model.type"),
-                                        self.config_file[:-5], "exec-" + str(self.execution_id), "ckpt")
+        self.root_folder = self.get("task.folder")  # main folder (config file, checkpoints, ...)
+
+    def create_experiment(self):
+        self.ex_folder, self.ex_id = self.create_exid(self.root_folder)
+
+        self.save(os.path.join(self.ex_folder, 'config.yaml'))
+
+        self.checkpoint_folder = os.path.join(self.ex_folder, 'ckpt')
+        self.log_folder = os.path.join(self.ex_folder,
+                                       'logging')  # None means use self.folder; used for kge.log, trace.yaml
+        self.log_prefix: str = None
+
+        os.makedirs(self.checkpoint_folder)
+        os.makedirs(self.log_folder)
+
         self.start_time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
         self.log_file = os.path.join(self.log_folder, f"{self.start_time}.log")
+        self.log_level = self.get("console.log_level")
+        self.echo = self.get("console.echo")
+
+    def create_trial(self, trial_id: int):
+        self.trial_id = trial_id
+        self.trial_folder = os.path.join(self.ex_folder, 'trial'+str(trial_id))
+        os.makedirs(self.trial_folder)
+
+        self.save(os.path.join(self.trial_folder, 'config.yaml'))
+
+        self.checkpoint_folder = os.path.join(self.trial_folder, 'ckpt')
+        self.log_folder = os.path.join(self.trial_folder, 'logging')
+        self.log_prefix: str = None
+
+        os.makedirs(self.checkpoint_folder)
+        os.makedirs(self.log_folder)
+
+        self.start_time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        self.log_file = os.path.join(self.log_folder, f"{self.start_time}.log")
+        self.log_level = self.get("console.log_level")
+        self.echo = self.get("console.echo")
+
+    def open_experiment(self):
+        raise NotImplementedError
 
     @classmethod
     def create_from_yaml(cls, filepath: str):
         with open(filepath, "r") as file:
             options: Dict[str, Any] = yaml.load(file, Loader=yaml.SafeLoader)
-
-        options["file"] = filepath
 
         return cls(options=options)
 
@@ -182,23 +212,29 @@ class Config:
                 result[fullkey] = value
 
     # Logging and Tracing
-    def log(self, msg: str, echo=True, prefix=""):
+    def log(self, msg: str, level="info"):
         """Add a message to the default log file.
 
         Optionally also print on console. ``prefix`` is used to indent each
         output line.
 
         """
-        if not os.path.exists(self.log_folder):
-            os.makedirs(self.log_folder, 0o700)
+        if not os.path.exists(self.log_file):
+            mode = "w"
+        else:
+            mode = "a"
 
-        with open(self.log_file, "a") as file:
+        with open(self.log_file, mode) as file:
             for line in msg.splitlines():
-                if prefix:
-                    line = prefix + line
-                if echo:
+                levels = {"debug": 0,
+                          "info": 1,
+                          "warning": 2,
+                          "error": 3}
+                if levels.get(self.log_level) >= levels.get(level):
+                    line = f"{level.upper()}: {line}"
+                if self.echo:
                     print(line)
-                file.write(str(datetime.datetime.now()) + " " + line + "\n")
+                file.write(f"{str(datetime.datetime.now())} {line}\n")
 
     def trace(
             self, echo=False, echo_prefix="", echo_flow=False, log=False, **kwargs
@@ -224,34 +260,21 @@ class Config:
                     if echo_prefix:
                         line = echo_prefix + line
                         print(line)
-        with open(os.path.join(self.log_folder, "trace.yaml"), "a") as file:
+        with open(self.tracefile(), "a") as file:
             file.write(line + "\n")
         return kwargs
 
     # -- FOLDERS AND CHECKPOINTS ----------------------------------------------
 
-    def init_folder(self):
-        """Initialize the output folder.
-
-        If the folder does not exists, create it, dump the configuration
-        there and return ``True``. Else do nothing and return ``False``.
-
-        """
-        if not os.path.exists(self.execution_dir):
-            os.makedirs(self.execution_dir)
-            os.makedirs(os.path.join(self.execution_dir, "config"))
-            self.save(os.path.join(self.execution_dir, "config.yaml"))
-            return True
-        return False
 
     def checkpoint_file(self, cpt_id: Union[str, int]) -> str:
         """Returns path of checkpoint file for given checkpoint id"""
         from tkge.common.misc import is_number
 
         if is_number(cpt_id, int):
-            return os.path.join(self.execution_dir, "checkpoint_{:05d}.pt".format(int(cpt_id)))
+            return os.path.join(self.root_folder, "checkpoint_{:05d}.pt".format(int(cpt_id)))
         else:
-            return os.path.join(self.execution_dir, "checkpoint_{}.pt".format(cpt_id))
+            return os.path.join(self.root_folder, "checkpoint_{}.pt".format(cpt_id))
 
     def last_checkpoint(self) -> Optional[int]:
         """Returns epoch number of latest checkpoint"""
@@ -320,18 +343,43 @@ class Config:
             )
         return value
 
-    def next_execution_id(self) -> int:
-        # Lookup for latest/greatest id (suffix of folder name) in the corresponding target directory
-        # TODO(max) handle resumption of training, i.e. get the corresponding id of the training to resume
-        target = os.path.join(self.execution_dir, self.get("task.type"), self.get("model.type"), self.config_file[:-5])
+    def logdir(self) -> str:
+        folder = self.log_folder if self.log_folder else self.ex_folder
+        return folder
 
-        if not os.path.exists(target):
-            return 1
+    def logfile(self) -> str:
+        folder = self.log_folder if self.log_folder else self.ex_folder
+        return os.path.join(folder, "kge.log")
 
-        folders = [folder for folder in os.listdir(target)]
-        ids = [int(re.findall(r'\d+', str(folder))[-1]) for folder in folders]
+    def tracefile(self) -> str:
+        folder = self.log_folder if self.log_folder else self.ex_folder
+        return os.path.join(folder, "trace.yaml")
 
-        return max(ids) + 1
+    def create_exid(self, root_folder) -> Tuple[str, str]:
+        """
+        Get a self-incremental id in the current checkpoint folder.
+        Every time when starting a new training task, a new experiment folder
+        with incremental id will be created and associated with current experiment.
+        """
+        overall_ckpt_folder = root_folder
+        base_folder = os.path.join(overall_ckpt_folder, self.get("model.type"), self.get("dataset.name"))
+
+        if not os.path.exists(base_folder):
+            os.makedirs(base_folder)
+
+        ex_ls = os.listdir(base_folder)
+        ex_max = int(reduce(lambda a, b: a if a > b else b, ex_ls)[2:]) if ex_ls else -1
+        ex_id = f"ex{ex_max + 1:06d}"
+        ex_folder = os.path.join(base_folder, ex_id)
+        os.makedirs(ex_folder)
+
+
+        return ex_folder, ex_id
+
+    def save(self, filename):
+        """Save this configuration to the given file"""
+        with open(filename, "w+") as file:
+            file.write(yaml.dump(self.options))
 
 
 # class Config:
