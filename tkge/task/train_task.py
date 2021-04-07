@@ -239,7 +239,6 @@ class TrainTask(Task):
                 self.config.log(f"Metrics(tail prediction) in iteration {epoch} : {metrics['tail'].items()}")
                 self.config.log(f"Metrics(both prediction) in iteration {epoch} : {metrics['avg'].items()} ")
 
-
                 if metrics['avg']['mean_reciprocal_ranking'] > self.best_metric:
                     self.best_metric = metrics['avg']['mean_reciprocal_ranking']
                     self.best_epoch = epoch

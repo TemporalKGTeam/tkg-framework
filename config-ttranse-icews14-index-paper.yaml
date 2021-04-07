@@ -7,8 +7,8 @@ console:
 task:
   folder: /mnt/data1/ma/gengyuan/experiment/results1
   type: train
-  device: cpu
-  devices: [0, 1]
+  device: cuda:1
+  devices: [1]
   reciprocal_training: False
 
 random_seed:
