@@ -325,7 +325,6 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
                     head, rel, tail, mod, ts = fact
                     rel += mod
                     ts = ts.split('-')[0][1:]
-                    ts_id = self.index_timestamps(ts)
                     ts_float = int(ts)
                 elif len(fact) == 4:
                     # ignore the two tuples with temporal modifiers but without timestamp
@@ -334,10 +333,9 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
                     head, rel, tail = fact
                     rel += '_no-time'
                     ts = 'no-time'
-                    ts_id = self.index_timestamps(ts)
                     ts_float = 0
 
-                head_id, rel_id, tail_id = self.index_triple([head, rel, tail])
+                head_id, rel_id, tail_id, ts_id = self.index_quadruple([head, rel, tail, ts])
 
                 self.add(data_split, head_id, rel_id, tail_id, ts_id, [ts_float])
 
