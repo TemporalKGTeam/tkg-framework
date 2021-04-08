@@ -152,7 +152,7 @@ class PipelineModel(BaseModel):
         return fused_spo_emb
 
     def predict(self, queries: torch.Tensor):
-        assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
+        self.config.assert_true(torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent.")
 
         bs = queries.size(0)
         dim = queries.size(0)
@@ -293,7 +293,7 @@ class TransSimpleModel(BaseModel):
         return fused_spo_emb
 
     def predict(self, queries: torch.Tensor):
-        assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
+        self.config.assert_true(torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent.")
 
         bs = queries.size(0)
         dim = queries.size(0)

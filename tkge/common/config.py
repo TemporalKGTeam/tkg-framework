@@ -264,6 +264,11 @@ class Config:
             file.write(line + "\n")
         return kwargs
 
+    def assert_true(self, condition: bool, message: str):
+        if not condition:
+            self.log(message, level="error")
+            sys.exit()
+
     # -- FOLDERS AND CHECKPOINTS ----------------------------------------------
 
 

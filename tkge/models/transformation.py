@@ -190,17 +190,17 @@ class ComplexFactorizationTransformation(Transformation):
         self.flatten = True
 
     def _forward(self, input: Dict):
-        assert 'head' in input
-        assert 'rel' in input
-        assert 'tail' in input
+        self.config.assert_true('head' in input, "Missing head entity")
+        self.config.assert_true('rel' in input, "Missing rel entity")
+        self.config.assert_true('tail' in input, "Missing tail entity")
 
     def forward(self, U: Dict, V: Dict, W: Dict):
         """
         U, V, W should be Dict[str, torch.Tensor], keys are 'real' and 'imag'
         """
-        assert isinstance(U, dict)
-        assert isinstance(V, dict)
-        assert isinstance(W, dict)
+        self.config.assert_true(isinstance(U, dict), "U should be of type dict.")
+        self.config.assert_true(isinstance(V, dict), "U should be of type dict.")
+        self.config.assert_true(isinstance(W, dict), "U should be of type dict.")
         #
         # assert ['real', 'imag'] in U.keys()
         # assert ['real', 'imag'] in V.keys()

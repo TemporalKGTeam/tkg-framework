@@ -268,7 +268,7 @@ class DeSimplEModel(BaseModel):
         return scores, factors
 
     def predict(self, queries: torch.Tensor):
-        assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
+        self.config.assert_true(torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent.")
 
         bs = queries.size(0)
         dim = queries.size(0)
@@ -341,7 +341,7 @@ class TComplExModel(BaseModel):
         return scores, factors
 
     def fit(self, samples: torch.Tensor):
-        assert self.config.get("negative_sampling.type") == 'pseudo_sampling'
+        self.config.assert_true(self.config.get("negative_sampling.type") == 'pseudo_sampling', "Use pseudo_sampling for tcomplex model.")
 
         bs = samples.size(0)
         dim = samples.size(1)
@@ -353,7 +353,7 @@ class TComplExModel(BaseModel):
         return scores, factors
 
     def predict(self, x):
-        assert torch.isnan(x).sum(1).byte().all(), "Either head or tail should be absent."
+        self.config.assert_true(torch.isnan(x).sum(1).byte().all(), "Either head or tail should be absent.")
 
         missing_head_ind = torch.isnan(x)[:, 0].byte().unsqueeze(1)
         reversed_x = x.clone()
@@ -461,7 +461,7 @@ class TNTComplExModel(BaseModel):
         return scores, factors
 
     def fit(self, samples: torch.Tensor):
-        assert self.config.get("negative_sampling.type")=='pseudo_sampling'
+        self.config.assert_true(self.config.get("negative_sampling.type") == 'pseudo_sampling', "Use pseudo_sampling for tntcomplex model.")
 
         bs = samples.size(0)
         dim = samples.size(1)
@@ -473,7 +473,7 @@ class TNTComplExModel(BaseModel):
         return scores, factors
 
     def predict(self, x):
-        assert torch.isnan(x).sum(1).byte().all(), "Either head or tail should be absent."
+        self.config.assert_true(torch.isnan(x).sum(1).byte().all(), "Either head or tail should be absent.")
 
         missing_head_ind = torch.isnan(x)[:, 0].byte().unsqueeze(1)
         reversed_x = x.clone()
@@ -772,7 +772,7 @@ class TATransEModel(BaseModel):
         return scores, factor
 
     def predict(self, queries: torch.Tensor):
-        assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
+        self.config.assert_true(torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent.")
 
         bs = queries.size(0)
         dim = queries.size(0)
@@ -870,7 +870,7 @@ class TADistmultModel(BaseModel):
         return scores, factor
 
     def predict(self, queries: torch.Tensor):
-        assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
+        self.config.assert_true(torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent.")
 
         bs = queries.size(0)
         dim = queries.size(0)
@@ -944,7 +944,7 @@ class TTransEModel(BaseModel):
         return scores, factor
 
     def predict(self, queries: torch.Tensor):
-        assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
+        self.config.assert_true(torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent.")
 
         bs = queries.size(0)
         dim = queries.size(0)
