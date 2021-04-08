@@ -343,6 +343,31 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
         raise NotImplementedError
 
 
+@DatasetProcessor.register(name="wikidata_lse")
+class WIKIDATALSEDatasetProcessor(DatasetProcessor):
+    def process(self):
+        """
+        Processes the raw data for each data type (i.e. train, valid and test) of the Wikidata dataset that was used
+        in the "Learning Sequence Encoders for Temporal Knowledge Graph Completion" paper,
+        see https://arxiv.org/abs/1809.03202.
+        The temporal modifier is concatenated to the relation.
+        """
+        for data_split in self.data_splits:
+            for rd in self.data_raw_mappings[data_split]:
+                fact = rd.strip().split('\t')
+
+                head, rel, tail, mod, ts = fact
+                rel += mod
+
+                head_id, rel_id, tail_id, ts_id = self.index_quadruple([head, rel, tail, ts])
+                ts_float = int(ts)
+
+                self.add(data_split, head_id, rel_id, tail_id, ts_id, [ts_float])
+
+    def process_time(self, origin: str):
+        pass
+
+
 class SplitDataset(torch.utils.data.Dataset):
     def __init__(self, dataset: Dict[str, List], datatype: Optional[List[str]] = None):
         super().__init__()

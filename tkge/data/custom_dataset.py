@@ -130,6 +130,34 @@ class ICEWS14TADatasetProcessor(DatasetProcessor):
         return ts
 
 
+# TODO test it, should work since the sequence is always of the same length
+@DatasetProcessor.register(name="wikidata_lse_TA")
+class WIKIDATALSETADatasetProcessor(DatasetProcessor):
+    def process(self):
+        """
+        Processes the raw data for each data type (i.e. train, valid and test) of the Wikidata dataset that was used
+        in the "Learning Sequence Encoders for Temporal Knowledge Graph Completion" paper,
+        see https://arxiv.org/abs/1809.03202.
+        The temporal modifier is concatenated to the relation.
+        Custom processing for the TA family models.
+        """
+        for data_split in self.data_splits:
+            for rd in self.data_raw_mappings[data_split]:
+                fact = rd.strip().split('\t')
+
+                head, rel, tail, mod, ts = fact
+
+                head_id, rel_id, tail_id, ts_id = self.index_quadruple([head, rel, tail, ts])
+                ts_float = self.process_time(ts, mod)
+
+                self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
+
+    def process_time(self, origin: str, mod: str = None):
+        ts = [get_mod_dict()[mod]]
+        ts.extend([get_tem_dict()[f'{int(yi):01}y'] for yi in origin])
+        return ts
+
+
 # Deprecated: dataset used for debugging tcomplex training
 @DatasetProcessor.register(name="icews14_tcomplex")
 class TestICEWS14DatasetProcessor(DatasetProcessor):

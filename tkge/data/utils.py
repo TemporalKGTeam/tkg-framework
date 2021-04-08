@@ -45,7 +45,13 @@ def get_tem_dict():
 
 
 def get_mod_dict():
+    """
+    Maps temporal modifiers to ids. <occursUntil> and <occursSince> are used in the YAGO datasets and uccurUntil and
+    uccurSince are used in the Wikidata datasets.
+    """
     return {
         '<occursSince>': 0,
-        '<occursUntil>': 1
+        '<occursUntil>': 1,
+        'occurUntil': 2,
+        'occurSince': 3
     }
