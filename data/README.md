@@ -91,7 +91,7 @@ The datasets have a public GitHub repository: [mmkb](https://github.com/nle-ml/m
 ```
 
 
-## YAGO15k
+## Wikidata
 ---
 
 **Source Description:** 
