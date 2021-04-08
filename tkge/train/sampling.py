@@ -62,7 +62,7 @@ class NegativeSampler(ABC, Registrable, Configurable):
         raise NotImplementedError
 
     def sample(self, pos_batch: torch.Tensor, sample_target: str = "both"):
-        assert sample_target in ["head", "tail", "both"], f"sample_target should be in head, tail, both"
+        self.config.assert_true(sample_target in ["head", "tail", "both"], f"sample_target should be in head, tail, both")
 
         neg_samples = self._sample(pos_batch, self.as_matrix, sample_target)
 
@@ -71,8 +71,8 @@ class NegativeSampler(ABC, Registrable, Configurable):
 
         labels = self._label(pos_batch, self.as_matrix, sample_target)
 
-        assert neg_samples.size(0) == labels.size(0), \
-            f"corrupted samples' size {neg_samples.size(0)} and labels' size {labels.size(0)} should be equal in first dimension"
+        self.config.assert_true(neg_samples.size(0) == labels.size(0), \
+            f"corrupted samples' size {neg_samples.size(0)} and labels' size {labels.size(0)} should be equal in first dimension")
 
         return neg_samples, labels
 

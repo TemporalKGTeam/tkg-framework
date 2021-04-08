@@ -88,7 +88,7 @@ class EntityEmbedding(BaseEmbedding):
         self._tail = nn.ModuleDict(self._tail)
 
     def __call__(self, index: torch.Tensor, pos: str):
-        assert pos in ['head', 'tail'], f"pos should be either head or tail"
+        self.config.assert_true(pos in ['head', 'tail'], f"pos should be either head or tail")
 
         if pos == 'head':
             return {k: v(index) for k, v in self._head.items()}
