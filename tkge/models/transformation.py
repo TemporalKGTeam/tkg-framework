@@ -71,9 +71,6 @@ class TranslationTransformation(Transformation):
         return constraints
 
 
-
-
-
 @Transformation.register(name="rotation_tf")
 class RotationTransformation(Transformation):
     gamma = NumberParam('gamma', default_value=100)
@@ -123,23 +120,21 @@ class ChronoRotationTransflormation(Transformation):
         mat_tail = torch.cat(tail.values(), dim=2)
 
         rotated_head = [mat_head[:, :, 0] * mat_rel[:, :, 0] - mat_head[:, :, 1] * mat_rel[:, :, 1],
-                        -mat_head[:, :, 1] * mat_rel[:, :, 0] - mat_head[:, :, 0] * mat_rel[:, :, 1]]    # complex product
+                        -mat_head[:, :, 1] * mat_rel[:, :, 0] - mat_head[:, :, 0] * mat_rel[:, :, 1]]  # complex product
         rotated_head = torch.cat(rotated_head, dim=2)
 
-        ab = torch.matmul(rotated_head, mat_tail.permute((0,2,1)))
+        ab = torch.matmul(rotated_head, mat_tail.permute((0, 2, 1)))
         ab = torch.einsum('bii->b', ab)
 
-        aa = torch.matmul(rotated_head, rotated_head.permute((0,2,1)))
+        aa = torch.matmul(rotated_head, rotated_head.permute((0, 2, 1)))
         aa = torch.einsum('bii->b', aa)
 
-        bb = torch.matmul(mat_tail, mat_tail.permute((0,2,1)))
+        bb = torch.matmul(mat_tail, mat_tail.permute((0, 2, 1)))
         bb = torch.einsum('bii->b', bb)
 
         scores = ab / torch.sqrt(aa * bb)
 
         return scores
-
-
 
     @staticmethod
     def embedding_constraint():
@@ -205,14 +200,17 @@ class ComplexFactorizationTransformation(Transformation):
         # assert ['real', 'imag'] in U.keys()
         # assert ['real', 'imag'] in V.keys()
         # assert ['real', 'imag'] in W.keys()
-
         if self.flatten:
             scores = (U['real'] * V['real'] - U['imag'] * V['imag']) * W['real'] + \
                      (U['imag'] * V['real'] + U['real'] * V['imag']) * W['imag']
 
+            scores = torch.sum(scores, dim=1)
         else:
+            raise NotImplementedError
             scores = (U['real'] * V['real'] - U['imag'] * V['imag']) @ W['real'].t() + \
                      (U['imag'] * V['real'] + U['real'] * V['imag']) @ W['imag'].t()
+
+            print(scores.size())
 
         return scores
 

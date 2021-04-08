@@ -100,7 +100,8 @@ class HPOTask(Task):
 
             try:
                 data = self._evaluate(parameters, trial_index)
-            except RuntimeError:
+            except Exception as e:
+                self.config.log(f"{e}", level="error")
                 self.ax_client.log_trial_failure(trial_index=trial_index)
             else:
                 self.ax_client.complete_trial(trial_index=trial_index, raw_data=data)
@@ -114,6 +115,5 @@ class HPOTask(Task):
                         f"Best metrics:"
                         f"{values}")
 
-        result_df = self.ax_client.generation_strategy.trials_as_df
-        result_df.to_pickle(os.path.join(self.config.ex_folder, 'trials_as_tf.pkl'))
-        self.ax_client.save_to_json_file(filepath=self.config.ex_folder)
+        self.ax_client.generation_strategy.trials_as_df.to_csv(self.config.ex_folder + '/trials.csv')
+        self.ax_client.save_to_json_file(filepath=self.config.ex_folder+'/trials.json')

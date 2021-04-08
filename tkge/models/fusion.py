@@ -134,6 +134,55 @@ class ComplexElementwiseTemporalFusion(TemporalFusion):
 
         return in_constraints, out_constraints
 
+@TemporalFusion.register(name="complex_addition_fusion")
+class ComplexAdditionTemporalFusion(TemporalFusion):
+    def __init__(self, config: Config):
+        super(ComplexAdditionTemporalFusion, self).__init__(config=config)
+
+    def forward(self, operand1, operand2):
+        """
+        operand1 and operand2 should be complex embeddings
+        """
+        res = {'real': operand1['real'] + operand1['real'],
+               'imag': operand1['imag'] + operand1['imag']}
+
+        return res
+
+    @staticmethod
+    def embedding_constraint():
+        in_constraints = {'operand1': ['real', 'imag'],
+                          'operand2': ['real', 'imag']}
+
+        out_constraints = {'result': ['real', 'imag']}
+
+        return in_constraints, out_constraints
+
+@TemporalFusion.register(name="tnt_fusion")
+class TNTTemporalFusion(TemporalFusion):
+    def __init__(self, config: Config):
+        super(TNTTemporalFusion, self).__init__(config=config)
+
+    def forward(self, operand1, operand2):
+        p = operand1['real'] * operand2['real'], \
+            operand1['imag'] * operand2['real'], \
+            operand1['real'] * operand2['imag'], \
+            operand1['imag'] * operand2['imag']
+
+        res = {'real': p[0] - p[3] + operand2['static_real'],
+               'imag': p[1] + p[2] + operand2['static_imag']}
+
+        return res
+
+    @staticmethod
+    def embedding_constraint():
+        in_constraints = {'operand1': ['real', 'imag'],
+                          'operand2': ['real', 'imag', 'static_real', 'static_imag']}
+
+        out_constraints = {'result': ['real', 'imag']}
+
+        return in_constraints, out_constraints
+
+
 
 @TemporalFusion.register(name="reproject_fusion")
 class ReprojectTemporalFusion(TemporalFusion):
@@ -246,24 +295,20 @@ class TimeAwareFusion(HiddenRepresentationCombination):
         return in_constraints, out_constraints
 
 
-@TemporalFusion.register(name="self_attention_fusion")
-class SelfAttentioFusion(HiddenRepresentationCombination):
-    pass
-
 
 @TemporalFusion.register(name="atise_fusion")
 class ATiSEFusion(HiddenRepresentationCombination):
-    def __init__(self):
-        super(ATiSEFusion, self).__init__()
+    def __init__(self, config: Config):
+        super(ATiSEFusion, self).__init__(config=config)
 
     def forward(self, operand1, operand2):
         pi = 3.14159265358979323846
 
-        mean = operand1['emb'] + operand2['timestamp'] * operand1['alpha'] * operand1['emb_T'] + operand1[
-            'beta'] * torch.sin(2 * pi * operand1['omega_E'] * operand2['timestamp'])
+        mean = operand1['emb'] + operand2['level0'] * operand1['alpha'] * operand1['emb_T'] + operand1[
+            'beta'] * torch.sin(2 * pi * operand1['omega'] * operand2['level0'])
         var = operand1['var']
 
-        res = {'mean': mean, 'var': var}
+        res = {'real': mean, 'var': var}
 
         return res
 
@@ -271,7 +316,7 @@ class ATiSEFusion(HiddenRepresentationCombination):
     def embedding_constraint():
         in_constraints = {
             'operand1': ['emb', 'emb_T', 'alpha', 'beta', 'omega', 'var'],
-            'operand2': ['timestamp']}
+            'operand2': ['level0']}
 
         out_constraints = {'result': ['mean', 'var']}
 

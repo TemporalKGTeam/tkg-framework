@@ -267,7 +267,11 @@ class TransSimpleModel(BaseModel):
             # fused_spo_emb_inv['o']['real'] = self.dropout(fused_spo_emb_inv['o']['real'])
             scores_inv = self._transformation(fused_spo_emb_inv['s'], fused_spo_emb_inv['p'], fused_spo_emb_inv['o'])
 
+            print(scores)
+
             scores = (scores + scores_inv) / 2
+
+        print(scores)
 
         factors = {
             "n3": (torch.sqrt(self._entity_embeddings._head['real'].weight ** 2),
@@ -315,6 +319,322 @@ class TransSimpleModel(BaseModel):
         scores = scores.view(bs, -1)
 
         return scores, factor
+
+
+@BaseModel.register(name='de_pipeline_model')
+class DePipelineModel(BaseModel):
+    def __init__(self, config: Config, dataset: DatasetProcessor):
+        super(DePipelineModel, self).__init__(config=config, dataset=dataset)
+
+        se = self.config.get("model.fusion.se")
+        self.config.set("model.embedding.entity.keys.ent_embs.dim",
+                        round(self.config.get("model.embedding.global.dim") * se))
+        self.config.set("model.embedding.entity.keys.amps_y.dim",
+                        round(self.config.get("model.embedding.global.dim") * (1 - se)))
+        self.config.set("model.embedding.entity.keys.amps_m.dim",
+                        round(self.config.get("model.embedding.global.dim") * (1 - se)))
+        self.config.set("model.embedding.entity.keys.amps_d.dim",
+                        round(self.config.get("model.embedding.global.dim") * (1 - se)))
+        self.config.set("model.embedding.entity.keys.freq_y.dim",
+                        round(self.config.get("model.embedding.global.dim") * (1 - se)))
+        self.config.set("model.embedding.entity.keys.freq_m.dim",
+                        round(self.config.get("model.embedding.global.dim") * (1 - se)))
+        self.config.set("model.embedding.entity.keys.freq_d.dim",
+                        round(self.config.get("model.embedding.global.dim") * (1 - se)))
+        self.config.set("model.embedding.entity.keys.phi_y.dim",
+                        round(self.config.get("model.embedding.global.dim") * (1 - se)))
+        self.config.set("model.embedding.entity.keys.phi_m.dim",
+                        round(self.config.get("model.embedding.global.dim") * (1 - se)))
+        self.config.set("model.embedding.entity.keys.phi_d.dim",
+                        round(self.config.get("model.embedding.global.dim") * (1 - se)))
+        self.config.set("model.embedding.relation.keys.real.dim",
+                        round(self.config.get("model.embedding.global.dim")))
+
+        self.config.set("model.embedding.global.dim", -1)
+
+        # self._embedding_space: EmbeddingSpace = EmbeddingSpace.from_config(config)
+        self._entity_embeddings: EntityEmbedding = EntityEmbedding(config=config, dataset=dataset)
+        self._relation_embeddings: RelationEmbedding = RelationEmbedding(config=config, dataset=dataset)
+
+        if not isinstance(self.config.get('model.embedding.temporal'), type(None)):
+            self._temporal_embeddings: TemporalEmbedding = TemporalEmbedding(config=config, dataset=dataset)
+
+        self._fusion: TemporalFusion = TemporalFusion.create_from_name(config)
+        self._transformation: Transformation = Transformation.create_from_name(config)
+
+        self._fusion_operand: List = []
+
+        self._inverse_scorer = self.config.get("model.scorer.inverse")
+
+        # import pprint
+        #
+        # pprint.pprint({n: p.size() for n, p in self.named_parameters()})
+        # assert False
+
+    def forward(self, samples: torch.Tensor):
+        # check the shape of input samples
+
+        # get embeddings from embedding_space
+        # {'s': embeddings of head embeddings,
+        #  'p': embeddings of relation embeddings,
+        #  'o': embeddings of tail embeddings,
+        #  't': embeddings of temporal information}
+
+        # spot_emb: Dict[torch.Tensor] = self._embedding_space(samples)
+        head = samples[:, 0].long()
+        rel = samples[:, 1].long()
+        tail = samples[:, 2].long()
+
+        temp = {}
+
+        if self.config.get('dataset.temporal.index') and not self.config.get('dataset.temporal.float'):
+            temp_index = samples[:, -1]
+            temp.update(self._temporal_embeddings(temp_index.long()))
+
+        if self.config.get('dataset.temporal.float'):
+            temp_float = samples[:, 3:-1] if self.config.get('dataset.temporal.index') else samples[:, 3:]
+            for i in range(temp_float.size(1)):
+                if not isinstance(self.config.get('model.embedding.temporal'), type(None)):
+                    # TODO: dangerous
+                    temp_embs = self._temporal_embeddings(temp_float[:, i:i + 1].long())
+                    temp_embs = {f"level{i}_{k}": v for k, v in temp_embs.items()}
+                    temp.update(temp_embs)
+                else:
+                    temp.update({f"level{i}": temp_float[:, i:i + 1]})
+
+        spot_emb = {'s': self._entity_embeddings(head, 'head'),
+                    'p': self._relation_embeddings(rel, inverse_relation=False),
+                    'o': self._entity_embeddings(tail, 'tail'),
+                    't': temp}
+
+        if self._inverse_scorer:
+            spot_emb_inv = {'s': self._entity_embeddings(tail, 'head'),
+                            'p': self._relation_embeddings(rel, inverse_relation=True),
+                            'o': self._entity_embeddings(head, 'tail'),
+                            't': temp}
+
+        fuse_target: List = self.config.get('model.fusion.target')
+
+        fused_spo_emb = self._fuse(spot_emb, fuse_target)
+
+        if self._inverse_scorer:
+            fused_spo_emb_inv = self._fuse(spot_emb_inv, fuse_target)
+
+        # transformation
+        # scores are vectors of input sample size
+
+        scores = self._transformation(fused_spo_emb['s'], fused_spo_emb['p'], fused_spo_emb['o'])
+
+        if self._inverse_scorer:
+            scores_inv = self._transformation(fused_spo_emb_inv['s'], fused_spo_emb_inv['p'], fused_spo_emb_inv['o'])
+
+            scores = (scores + scores_inv) / 2
+
+        factors = {"entity_reg": list(self._entity_embeddings.parameters()),
+                   "relation_reg": list(self._relation_embeddings.parameters())
+                   }
+
+        if hasattr(self, '_temporal_embeddings'):
+            factors.update({'temporal_reg': list(getattr(self, '_temporal_embeddings').parameters())})
+
+        return scores, factors
+
+    def _fuse(self, spot_emb, fuse_target):
+        fused_spo_emb = dict()
+        if 'ent+temp' in fuse_target:
+            fused_spo_emb['s'] = self._fusion(spot_emb['s'], spot_emb['t'])
+            fused_spo_emb['o'] = self._fusion(spot_emb['o'], spot_emb['t'])
+        else:
+            fused_spo_emb['s'] = spot_emb['s']
+            fused_spo_emb['o'] = spot_emb['o']
+        if 'rel+temp' in fuse_target:
+            fused_spo_emb['p'] = self._fusion(spot_emb['p'], spot_emb['t'])
+        else:
+            fused_spo_emb['p'] = spot_emb['p']
+        return fused_spo_emb
+
+    def predict(self, queries: torch.Tensor):
+        assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
+
+        bs = queries.size(0)
+        dim = queries.size(0)
+
+        candidates = all_candidates_of_ent_queries(queries, self.dataset.num_entities())
+
+        scores, _ = self.forward(candidates)
+        scores = scores.view(bs, -1)
+
+        return scores
+
+    def fit(self, samples: torch.Tensor):
+        bs = samples.size(0)
+        dim = samples.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
+
+        samples = samples.view(-1, dim)
+
+        scores, factors = self.forward(samples)
+        scores = scores.view(bs, -1)
+
+        return scores, factors
+
+
+@BaseModel.register(name='atise_pipeline_model')
+class ATiSEPipelineModel(BaseModel):
+    def __init__(self, config: Config, dataset: DatasetProcessor):
+        super(ATiSEPipelineModel, self).__init__(config=config, dataset=dataset)
+
+        self.config.set("model.embedding.entity.keys.emb.dim",
+                        self.config.get("model.embedding.global.dim"))
+        self.config.set("model.embedding.entity.keys.emb_T.dim",
+                        self.config.get("model.embedding.global.dim"))
+        self.config.set("model.embedding.entity.keys.alpha.dim",
+                        1)
+        self.config.set("model.embedding.entity.keys.beta.dim",
+                        self.config.get("model.embedding.global.dim"))
+        self.config.set("model.embedding.entity.keys.omega.dim",
+                        self.config.get("model.embedding.global.dim"))
+        self.config.set("model.embedding.entity.keys.var.dim",
+                        self.config.get("model.embedding.global.dim"))
+
+        self.config.set("model.embedding.relation.keys.emb.dim",
+                        self.config.get("model.embedding.global.dim"))
+        self.config.set("model.embedding.relation.keys.emb_T.dim",
+                        self.config.get("model.embedding.global.dim"))
+        self.config.set("model.embedding.relation.keys.alpha.dim",
+                        1)
+        self.config.set("model.embedding.relation.keys.beta.dim",
+                        self.config.get("model.embedding.global.dim"))
+        self.config.set("model.embedding.relation.keys.omega.dim",
+                        self.config.get("model.embedding.global.dim"))
+        self.config.set("model.embedding.relation.keys.var.dim",
+                        self.config.get("model.embedding.global.dim"))
+
+        self.config.set("model.embedding.global.dim", -1)
+
+        # self._embedding_space: EmbeddingSpace = EmbeddingSpace.from_config(config)
+        self._entity_embeddings: EntityEmbedding = EntityEmbedding(config=config, dataset=dataset)
+        self._relation_embeddings: RelationEmbedding = RelationEmbedding(config=config, dataset=dataset)
+
+        if not isinstance(self.config.get('model.embedding.temporal'), type(None)):
+            self._temporal_embeddings: TemporalEmbedding = TemporalEmbedding(config=config, dataset=dataset)
+
+        self._fusion: TemporalFusion = TemporalFusion.create_from_name(config)
+        self._transformation: Transformation = Transformation.create_from_name(config)
+
+        self._fusion_operand: List = []
+
+        self._inverse_scorer = self.config.get("model.scorer.inverse")
+
+        # import pprint
+        #
+        # pprint.pprint({n: p.size() for n, p in self.named_parameters()})
+        # assert False
+
+    def forward(self, samples: torch.Tensor):
+        # check the shape of input samples
+
+        # get embeddings from embedding_space
+        # {'s': embeddings of head embeddings,
+        #  'p': embeddings of relation embeddings,
+        #  'o': embeddings of tail embeddings,
+        #  't': embeddings of temporal information}
+
+        # spot_emb: Dict[torch.Tensor] = self._embedding_space(samples)
+        head = samples[:, 0].long()
+        rel = samples[:, 1].long()
+        tail = samples[:, 2].long()
+
+        temp = {}
+
+        if self.config.get('dataset.temporal.index') and not self.config.get('dataset.temporal.float'):
+            temp_index = samples[:, -1]
+            temp.update(self._temporal_embeddings(temp_index.long()))
+
+        if self.config.get('dataset.temporal.float'):
+            temp_float = samples[:, 3:-1] if self.config.get('dataset.temporal.index') else samples[:, 3:]
+            for i in range(temp_float.size(1)):
+                if not isinstance(self.config.get('model.embedding.temporal'), type(None)):
+                    # TODO: dangerous
+                    temp_embs = self._temporal_embeddings(temp_float[:, i:i + 1].long())
+                    temp_embs = {f"level{i}_{k}": v for k, v in temp_embs.items()}
+                    temp.update(temp_embs)
+                else:
+                    temp.update({f"level{i}": temp_float[:, i:i + 1]})
+
+        spot_emb = {'s': self._entity_embeddings(head, 'head'),
+                    'p': self._relation_embeddings(rel, inverse_relation=False),
+                    'o': self._entity_embeddings(tail, 'tail'),
+                    't': temp}
+
+        if self._inverse_scorer:
+            spot_emb_inv = {'s': self._entity_embeddings(tail, 'head'),
+                            'p': self._relation_embeddings(rel, inverse_relation=True),
+                            'o': self._entity_embeddings(head, 'tail'),
+                            't': temp}
+
+        fuse_target: List = self.config.get('model.fusion.target')
+
+        fused_spo_emb = self._fuse(spot_emb, fuse_target)
+
+        if self._inverse_scorer:
+            fused_spo_emb_inv = self._fuse(spot_emb_inv, fuse_target)
+
+        # transformation
+        # scores are vectors of input sample size
+
+        scores = self._transformation(fused_spo_emb['s'], fused_spo_emb['p'], fused_spo_emb['o'])
+
+        if self._inverse_scorer:
+            scores_inv = self._transformation(fused_spo_emb_inv['s'], fused_spo_emb_inv['p'], fused_spo_emb_inv['o'])
+
+            scores = (scores + scores_inv) / 2
+
+        factors = {"entity_reg": list(self._entity_embeddings.parameters()),
+                   "relation_reg": list(self._relation_embeddings.parameters())
+                   }
+
+        if hasattr(self, '_temporal_embeddings'):
+            factors.update({'temporal_reg': list(getattr(self, '_temporal_embeddings').parameters())})
+
+        return scores, factors
+
+    def _fuse(self, spot_emb, fuse_target):
+        fused_spo_emb = dict()
+        if 'ent+temp' in fuse_target:
+            fused_spo_emb['s'] = self._fusion(spot_emb['s'], spot_emb['t'])
+            fused_spo_emb['o'] = self._fusion(spot_emb['o'], spot_emb['t'])
+        else:
+            fused_spo_emb['s'] = spot_emb['s']
+            fused_spo_emb['o'] = spot_emb['o']
+        if 'rel+temp' in fuse_target:
+            fused_spo_emb['p'] = self._fusion(spot_emb['p'], spot_emb['t'])
+        else:
+            fused_spo_emb['p'] = spot_emb['p']
+        return fused_spo_emb
+
+    def predict(self, queries: torch.Tensor):
+        assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
+
+        bs = queries.size(0)
+        dim = queries.size(0)
+
+        candidates = all_candidates_of_ent_queries(queries, self.dataset.num_entities())
+
+        scores, _ = self.forward(candidates)
+        scores = scores.view(bs, -1)
+
+        return scores
+
+    def fit(self, samples: torch.Tensor):
+        bs = samples.size(0)
+        dim = samples.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
+
+        samples = samples.view(-1, dim)
+
+        scores, factors = self.forward(samples)
+        scores = scores.view(bs, -1)
+
+        return scores, factors
 
 
 if __name__ == '__main__':
