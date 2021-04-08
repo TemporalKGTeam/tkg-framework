@@ -12,6 +12,8 @@ from tkge.data.utils import get_all_days_of_year
 
 import enum
 import arrow
+import datetime
+import calendar
 
 from abc import ABC, abstractmethod
 
@@ -300,12 +302,76 @@ class ICEWS0515DatasetProcessor(DatasetProcessor):
                 quadruple = rd.strip().split('\t')
 
                 head_id, rel_id, tail_id, ts_id = self.index_quadruple(quadruple)
-                ts_float = map(int, quadruple[3].split('-'))
+                ts_float = list(map(int, quadruple[3].split('-')))
 
                 self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str):
         raise NotImplementedError
+
+
+# TODO test it
+@DatasetProcessor.register(name="yago11k")
+class YAGO11KDatasetProcessor(DatasetProcessor):
+    def process(self):
+        """
+        Processes the raw data for each data type (i.e. train, valid and test) of the YAGO11k dataset.
+        Every fact is framed into its time interval through adding facts for each timestamp between the start timestamp
+        and the end timestamp. Use the year_max and year_min parameters to set the year if the start timestamp or
+        end timestamp have no time information (i.e. ####-##-##).
+        The specified granularity will be augmented to the first possible day and/or month respectively the last
+        possible day and/or month for timestamps of the form XXXX-##-## and XXXX-XX-##.
+        """
+        for data_split in self.data_splits:
+            for rd in self.data_raw_mappings[data_split]:
+                fact = rd.strip().split('\t')
+
+                head_id, rel_id, tail_id = self.index_triple(fact[:3])
+
+                time_interval = self.process_time(origin='', start_ts=fact[3], end_ts=fact[4])
+
+                for ts in time_interval:
+                    ts_id = self.index_timestamps(ts)
+                    ts_float = list(map(int, ts.split('-')))
+                    self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
+
+    def process_time(self, origin: str, start_ts=None, end_ts=None):
+        start = list(map(int, list(filter(lambda x: x != '##' and x != '####', start_ts.split('-')))))
+        end = list(map(int, list(filter(lambda x: x != '##' and x != '####', end_ts.split('-')))))
+
+        if len(start) == 0:
+            start = [self.config.get('dataset.args.year_min')]
+        if len(start) == 1:
+            # if only year is available, start at first possible day of that year
+            start.extend([1, 1])
+        if len(start) == 2:
+            # if year and month is available, start at first day of that month
+            start.append(1)
+
+        if len(end) == 0:
+            end = [self.config.get('dataset.args.year_max')]
+        if len(end) == 1:
+            # if only year is available, stop at last possible point
+            end.extend([12, 31])
+        if len(end) == 2:
+            # if year and month is available, stop at last point of that month
+            end.append(calendar.monthrange(int(end[0]), int(end[1])))
+
+        start_date = datetime.datetime(*start)
+        end_date = datetime.datetime(*end)
+        delta = datetime.timedelta(days=1)
+
+        all_ts = []
+        while start_date <= end_date:
+            all_ts.append(start_date.strftime('%Y-%m-%d'))
+            start_date += delta
+
+        if self.resolution == "day":
+            return all_ts
+        elif self.resolution == "month":
+            return list(dict.fromkeys([ts[:-3] for ts in all_ts]))
+        else:
+            return list(dict.fromkeys([ts[:-6] for ts in all_ts]))
 
 
 @DatasetProcessor.register(name="yago15k")
