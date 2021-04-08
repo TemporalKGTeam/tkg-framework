@@ -286,6 +286,7 @@ class ICEWS14DatasetProcessor(DatasetProcessor):
         return ts
 
 
+# TODO test it
 @DatasetProcessor.register(name="icews05-15")
 class ICEWS0515DatasetProcessor(DatasetProcessor):
     def process(self):
@@ -297,13 +298,13 @@ class ICEWS0515DatasetProcessor(DatasetProcessor):
         for data_split in self.data_splits:
             for rd in self.data_raw_mappings[data_split]:
                 quadruple = rd.strip().split('\t')
+
                 head_id, rel_id, tail_id, ts_id = self.index_quadruple(quadruple)
-                ts_float = list(map(lambda x: int(x), self.process_time(quadruple[3]).split('-')))
+                ts_float = map(int, quadruple[3].split('-'))
 
                 self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str):
-        # TODO
         raise NotImplementedError
 
 
@@ -365,7 +366,7 @@ class WIKIDATALSEDatasetProcessor(DatasetProcessor):
                 self.add(data_split, head_id, rel_id, tail_id, ts_id, [ts_float])
 
     def process_time(self, origin: str):
-        pass
+        raise NotImplementedError
 
 
 class SplitDataset(torch.utils.data.Dataset):

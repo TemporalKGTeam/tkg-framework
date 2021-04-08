@@ -130,6 +130,35 @@ class ICEWS14TADatasetProcessor(DatasetProcessor):
         return ts
 
 
+# TODO test it, maybe reduce to one class called ICEWSTADatasetProcessor (since it does the exact same as icews14_TA)
+@DatasetProcessor.register(name="icews05-15_TA")
+class ICEWS0515TADatasetProcessor(DatasetProcessor):
+    def process(self):
+        """
+        Converts the raw text data to meaningful numerical data.
+        Since the ICEWS05-15 dataset represent its data in raw semantic texts, the head and tail entities as well as the
+        relations need to be indexed programmatically.
+        """
+        for data_split in self.data_splits:
+            for rd in self.data_raw_mappings[data_split]:
+                quadruple = rd.strip().split('\t')
+
+                head_id, rel_id, tail_id, ts_id = self.index_quadruple(quadruple)
+                ts_float = self.process_time(quadruple[3])
+
+                self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
+
+    def process_time(self, origin: str):
+        ts = []
+        year, month, day = origin.split('-')
+
+        ts.extend([get_tem_dict()[f'{int(yi):01}y'] for yi in year])
+        ts.extend([get_tem_dict()[f'{int(month):02}m']])
+        ts.extend([get_tem_dict()[f'{int(di):01}d'] for di in day])
+
+        return ts
+
+
 # TODO test it, should work since the sequence is always of the same length
 @DatasetProcessor.register(name="wikidata_lse_TA")
 class WIKIDATALSETADatasetProcessor(DatasetProcessor):
