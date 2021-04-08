@@ -89,3 +89,27 @@ The datasets have a public GitHub repository: [mmkb](https://github.com/nle-ml/m
   year={2018}
 }
 ```
+
+
+## YAGO15k
+---
+
+**Source Description:** 
+**Reference:**
+```
+TODO
+```
+
+**Dataset Description:**<br>
+TODO<br>
+The datasets have a public GitHub repository: [mmkb](https://github.com/nle-ml/mmkb)
+
+**Dataset reference:**
+```
+@article{garcia2018learning,
+  title={Learning sequence encoders for temporal knowledge graph completion},
+  author={Garc{\'\i}a-Dur{\'a}n, Alberto and Duman{\v{c}}i{\'c}, Sebastijan and Niepert, Mathias},
+  journal={arXiv preprint arXiv:1809.03202},
+  year={2018}
+}
+```
