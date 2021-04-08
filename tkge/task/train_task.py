@@ -255,12 +255,12 @@ class TrainTask(Task):
 
         scores, factors = self.model.fit(samples)
 
-        assert scores.size(0) == labels.size(
-            0), f"Score's size {scores.shape} should match label's size {labels.shape}"
+        self.config.assert_true(scores.size(0) == labels.size(
+            0), f"Score's size {scores.shape} should match label's size {labels.shape}")
         loss = self.loss(scores, labels)
 
-        assert not (factors and set(factors.keys()) - (set(self.regularizer) | set(
-            self.inplace_regularizer))), f"Regularizer name defined in model {set(factors.keys())} should correspond to that in config file"
+        self.config.assert_true(not (factors and set(factors.keys()) - (set(self.regularizer) | set(
+            self.inplace_regularizer))), f"Regularizer name defined in model {set(factors.keys())} should correspond to that in config file")
 
         if factors:
             for name, tensors in factors.items():
@@ -300,12 +300,12 @@ class TrainTask(Task):
                 queries_tail[:, 2] = float('nan')
 
                 batch_scores_head = self.model.predict(queries_head)
-                assert list(batch_scores_head.shape) == [bs,
-                                                         self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
+                self.config.assert_true(list(batch_scores_head.shape) == [bs,
+                                                         self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]")
 
                 batch_scores_tail = self.model.predict(queries_tail)
-                assert list(batch_scores_tail.shape) == [bs,
-                                                         self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]"
+                self.config.assert_true(list(batch_scores_tail.shape) == [bs,
+                                                         self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]")
 
                 # TODO (gengyuan): reimplement ATISE eval
 
