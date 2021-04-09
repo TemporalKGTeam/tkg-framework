@@ -72,12 +72,10 @@ class TrainTask(Task):
         self.datatype = (['timestamp_id'] if self.config.get("dataset.temporal.index") else []) + (
             ['timestamp_float'] if self.config.get("dataset.temporal.float") else [])
 
-        # TODO(gengyuan): passed to all modules
         self.device = self.config.get("task.device")
 
         self._prepare()
 
-        # TODO optimizer should be added into modules
 
     def _prepare(self):
         self.config.log(f"Preparing datasets {self.dataset} in folder {self.config.get('dataset.folder')}...")
@@ -307,8 +305,6 @@ class TrainTask(Task):
                 self.config.assert_true(list(batch_scores_tail.shape) == [bs,
                                                          self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]")
 
-                # TODO (gengyuan): reimplement ATISE eval
-
                 batch_metrics = dict()
 
                 batch_metrics['head'] = self.evaluation.eval(batch, batch_scores_head, miss='s')
@@ -340,7 +336,9 @@ class TrainTask(Task):
             'last_epoch': epoch,
             'state_dict': self.model.state_dict(),
             'optimizer': self.optimizer.state_dict(),
-            'lr_scheduler': self.lr_scheduler.state_dict() if self.lr_scheduler else None
+            'lr_scheduler': self.lr_scheduler.state_dict() if self.lr_scheduler else None,
+            'best_metrics': self.best_metric,
+            'best_epoch': self.best_epoch
         }
 
         torch.save(checkpoint,

@@ -30,6 +30,7 @@ subparsers = parser.add_subparsers(title="task",
 parser_train = TrainTask.parse_arguments(subparsers)
 parser_eval = TestTask.parse_arguments(subparsers)
 parser_hpo = HPOTask.parse_arguments(subparsers)
+parser_resume = ResumeTask.parse_arguments(subparsers)
 
 args = parser.parse_args()
 
@@ -48,9 +49,13 @@ config = Config.create_from_yaml(config_path)  # TODO load_default is false
 if args.task in ['search', 'train', 'hpo']:
     config.create_experiment()
 else:
-    raise NotImplementedError
+    config.restore_experiment(args.experiment)
 
-task = task_dict[args.task](config)
+kwargs = {}
+
+if args.task == 'resume':
+    kwargs.update({'ckpt_path': os.path.join(args.experiment, 'ckpt', args.ckpt_name)})
+task = task_dict[args.task](config, **kwargs)
 
 task.main()
 
