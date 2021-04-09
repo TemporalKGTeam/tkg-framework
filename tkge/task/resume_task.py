@@ -44,8 +44,8 @@ class ResumeTask(Task):
             "--checkpoint",
             type=str,
             default="latest.ckpt",
-            dest="ckpt_path",
-            help="choose the checkpoint in experiment folder from which training will be resumed."
+            dest="ckpt_name",
+            help="choose the checkpoint name in experiment folder from which training will be resumed."
         )
 
         return subparser
@@ -125,7 +125,7 @@ class ResumeTask(Task):
         optimizer_type = self.config.get("train.optimizer.type")
         optimizer_args = self.config.get("train.optimizer.args")
         self.optimizer = get_optimizer(self.model.parameters(), optimizer_type, optimizer_args)
-        self.optimizer.load_state_dict(self.ckpt['optimizer'], strict=True)
+        self.optimizer.load_state_dict(self.ckpt['optimizer'])
 
         self.config.log(f"Restoring lr scheduler")
         if self.config.get("train.lr_scheduler"):

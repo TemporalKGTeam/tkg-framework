@@ -46,9 +46,34 @@ class Config:
         self.log_level = self.get("console.log_level")
         self.echo = self.get("console.echo")
 
+    def restore_experiment(self, ex_folder):
+        """
+        ex_folder are absolute path
+        """
+        self.ex_folder = ex_folder
+
+        self.checkpoint_folder = os.path.join(self.ex_folder, 'ckpt')
+        self.log_folder = os.path.join(self.ex_folder, 'logging')
+        self.log_prefix = None
+
+        if not os.path.exists(self.checkpoint_folder):
+            os.makedirs(self.checkpoint_folder)
+        if not os.path.exists(self.log_folder):
+            os.makedirs(self.log_folder)
+
+        for f in os.listdir(self.log_folder):
+            if re.match(r"\d{4}-\d{1,2}-\d{1,2}-\d{1,2}-\d{1,2}-\d{1,2}.log", f):
+                self.log_file = f
+                break
+        else:
+            self.start_time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+            self.log_file = os.path.join(self.log_folder, f"{self.start_time}.log")
+        self.log_level = self.get("console.log_level")
+        self.echo = self.get("console.echo")
+
     def create_trial(self, trial_id: int):
         self.trial_id = trial_id
-        self.trial_folder = os.path.join(self.ex_folder, 'trial'+str(trial_id))
+        self.trial_folder = os.path.join(self.ex_folder, 'trial' + str(trial_id))
         os.makedirs(self.trial_folder)
 
         self.save(os.path.join(self.trial_folder, 'config.yaml'))
@@ -271,7 +296,6 @@ class Config:
 
     # -- FOLDERS AND CHECKPOINTS ----------------------------------------------
 
-
     def checkpoint_file(self, cpt_id: Union[str, int]) -> str:
         """Returns path of checkpoint file for given checkpoint id"""
         from tkge.common.misc import is_number
@@ -377,7 +401,6 @@ class Config:
         ex_id = f"ex{ex_max + 1:06d}"
         ex_folder = os.path.join(base_folder, ex_id)
         os.makedirs(ex_folder)
-
 
         return ex_folder, ex_id
 
