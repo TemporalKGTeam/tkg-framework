@@ -1,5 +1,6 @@
 import datetime
 import os
+import logging
 import re
 import sys
 import time
@@ -11,6 +12,8 @@ from typing import Any, Dict, Optional, Union, TypeVar, Tuple
 import yaml
 
 from tkge.common.error import ConfigurationError
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound="Config")
 
@@ -36,15 +39,9 @@ class Config:
         self.checkpoint_folder = os.path.join(self.ex_folder, 'ckpt')
         self.log_folder = os.path.join(self.ex_folder,
                                        'logging')  # None means use self.folder; used for kge.log, trace.yaml
-        self.log_prefix: str = None
 
         os.makedirs(self.checkpoint_folder)
         os.makedirs(self.log_folder)
-
-        self.start_time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        self.log_file = os.path.join(self.log_folder, f"{self.start_time}.log")
-        self.log_level = self.get("console.log_level")
-        self.echo = self.get("console.echo")
 
     def create_trial(self, trial_id: int):
         self.trial_id = trial_id
@@ -55,15 +52,9 @@ class Config:
 
         self.checkpoint_folder = os.path.join(self.trial_folder, 'ckpt')
         self.log_folder = os.path.join(self.trial_folder, 'logging')
-        self.log_prefix: str = None
 
         os.makedirs(self.checkpoint_folder)
         os.makedirs(self.log_folder)
-
-        self.start_time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        self.log_file = os.path.join(self.log_folder, f"{self.start_time}.log")
-        self.log_level = self.get("console.log_level")
-        self.echo = self.get("console.echo")
 
     def open_experiment(self):
         raise NotImplementedError
@@ -184,7 +175,7 @@ class Config:
         # all fine, set value
         data[splits[-1]] = value
         if log:
-            self.log("Set {}={}".format(key, value))
+            logger.info("Set {}={}".format(key, value))
         return value
 
     def set_all(
@@ -254,7 +245,7 @@ class Config:
         if echo or log:
             msg = yaml.dump(kwargs, default_flow_style=echo_flow)
             if log:
-                self.log(msg, echo, echo_prefix)
+                logger.info(msg, echo, echo_prefix)
             else:
                 for line in msg.splitlines():
                     if echo_prefix:
@@ -266,7 +257,7 @@ class Config:
 
     def assert_true(self, condition: bool, message: str):
         if not condition:
-            self.log(message, level="error")
+            logger.info(message)
             sys.exit()
 
     # -- FOLDERS AND CHECKPOINTS ----------------------------------------------

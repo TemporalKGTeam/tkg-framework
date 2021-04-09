@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data.dataset import Dataset as PTDataset
 import numpy as np
+import logging
 
 from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
@@ -16,6 +17,7 @@ import arrow
 
 from abc import ABC, abstractmethod
 
+logger = logging.getLogger(__name__)
 SPOT = enum.Enum('spot', ('s', 'p', 'o', 't'))
 
 
@@ -173,16 +175,16 @@ class DatasetProcessor(ABC, Registrable, Configurable):
         return filtered_data
 
     def info(self):
-        self.config.log('==============================================')
-        self.config.log(f'Dataset type : {self.config.get("dataset.name")}')
-        self.config.log(f"Number of entities : {self.num_entities()}")
-        self.config.log(f"Number of relations : {self.num_relations()}")
-        self.config.log(f"Number of temporal identifiers : {self.num_timestamps()}")
-        self.config.log(f"\n")
-        self.config.log(f"Train set size : {self.train_size}")
-        self.config.log(f"Valid set size : {self.valid_size}")
-        self.config.log(f"Test set size : {self.test_size}")
-        self.config.log('==============================================')
+        logger.info('==============================================')
+        logger.info(f'Dataset type : {self.config.get("dataset.name")}')
+        logger.info(f"Number of entities : {self.num_entities()}")
+        logger.info(f"Number of relations : {self.num_relations()}")
+        logger.info(f"Number of temporal identifiers : {self.num_timestamps()}")
+        logger.info(f"\n")
+        logger.info(f"Train set size : {self.train_size}")
+        logger.info(f"Valid set size : {self.valid_size}")
+        logger.info(f"Test set size : {self.test_size}")
+        logger.info('==============================================')
 
 
 @DatasetProcessor.register(name="gdelt")

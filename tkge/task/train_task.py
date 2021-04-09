@@ -1,8 +1,8 @@
-import torch
-
-import time
-import os
 import argparse
+import logging
+import os
+import time
+import torch
 
 from typing import Dict, List
 from collections import defaultdict
@@ -17,6 +17,8 @@ from tkge.models.model import BaseModel
 from tkge.models.pipeline_model import TransSimpleModel
 from tkge.models.loss import Loss
 from tkge.eval.metrics import Evaluation
+
+logger = logging.getLogger(__name__)
 
 
 class TrainTask(Task):
@@ -80,11 +82,11 @@ class TrainTask(Task):
         # TODO optimizer should be added into modules
 
     def _prepare(self):
-        self.config.log(f"Preparing datasets {self.dataset} in folder {self.config.get('dataset.folder')}...")
+        logger.info(f"Preparing datasets {self.dataset} in folder {self.config.get('dataset.folder')}...")
         self.dataset = DatasetProcessor.create(config=self.config)
         self.dataset.info()
 
-        self.config.log(f"Loading training split data for loading")
+        logger.info(f"Loading training split data for loading")
         # TODO(gengyuan) load params
         self.train_loader = torch.utils.data.DataLoader(
             SplitDataset(self.dataset.get("train"), self.datatype),
@@ -106,29 +108,29 @@ class TrainTask(Task):
             timeout=self.config.get("train.loader.timeout")
         )
 
-        self.config.log(f"Initializing negative sampling")
+        logger.info(f"Initializing negative sampling")
         self.sampler = NegativeSampler.create(config=self.config, dataset=self.dataset)
         self.onevsall_sampler = NonNegativeSampler(config=self.config, dataset=self.dataset, as_matrix=True)
 
-        self.config.log(f"Creating model {self.config.get('model.type')}")
+        logger.info(f"Creating model {self.config.get('model.type')}")
         self.model = BaseModel.create(config=self.config, dataset=self.dataset)
         self.model.to(self.device)
 
-        self.config.log(f"Initializing loss function")
+        logger.info(f"Initializing loss function")
         self.loss = Loss.create(config=self.config)
 
-        self.config.log(f"Initializing optimizer")
+        logger.info(f"Initializing optimizer")
         optimizer_type = self.config.get("train.optimizer.type")
         optimizer_args = self.config.get("train.optimizer.args")
         self.optimizer = get_optimizer(self.model.parameters(), optimizer_type, optimizer_args)
 
-        self.config.log(f"Initializing lr scheduler")
+        logger.info(f"Initializing lr scheduler")
         if self.config.get("train.lr_scheduler"):
             scheduler_type = self.config.get("train.lr_scheduler.type")
             scheduler_args = self.config.get("train.lr_scheduler.args")
             self.lr_scheduler = get_scheduler(self.optimizer, scheduler_type, scheduler_args)
 
-        self.config.log(f"Initializing regularizer")
+        logger.info(f"Initializing regularizer")
         self.regularizer = dict()
         self.inplace_regularizer = dict()
 
@@ -140,26 +142,24 @@ class TrainTask(Task):
             for name in self.config.get("train.inplace_regularizer"):
                 self.inplace_regularizer[name] = InplaceRegularizer.create(self.config, name)
 
-        self.config.log(f"Initializing evaluation")
+        logger.info(f"Initializing evaluation")
         self.evaluation = Evaluation(config=self.config, dataset=self.dataset)
 
         # validity checks and warnings
         if self.train_sub_bs >= self.train_bs or self.train_sub_bs < 1:
-            # TODO(max) improve logging with different hierarchies/labels, i.e. merge with branch advannced_log_and_ckpt_management
-            self.config.log(f"Specified train.sub_batch_size={self.train_sub_bs} is greater or equal to "
-                            f"train.batch_size={self.train_bs} or smaller than 1, so use no sub batches. "
-                            f"Device(s) may run out of memory.", level="warning")
+            logger.warning(f"Specified train.sub_batch_size={self.train_sub_bs} is greater or equal to "
+                           f"train.batch_size={self.train_bs} or smaller than 1, so use no sub batches. "
+                           f"Device(s) may run out of memory.")
             self.train_sub_bs = self.train_bs
 
         if self.valid_sub_bs >= self.valid_bs or self.valid_sub_bs < 1:
-            # TODO(max) improve logging with different hierarchies/labels, i.e. merge with branch advannced_log_and_ckpt_management
-            self.config.log(f"Specified train.valid.sub_batch_size={self.valid_sub_bs} is greater or equal to "
-                            f"train.valid.batch_size={self.valid_bs} or smaller than 1, so use no sub batches. "
-                            f"Device(s) may run out of memory.", level="warning")
+            logger.warning(f"Specified train.valid.sub_batch_size={self.valid_sub_bs} is greater or equal to "
+                           f"train.valid.batch_size={self.valid_bs} or smaller than 1, so use no sub batches. "
+                           f"Device(s) may run out of memory.")
             self.valid_sub_bs = self.valid_bs
 
     def main(self):
-        self.config.log("BEGIN TRAINING")
+        logger.info("BEGIN TRAINING")
 
         save_freq = self.config.get("train.checkpoint.every")
         eval_freq = self.config.get("train.valid.every")
@@ -223,7 +223,7 @@ class TrainTask(Task):
                 else:
                     self.lr_scheduler.step()
 
-            self.config.log(f"Loss in iteration {epoch} : {avg_loss} consuming {stop_time - start_time}s")
+            logger.info(f"Loss in iteration {epoch} : {avg_loss} consuming {stop_time - start_time}s")
 
             if epoch % save_freq == 0:
                 self.save_ckpt(f"epoch_{epoch}", epoch=epoch)
@@ -231,10 +231,9 @@ class TrainTask(Task):
             if epoch % eval_freq == 0:
                 metrics = self.eval()
 
-                self.config.log(f"Metrics(head prediction) in iteration {epoch} : {metrics['head'].items()}")
-                self.config.log(f"Metrics(tail prediction) in iteration {epoch} : {metrics['tail'].items()}")
-                self.config.log(f"Metrics(both prediction) in iteration {epoch} : {metrics['avg'].items()} ")
-
+                logger.info(f"Metrics(head prediction) in iteration {epoch} : {metrics['head'].items()}")
+                logger.info(f"Metrics(tail prediction) in iteration {epoch} : {metrics['tail'].items()}")
+                logger.info(f"Metrics(both prediction) in iteration {epoch} : {metrics['avg'].items()} ")
 
                 if metrics['avg']['mean_reciprocal_ranking'] > self.best_metric:
                     self.best_metric = metrics['avg']['mean_reciprocal_ranking']
@@ -244,7 +243,7 @@ class TrainTask(Task):
 
             self.save_ckpt('latest', epoch=epoch)
 
-        self.config.log(f"TRAINING FINISHED: Best model achieved at epoch {self.best_epoch}")
+        logger.info(f"TRAINING FINISHED: Best model achieved at epoch {self.best_epoch}")
 
     def _subbatch_forward(self, pos_subbatch):
         sample_target = self.config.get("negative_sampling.target")
@@ -260,7 +259,8 @@ class TrainTask(Task):
         loss = self.loss(scores, labels)
 
         self.config.assert_true(not (factors and set(factors.keys()) - (set(self.regularizer) | set(
-            self.inplace_regularizer))), f"Regularizer name defined in model {set(factors.keys())} should correspond to that in config file")
+            self.inplace_regularizer))),
+                                f"Regularizer name defined in model {set(factors.keys())} should correspond to that in config file")
 
         if factors:
             for name, tensors in factors.items():
@@ -301,11 +301,13 @@ class TrainTask(Task):
 
                 batch_scores_head = self.model.predict(queries_head)
                 self.config.assert_true(list(batch_scores_head.shape) == [bs,
-                                                         self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]")
+                                                                          self.dataset.num_entities()],
+                                        f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]")
 
                 batch_scores_tail = self.model.predict(queries_tail)
                 self.config.assert_true(list(batch_scores_tail.shape) == [bs,
-                                                         self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]")
+                                                                          self.dataset.num_entities()],
+                                        f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]")
 
                 # TODO (gengyuan): reimplement ATISE eval
 
@@ -329,12 +331,10 @@ class TrainTask(Task):
 
             return metrics
 
-
-
     def save_ckpt(self, ckpt_name, epoch):
         filename = f"{ckpt_name}.ckpt"
 
-        self.config.log(f"Save the model checkpoint to {self.config.checkpoint_folder} as file {filename}")
+        logger.info(f"Save the model checkpoint to {self.config.checkpoint_folder} as file {filename}")
 
         checkpoint = {
             'last_epoch': epoch,
