@@ -54,6 +54,9 @@ class BaseModel(ABC, nn.Module, Registrable, Configurable):
 
     @abstractmethod
     def forward(self, samples, **kwargs):
+        """
+        return scores, factors
+        """
         raise NotImplementedError
 
     @abstractmethod

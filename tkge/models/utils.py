@@ -23,3 +23,11 @@ def all_candidates_of_ent_queries(queries: torch.Tensor, vocab_size: int):
         candidates[p[0] * vocab_size:(p[0] + 1) * vocab_size, p[1]] = torch.arange(vocab_size)
 
     return candidates
+
+def forward_checking(func):
+    def wrapper():
+        return_res = func()
+        if len(return_res)!=2:
+            raise
+    return wrapper
+
