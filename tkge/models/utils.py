@@ -33,5 +33,7 @@ def forward_checking(func):
             raise CodeError(f'User-defined forward methods should return scores and factors')
         if torch.isnan(return_res[0]).any():
             raise NaNError(f'`Catch abnormal value(NaN) in returned scores')
+
+        return return_res
     return wrapper
 

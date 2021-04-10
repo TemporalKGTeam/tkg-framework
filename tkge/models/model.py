@@ -52,7 +52,6 @@ class BaseModel(ABC, nn.Module, Registrable, Configurable):
     def get_embedding(self, **kwargs):
         raise NotImplementedError
 
-    @forward_checking
     @abstractmethod
     def forward(self, samples, **kwargs):
         """
@@ -242,6 +241,7 @@ class DeSimplEModel(BaseModel):
 
         return h_emb1, r_emb1, t_emb1, h_emb2, r_emb2, t_emb2
 
+    @forward_checking
     def forward(self, samples, **kwargs):
         head = samples[:, 0].long()
         rel = samples[:, 1].long()
@@ -309,6 +309,7 @@ class TComplExModel(BaseModel):
         for emb in self.embeddings:
             emb.weight.data *= self.init_size
 
+    @forward_checking
     def forward(self, x):
         """
         x is spot
@@ -429,6 +430,7 @@ class TNTComplExModel(BaseModel):
         for emb in self.embeddings:
             emb.weight.data *= self.init_size
 
+    @forward_checking
     def forward(self, x):
 
         lhs = self.embeddings[0](x[:, 0].long())
@@ -517,6 +519,7 @@ class HyTEModel(BaseModel):
     def __init__(self, config: Config, dataset: DatasetProcessor, **kwargs):
         super().__init__(config, dataset)
 
+    @forward_checking
     def forward(self, samples: torch.Tensor, **kwargs):
         # TODO remember to negate the scores with torch.neg(scores)
         raise NotImplementedError
@@ -580,6 +583,7 @@ class ATiSEModel(BaseModel):
 
         print(sum(p.numel() for p in self.parameters() if p.requires_grad))
 
+    @forward_checking
     def forward(self, sample: torch.Tensor):
         bs = sample.size(0)
         # TODO(gengyuan)
@@ -740,6 +744,7 @@ class TATransEModel(BaseModel):
 
         return rseq_e
 
+    @forward_checking
     def forward(self, samples: torch.Tensor):
         h, r, t, tem = samples[:, 0].long(), samples[:, 1].long(), samples[:, 2].long(), samples[:, 3:].long()
 
@@ -822,6 +827,7 @@ class TADistmultModel(BaseModel):
             torch.nn.init.xavier_uniform_(emb.weight)
             emb.weight.data.renorm(p=2, dim=1, maxnorm=1)
 
+    @forward_checking
     def forward(self, samples: torch.Tensor):
         h, r, t, tem = samples[:, 0].long(), samples[:, 1].long(), samples[:, 2].long(), samples[:, 3:].long()
 
@@ -914,6 +920,7 @@ class TTransEModel(BaseModel):
             torch.nn.init.xavier_uniform_(emb.weight)
             emb.weight.data.renorm(p=2, dim=1, maxnorm=1)
 
+    @forward_checking
     def forward(self, samples, **kwargs):
         h, r, t, tem = samples[:, 0].long(), samples[:, 1].long(), samples[:, 2].long(), samples[:, 3].long()
 

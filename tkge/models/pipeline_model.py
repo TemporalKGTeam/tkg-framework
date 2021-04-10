@@ -46,6 +46,7 @@ class PipelineModel(BaseModel):
         # pprint.pprint({n: p.size() for n, p in self.named_parameters()})
         # assert False
 
+    @forward_checking
     def forward(self, samples: torch.Tensor):
         # check the shape of input samples
 
@@ -202,6 +203,7 @@ class TransSimpleModel(BaseModel):
         # pprint.pprint({n: p.size() for n, p in self.named_parameters()})
         # assert False
 
+    @forward_checking
     def forward(self, samples: torch.Tensor):
         # check the shape of input samples
 
@@ -371,6 +373,7 @@ class DePipelineModel(BaseModel):
         # pprint.pprint({n: p.size() for n, p in self.named_parameters()})
         # assert False
 
+    @forward_checking
     def forward(self, samples: torch.Tensor):
         # check the shape of input samples
 
@@ -530,6 +533,7 @@ class ATiSEPipelineModel(BaseModel):
         # pprint.pprint({n: p.size() for n, p in self.named_parameters()})
         # assert False
 
+    @forward_checking
     def forward(self, samples: torch.Tensor):
         # check the shape of input samples
 

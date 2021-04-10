@@ -42,6 +42,11 @@ class TestEvaluation(unittest.TestCase):
             scores[0,0] = torch.tensor(float('NaN'))
             return scores, []
 
+        @forward_checking
+        def test_func3():
+            scores = torch.rand(3, 3)
+            return scores, []
+
         self.assertRaises(CodeError, test_func1)
         self.assertRaises(NaNError, test_func2)
 
