@@ -27,8 +27,8 @@ def all_candidates_of_ent_queries(queries: torch.Tensor, vocab_size: int):
     return candidates
 
 def forward_checking(func):
-    def wrapper():
-        return_res = func()
+    def wrapper(*args, **kwargs):
+        return_res = func(*args, **kwargs)
         if not (isinstance(return_res, tuple) and len(return_res)==2):
             raise CodeError(f'User-defined forward methods should return scores and factors')
         if torch.isnan(return_res[0]).any():
