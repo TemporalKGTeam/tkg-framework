@@ -76,7 +76,6 @@ class TrainTask(Task):
 
         self._prepare()
 
-
     def _prepare(self):
         self.config.log(f"Preparing datasets {self.dataset} in folder {self.config.get('dataset.folder')}...")
         self.dataset = DatasetProcessor.create(config=self.config)
@@ -142,6 +141,8 @@ class TrainTask(Task):
         self.evaluation = Evaluation(config=self.config, dataset=self.dataset)
 
         # validity checks and warnings
+        self.subbatch_adaptive = self.config.get("train.subbatch_adaptive")
+
         if self.train_sub_bs >= self.train_bs or self.train_sub_bs < 1:
             # TODO(max) improve logging with different hierarchies/labels, i.e. merge with branch advannced_log_and_ckpt_management
             self.config.log(f"Specified train.sub_batch_size={self.train_sub_bs} is greater or equal to "
@@ -177,35 +178,56 @@ class TrainTask(Task):
 
             start_time = time.time()
 
+            # processing batches
             for pos_batch in self.train_loader:
-                self.optimizer.zero_grad()
+                done = False
 
-                batch_loss = 0.
+                while not done:
+                    try:
+                        self.optimizer.zero_grad()
 
-                # may be smaller than the specified batch size in last iteration
-                bs = pos_batch.size(0)
+                        batch_loss = 0.
 
-                for start in range(0, bs, self.train_sub_bs):
-                    stop = min(start + self.train_sub_bs, bs)
-                    pos_subbatch = pos_batch[start:stop]
-                    subbatch_loss, subbatch_factors = self._subbatch_forward(pos_subbatch)
+                        # may be smaller than the specified batch size in last iteration
+                        bs = pos_batch.size(0)
 
-                    batch_loss += subbatch_loss
+                        # processing subbatches
+                        for start in range(0, bs, self.train_sub_bs):
+                            stop = min(start + self.train_sub_bs, bs)
+                            pos_subbatch = pos_batch[start:stop]
+                            subbatch_loss, subbatch_factors = self._subbatch_forward(pos_subbatch)
 
-                batch_loss.backward()
-                self.optimizer.step()
+                            batch_loss += subbatch_loss
 
-                total_epoch_loss += batch_loss.cpu().item()
+                        batch_loss.backward()
+                        self.optimizer.step()
 
-                if subbatch_factors:
-                    for name, tensors in subbatch_factors.items():
-                        if name not in self.inplace_regularizer:
-                            continue
+                        total_epoch_loss += batch_loss.cpu().item()
 
-                        if not isinstance(tensors, (tuple, list)):
-                            tensors = [tensors]
+                        if subbatch_factors:
+                            for name, tensors in subbatch_factors.items():
+                                if name not in self.inplace_regularizer:
+                                    continue
 
-                        self.inplace_regularizer[name](tensors)
+                                if not isinstance(tensors, (tuple, list)):
+                                    tensors = [tensors]
+
+                                self.inplace_regularizer[name](tensors)
+
+                        done = True
+
+                    except RuntimeError as e:
+                        if ("CUDA out of memory" not in str(e) or not self.subbatch_adaptive):
+                            raise e
+
+                        self.train_sub_bs //= 2
+                        if self.train_sub_bs > 0:
+                            self.config.log(f"CUDA out of memory. Subbatch size reduced to {self.train_sub_bs}.",
+                                            level="warning")
+                        else:
+                            self.config.log(f"CUDA out of memory. Subbatch size cannot be further reduces.",
+                                            level="error")
+                            raise e
 
                 # empty caches
                 # del samples, labels, scores, factors
@@ -233,7 +255,6 @@ class TrainTask(Task):
                 self.config.log(f"Metrics(tail prediction) in iteration {epoch} : {metrics['tail'].items()}")
                 self.config.log(f"Metrics(both prediction) in iteration {epoch} : {metrics['avg'].items()} ")
 
-
                 if metrics['avg']['mean_reciprocal_ranking'] > self.best_metric:
                     self.best_metric = metrics['avg']['mean_reciprocal_ranking']
                     self.best_epoch = epoch
@@ -258,7 +279,8 @@ class TrainTask(Task):
         loss = self.loss(scores, labels)
 
         self.config.assert_true(not (factors and set(factors.keys()) - (set(self.regularizer) | set(
-            self.inplace_regularizer))), f"Regularizer name defined in model {set(factors.keys())} should correspond to that in config file")
+            self.inplace_regularizer))),
+                                f"Regularizer name defined in model {set(factors.keys())} should correspond to that in config file")
 
         if factors:
             for name, tensors in factors.items():
@@ -273,6 +295,35 @@ class TrainTask(Task):
 
         return loss, factors
 
+    def _subbatch_forward_predict(self, query_subbatch):
+        bs = query_subbatch.size(0)
+        queries_head = query_subbatch.clone()[:, :-1]
+        queries_tail = query_subbatch.clone()[:, :-1]
+
+        queries_head[:, 0] = float('nan')
+        queries_tail[:, 2] = float('nan')
+
+        batch_scores_head = self.model.predict(queries_head)
+        self.config.assert_true(list(batch_scores_head.shape) == [bs,
+                                                                  self.dataset.num_entities()],
+                                f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]")
+
+        batch_scores_tail = self.model.predict(queries_tail)
+        self.config.assert_true(list(batch_scores_tail.shape) == [bs,
+                                                                  self.dataset.num_entities()],
+                                f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]")
+
+        subbatch_metrics = dict()
+
+        subbatch_metrics['head'] = self.evaluation.eval(query_subbatch, batch_scores_head, miss='s')
+        subbatch_metrics['tail'] = self.evaluation.eval(query_subbatch, batch_scores_tail, miss='o')
+        subbatch_metrics['size'] = bs
+
+        del query_subbatch, batch_scores_head, batch_scores_tail
+        torch.cuda.empty_cache()
+
+        return subbatch_metrics
+
     def eval(self):
         with torch.no_grad():
             self.model.eval()
@@ -282,50 +333,73 @@ class TrainTask(Task):
             metrics = dict()
             metrics['head'] = defaultdict(float)
             metrics['tail'] = defaultdict(float)
+            metrics['size'] = 0
 
             for batch in self.valid_loader:
-                bs = batch.size(0)
-                dim = batch.size(1)
+                done = False
 
-                batch = batch.to(self.device)
+                while not done:
+                    try:
+                        bs = batch.size(0)
+                        dim = batch.size(1)
 
-                counter += bs
+                        batch_metrics = dict()
+                        batch_metrics['head'] = defaultdict(float)
+                        batch_metrics['tail'] = defaultdict(float)
+                        batch_metrics['size'] = 0
 
-                queries_head = batch.clone()[:, :-1]
-                queries_tail = batch.clone()[:, :-1]
+                        batch = batch.to(self.device)
 
-                queries_head[:, 0] = float('nan')
-                queries_tail[:, 2] = float('nan')
+                        counter += bs
 
-                batch_scores_head = self.model.predict(queries_head)
-                self.config.assert_true(list(batch_scores_head.shape) == [bs,
-                                                         self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]")
+                        for start in range(0, bs, self.valid_sub_bs):
+                            stop = min(start + self.valid_sub_bs, bs)
+                            query_subbatch = batch[start:stop]
+                            subbatch_metrics = self._subbatch_forward_predict(query_subbatch)
 
-                batch_scores_tail = self.model.predict(queries_tail)
-                self.config.assert_true(list(batch_scores_tail.shape) == [bs,
-                                                         self.dataset.num_entities()], f"Scores {batch_scores_head.shape} should be in shape [{bs}, {self.dataset.num_entities()}]")
+                            for pos in ['head', 'tail']:
+                                for key in subbatch_metrics[pos].keys():
+                                    batch_metrics[pos][key] += subbatch_metrics[pos][key] * subbatch_metrics['size']
+                            batch_metrics['size'] += subbatch_metrics['size']
 
-                batch_metrics = dict()
+                        done = True
 
-                batch_metrics['head'] = self.evaluation.eval(batch, batch_scores_head, miss='s')
-                batch_metrics['tail'] = self.evaluation.eval(batch, batch_scores_tail, miss='o')
+                        for pos in ['head', 'tail']:
+                            for key in batch_metrics[pos].keys():
+                                batch_metrics[pos][key] /= batch_metrics['size']
 
-                # TODO(gengyuan) refactor
+                    except RuntimeError as e:
+                        if ("CUDA out of memory" not in str(e) or not self.subbatch_adaptive):
+                            raise e
+
+                        self.valid_sub_bs //= 2
+                        if self.valid_sub_bs > 0:
+                            self.config.log(
+                                f"CUDA out of memory. Subbatch size for validation reduced to {self.valid_sub_bs}.",
+                                level="warning")
+                        else:
+                            self.config.log(
+                                f"CUDA out of memory. Subbatch size for validation cannot be further reduces.",
+                                level="error")
+                            raise e
+
                 for pos in ['head', 'tail']:
                     for key in batch_metrics[pos].keys():
-                        metrics[pos][key] += batch_metrics[pos][key] * bs
+                        metrics[pos][key] += batch_metrics[pos][key] * batch_metrics['size']
+                metrics['size'] += batch_metrics['size']
+
+            del batch
+            torch.cuda.empty_cache()
 
             for pos in ['head', 'tail']:
                 for key in metrics[pos].keys():
-                    metrics[pos][key] /= counter
+                    metrics[pos][key] /= metrics['size']
 
             avg = {k: (metrics['head'][k] + metrics['tail'][k]) / 2 for k in metrics['head'].keys()}
 
             metrics.update({'avg': avg})
 
             return metrics
-
-
 
     def save_ckpt(self, ckpt_name, epoch):
         filename = f"{ckpt_name}.ckpt"
