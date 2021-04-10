@@ -226,7 +226,6 @@ class ResumeTask(Task):
                         done = True
 
                     except RuntimeError as e:
-                        print(str(e))
                         if ("CUDA out of memory" not in str(e) or not self.subbatch_adaptive):
                             raise e
 
