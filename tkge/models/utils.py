@@ -1,5 +1,7 @@
 import torch
 
+from tkge.common.error import *
+
 
 def all_candidates_of_ent_queries(queries: torch.Tensor, vocab_size: int):
     """
@@ -27,7 +29,9 @@ def all_candidates_of_ent_queries(queries: torch.Tensor, vocab_size: int):
 def forward_checking(func):
     def wrapper():
         return_res = func()
-        if len(return_res)!=2:
-            raise
+        if not (isinstance(return_res, tuple) and len(return_res)==2):
+            raise CodeError(f'User-defined forward methods should return scores and factors')
+        if torch.isnan(return_res[0]).any():
+            raise NaNError(f'`Catch abnormal value(NaN) in returned scores')
     return wrapper
 

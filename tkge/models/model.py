@@ -52,6 +52,7 @@ class BaseModel(ABC, nn.Module, Registrable, Configurable):
     def get_embedding(self, **kwargs):
         raise NotImplementedError
 
+    @forward_checking
     @abstractmethod
     def forward(self, samples, **kwargs):
         """
