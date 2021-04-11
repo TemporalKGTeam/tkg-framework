@@ -26,14 +26,19 @@ def all_candidates_of_ent_queries(queries: torch.Tensor, vocab_size: int):
 
     return candidates
 
+
 def forward_checking(func):
     def wrapper(*args, **kwargs):
         return_res = func(*args, **kwargs)
-        if not (isinstance(return_res, tuple) and len(return_res)==2):
+        if not (isinstance(return_res, tuple) and len(return_res) == 2):
             raise CodeError(f'User-defined forward methods should return scores and factors')
         if torch.isnan(return_res[0]).any():
-            raise NaNError(f'`Catch abnormal value(NaN) in returned scores')
+            raise NaNError(f'Catch abnormal value(NaN) in returned scores')
+
+        epsilon = torch.tensor(10e-16)
+        if return_res[0].max().abs() < epsilon and return_res[0].max().abs():
+            raise AbnormalValueError(f'Abnormal scores detected: all scores are close to zero')
 
         return return_res
-    return wrapper
 
+    return wrapper
