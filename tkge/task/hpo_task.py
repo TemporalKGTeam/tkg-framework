@@ -37,8 +37,15 @@ class HPOTask(Task):
         self._prepare_experiment()
 
     def _prepare_experiment(self):
+        gs = GenerationStrategy(name="sobol+gpei", steps=[
+            GenerationStep(model=ax.Models.SOBOL,
+                           num_trials=self.config.get("hpo.num_random_trials"),
+                           min_trials_observed=self.config.get("hpo.num_random_trials") // 2,
+                           enforce_num_trials=True),
+            GenerationStep(model=ax.Models.GPEI, num_trials=-1)])
+
         # initialize a client
-        self.ax_client = AxClient()
+        self.ax_client = AxClient(generation_strategy=gs)
 
         # define the search space
         hp_group = self.config.get("hpo.hyperparam")
@@ -101,7 +108,7 @@ class HPOTask(Task):
             try:
                 data = self._evaluate(parameters, trial_index)
             except Exception as e:
-                self.config.log(f"{e}", level="error")
+                self.config.log(str(e), level="warning")
                 self.ax_client.log_trial_failure(trial_index=trial_index)
             else:
                 self.ax_client.complete_trial(trial_index=trial_index, raw_data=data)
@@ -115,5 +122,6 @@ class HPOTask(Task):
                         f"Best metrics:"
                         f"{values}")
 
-        self.ax_client.generation_strategy.trials_as_df.to_csv(self.config.ex_folder + '/trials.csv')
-        self.ax_client.save_to_json_file(filepath=self.config.ex_folder+'/trials.json')
+        if hasattr(self.ax_client.generation_strategy, 'trials_as_df'):
+            self.ax_client.generation_strategy.trials_as_df.to_csv(self.config.ex_folder + '/trials.csv')
+        self.ax_client.save_to_json_file(filepath=self.config.ex_folder + '/trials.json')
