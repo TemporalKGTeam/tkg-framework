@@ -41,11 +41,6 @@ class PipelineModel(BaseModel):
 
         self._inverse_scorer = self.config.get("model.scorer.inverse")
 
-        # import pprint
-        #
-        # pprint.pprint({n: p.size() for n, p in self.named_parameters()})
-        # assert False
-
     @forward_checking
     def forward(self, samples: torch.Tensor):
         # check the shape of input samples
@@ -269,11 +264,7 @@ class TransSimpleModel(BaseModel):
             # fused_spo_emb_inv['o']['real'] = self.dropout(fused_spo_emb_inv['o']['real'])
             scores_inv = self._transformation(fused_spo_emb_inv['s'], fused_spo_emb_inv['p'], fused_spo_emb_inv['o'])
 
-            print(scores)
-
             scores = (scores + scores_inv) / 2
-
-        print(scores)
 
         factors = {
             "n3": (torch.sqrt(self._entity_embeddings._head['real'].weight ** 2),
@@ -433,6 +424,7 @@ class DePipelineModel(BaseModel):
 
             scores = (scores + scores_inv) / 2
 
+
         factors = {"entity_reg": list(self._entity_embeddings.parameters()),
                    "relation_reg": list(self._relation_embeddings.parameters())
                    }
@@ -514,7 +506,6 @@ class ATiSEPipelineModel(BaseModel):
 
         self.config.set("model.embedding.global.dim", -1)
 
-        # self._embedding_space: EmbeddingSpace = EmbeddingSpace.from_config(config)
         self._entity_embeddings: EntityEmbedding = EntityEmbedding(config=config, dataset=dataset)
         self._relation_embeddings: RelationEmbedding = RelationEmbedding(config=config, dataset=dataset)
 

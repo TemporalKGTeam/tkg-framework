@@ -61,6 +61,10 @@ class NegativeSampler(ABC, Registrable, Configurable):
     def _filtered_sample(self, neg_sample):
         raise NotImplementedError
 
+    @abstractmethod
+    def num_samples(self):
+        raise NotImplementedError
+
     def sample(self, pos_batch: torch.Tensor, sample_target: str = "both"):
         self.config.assert_true(sample_target in ["head", "tail", "both"], f"sample_target should be in head, tail, both")
 
@@ -86,6 +90,10 @@ class PseudoNegativeSampling(NegativeSampler):
     def __init__(self, config: Config, dataset: DatasetProcessor, as_matrix: bool):
         super().__init__(config, dataset, as_matrix)
 
+        self.config.log("parameter negative_sampling.num_samples has no effect when using pseudo_sampling", level="warning")
+        self.num_samples = 0
+
+
     def _sample(self, pos_batch: torch.Tensor, as_matrix: bool, sample_target: str):
         return pos_batch
 
@@ -100,6 +108,9 @@ class PseudoNegativeSampling(NegativeSampler):
     def _filtered_sample(self, neg_sample):
         raise NotImplementedError
 
+    def num_samples(self):
+        return self.num_samples
+
 
 @NegativeSampler.register(name='no_sampling')
 class NonNegativeSampler(NegativeSampler):
@@ -109,6 +120,9 @@ class NonNegativeSampler(NegativeSampler):
 
     def __init__(self, config: Config, dataset: DatasetProcessor, as_matrix: bool):
         super().__init__(config, dataset, as_matrix)
+
+        self.config.log("parameter negative_sampling.num_samples has no effect when using no_sampling", level="warning")
+        self.num_samples = self.dataset.num_entities() - 1
 
     def _sample(self, pos_batch, as_matrix, sample_target):
         batch_size = pos_batch.size(0)
@@ -158,6 +172,9 @@ class NonNegativeSampler(NegativeSampler):
 
     def _filtered_sample(self, neg_sample):
         raise NotImplementedError
+
+    def num_samples(self):
+        return self.num_samples
 
 
 @NegativeSampler.register(name='time_agnostic')
@@ -247,6 +264,9 @@ class BasicNegativeSampler(NegativeSampler):
 
     def _filtered_sample(self, neg_sample):
         raise NotImplementedError
+
+    def num_samples(self):
+        return self.config.get("negative_sampling.num_samples")
 
 
 @NegativeSampler.register(name="atise_time")
