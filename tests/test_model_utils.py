@@ -8,7 +8,7 @@ import torch
 import unittest
 
 from tkge.models.utils import *
-
+from tkge.common.error import *
 
 class TestEvaluation(unittest.TestCase):
     def test_all_candidates_of_ent_queries(self):
@@ -30,6 +30,25 @@ class TestEvaluation(unittest.TestCase):
                           [3., 2., 3.]])
 
         assert (c == t).all()
+
+    def test_forward_checking(self):
+        @forward_checking
+        def test_func1():
+            return 1
+
+        @forward_checking
+        def test_func2():
+            scores = torch.rand(3,3)
+            scores[0,0] = torch.tensor(float('NaN'))
+            return scores, []
+
+        @forward_checking
+        def test_func3():
+            scores = torch.rand(3, 3)
+            return scores, []
+
+        self.assertRaises(CodeError, test_func1)
+        self.assertRaises(NaNError, test_func2)
 
 
 if __name__ == '__main__':

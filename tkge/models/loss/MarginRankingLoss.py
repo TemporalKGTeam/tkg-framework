@@ -20,7 +20,7 @@ class MarginRankingLoss(Loss):
         self._loss = torch.nn.MarginRankingLoss(margin=self.margin, **kwargs)
 
     def __call__(self, scores: torch.Tensor, labels: torch.Tensor):
-        assert labels.dim() == 2, 'Margin ranking loss only supports matrix-like scores and scores. Set train.negative_sampling.as_matrix to True in configuration file.'
+        self.config.assert_true(labels.dim() == 2, 'Margin ranking loss only supports matrix-like scores and scores. Set train.negative_sampling.as_matrix to True in configuration file.')
 
         bs = scores.size(0)
         ns = scores.size(1) - 1

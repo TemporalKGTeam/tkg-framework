@@ -57,8 +57,8 @@ class Evaluation(Configurable):
 
         # TODO(gengyuan)
 
-        assert self.preference in ["optimistic", "pessimistic"]
-        assert self.ordering in ["ascending", "descending"]
+        self.config.assert_true(self.preference in ["optimistic", "pessimistic"], "Either use optimistic or pessimistic for the preference")
+        self.config.assert_true(self.ordering in ["ascending", "descending"], "Either use ascending or descending for the ordering")
 
         if self.ordering == "ascending":
             scores = scores.masked_fill(filtered_mask.bool(), 1e6)
