@@ -2,5 +2,5 @@ pyyaml
 arrow
 numba
 --find-links https://download.pytorch.org/whl/cu100/torch_stable.html
-torch==1.4.0
+torch
 ax-platform==0.1.20
