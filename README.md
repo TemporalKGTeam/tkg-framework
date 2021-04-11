@@ -42,7 +42,7 @@ To get a local copy up and running follow these simple example steps.
 
 ### Prerequisites
 
-* python3
+* python3 >= 3.7
 * pytorch
 * pyyaml
 * numba

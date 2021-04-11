@@ -106,7 +106,7 @@ model:
     se: 0.32
     args: ~
   transformation:
-    type: translation_tf
+    type: distmult_tf
     gamma: 100
     p: 1
     range: 10

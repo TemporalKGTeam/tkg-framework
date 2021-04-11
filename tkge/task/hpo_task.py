@@ -108,7 +108,7 @@ class HPOTask(Task):
             try:
                 data = self._evaluate(parameters, trial_index)
             except Exception as e:
-                self.config.log(f"{e}", level="error")
+                self.config.log(str(e), level="warning")
                 self.ax_client.log_trial_failure(trial_index=trial_index)
             else:
                 self.ax_client.complete_trial(trial_index=trial_index, raw_data=data)
