@@ -50,6 +50,10 @@ class DatasetProcessor(ABC, Registrable, Configurable):
 
         self.load()
 
+        self.train_size = len(self.train_raw)
+        self.valid_size = len(self.valid_raw)
+        self.test_size = len(self.test_raw)
+
         self.data_splits = ["train", "valid", "test"]
         self.data_raw_mappings = {self.data_splits[0]: self.train_raw,
                                   self.data_splits[1]: self.valid_raw,
@@ -143,17 +147,11 @@ class DatasetProcessor(ABC, Registrable, Configurable):
             else:
                 self.train_raw = f.readlines()
 
-            self.train_size = len(self.train_raw)
-
         with open(valid_file, "r") as f:
             self.valid_raw = f.readlines()
 
-            self.valid_size = len(self.valid_raw)
-
         with open(test_file, "r") as f:
             self.test_raw = f.readlines()
-
-            self.test_size = len(self.test_raw)
 
     @abstractmethod
     def process_time(self, origin: str):
