@@ -20,8 +20,15 @@ console:
   #   eval_epoch: 'f"{config.get(''eval.type'')}: epoch={epoch:3d} {config.get(''valid.metric'')}={trace[config.get(''valid.metric'')]:.4E} time={epoch_time:.2f}"'
   format: {}
 
-  echo: True
+
+  # notset, debug, info, warning, error, critical; see https://docs.python.org/3/library/logging.html#logging-levels
   log_level: info
+
+  # Custom formatting of the log messages, see https://docs.python.org/3/library/logging.html#logrecord-attributes
+  log_format: "%(asctime)s.%(msecs)03d - %(levelname)-8s - %(name)-30s - %(message)s (%(filename)s:%(lineno)s)"
+
+  # print on console or not
+  echo: True
 
 
 # Job-level configuration options.
