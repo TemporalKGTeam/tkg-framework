@@ -4,6 +4,7 @@ import time
 import os
 from collections import defaultdict
 import argparse
+import logging
 
 from tkge.task.task import Task
 from tkge.data.dataset import DatasetProcessor, SplitDataset
@@ -18,6 +19,8 @@ from tkge.models.transformation import Transformation
 from tkge.eval.metrics import Evaluation
 
 from typing import Dict
+
+logger = logging.getLogger(__name__)
 
 
 class SearchTask(Task):
@@ -131,10 +134,10 @@ class SearchTask(Task):
         self.test()
 
     def dep_prepare(self):
-        self.config.log(f"Preparing datasets {self.dataset} in folder {self.config.get('dataset.folder')}")
+        logger.info(f"Preparing datasets {self.dataset} in folder {self.config.get('dataset.folder')}")
         self.dataset = DatasetProcessor.create(config=self.config)
 
-        self.config.log(f"Loading testing split data for loading")
+        logger.info(f"Loading testing split data for loading")
         # TODO(gengyuan) load params
         self.test_loader = torch.utils.data.DataLoader(
             SplitDataset(self.dataset.get("test"), self.datatype + ['timestamp_id']),
@@ -148,18 +151,18 @@ class SearchTask(Task):
 
         self.onevsall_sampler = NonNegativeSampler(config=self.config, dataset=self.dataset, as_matrix=True)
 
-        self.config.log(f"Loading model {self.config.get('model.name')}")
+        logger.info(f"Loading model {self.config.get('model.name')}")
         self.model = BaseModel.create(config=self.config, dataset=self.dataset, device=self.device)
         model_path = self.config.get("test.model_path")
         model_state_dict = torch.load(model_path)
 
         self.model.load_state_dict(model_state_dict['state_dict'])
 
-        self.config.log(f"Initializing evaluation")
+        logger.info(f"Initializing evaluation")
         self.evaluation = Evaluation(config=self.config, dataset=self.dataset)
 
     def dep_test(self):
-        self.config.log("BEGIN TESTING")
+        logger.info("BEGIN TESTING")
 
         with torch.no_grad():
             self.model.eval()
@@ -196,5 +199,5 @@ class SearchTask(Task):
                 for key in metrics[pos].keys():
                     metrics[pos][key] /= l
 
-            self.config.log(f"Metrics(head prediction) : {metrics['head'].items()}")
-            self.config.log(f"Metrics(tail prediction) : {metrics['tail'].items()}")
+            logger.info(f"Metrics(head prediction) : {metrics['head'].items()}")
+            logger.info(f"Metrics(tail prediction) : {metrics['tail'].items()}")

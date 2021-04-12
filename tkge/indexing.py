@@ -1,7 +1,10 @@
+import logging
 import torch
 import numba
 import numpy as np
 from typing import Iterator, List, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 class KvsAllIndex:
@@ -130,10 +133,7 @@ def index_KvsAll(dataset: "Dataset", split: str, key: str):
         triples = dataset.split(split)
         dataset._indexes[name] = KvsAllIndex(triples, key_cols, value_col, list)
 
-    dataset.config.log(
-        "{} distinct {} pairs in {}".format(len(dataset._indexes[name]), key, split),
-        prefix="  ",
-    )
+    logger.info(f"  {len(dataset._indexes[name])} distinct {key} pairs in {split}")
 
     return dataset._indexes.get(name)
 
@@ -187,11 +187,9 @@ def index_relations_per_type(dataset):
     else:
         relations_per_type = dataset._indexes["relations_per_type"]
 
-    dataset.config.log("Loaded relation index")
+    logger.info("Loaded relation index")
     for k, relations in relations_per_type.items():
-        dataset.config.log(
-            "{} relations of type {}".format(len(relations), k), prefix="  "
-        )
+        logger.info(f"  {len(relations)} relations of type {k}")
 
     return relations_per_type
 
@@ -280,7 +278,7 @@ def _invert_ids(dataset, obj: str):
         dataset._indexes[f"{obj}_id_to_index"] = inv
     else:
         inv = dataset._indexes[f"{obj}_id_to_index"]
-    dataset.config.log(f"Indexed {len(inv)} {obj} ids", prefix="  ")
+    logger.info(f"  Indexed {len(inv)} {obj} ids")
 
 
 def create_default_index_functions(dataset: "Dataset"):

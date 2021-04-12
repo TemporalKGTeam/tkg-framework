@@ -180,7 +180,6 @@ class DatasetProcessor(ABC, Registrable, Configurable):
         logger.info(f"Number of entities : {self.num_entities()}")
         logger.info(f"Number of relations : {self.num_relations()}")
         logger.info(f"Number of temporal identifiers : {self.num_timestamps()}")
-        logger.info(f"\n")
         logger.info(f"Train set size : {self.train_size}")
         logger.info(f"Valid set size : {self.valid_size}")
         logger.info(f"Test set size : {self.test_size}")
