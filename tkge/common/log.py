@@ -13,7 +13,7 @@ def setup_logger(name, level, echo, folder, fmt):
     For custom formatting, see https://docs.python.org/3/library/logging.html#logrecord-attributes.
     """
     logger = logging.getLogger(name)
-    logger.setLevel(get_level(level))
+    logger.setLevel(level_by_name(level))
 
     formatter = create_formatter(fmt)
     file_handler = create_file_handler(folder, formatter)
@@ -45,19 +45,18 @@ def create_file_handler(folder, formatter):
     return file_handler
 
 
-def get_level(level):
-    if level == "notset":
-        return logging.NOTSET
-    elif level == "debug":
-        return logging.DEBUG
-    elif level == "warning":
-        return logging.WARNING
-    elif level == "error":
-        return logging.ERROR
-    elif level == "critical":
-        return logging.CRITICAL
-    else:
-        return logging.INFO
+def level_by_name(level_name):
+    name_to_level = {
+        "notset": logging.NOTSET,
+        "debug": logging.DEBUG,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+        "critical": logging.CRITICAL
+    }
+    level = name_to_level.get(level_name)
+    if level is None:
+        level = logging.INFO
+    return level
 
 
 def start_trial_logging(folder):
