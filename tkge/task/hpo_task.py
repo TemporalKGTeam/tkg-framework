@@ -110,6 +110,7 @@ class HPOTask(Task):
                 data = self._evaluate(parameters, trial_index)
             except Exception as e:
                 logger.error(f"{e}")
+                stop_trial_logging()
                 self.ax_client.log_trial_failure(trial_index=trial_index)
             else:
                 self.ax_client.complete_trial(trial_index=trial_index, raw_data=data)
