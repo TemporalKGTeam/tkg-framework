@@ -51,14 +51,14 @@ if args.task in ['search', 'train', 'hpo']:
 else:
     raise NotImplementedError
 
-# Initialize logger
+# Initialize experiment logger
 logger = log.setup_logger(
     Path(__file__).stem,
     config.get("console.log_level"),
     config.get("console.echo"),
     config.log_folder,
     config.get("console.log_format"))
-logger.info("Initialized configuration, created experiment and set up the logger.")
+logger.info("Initialized configuration, created experiment and set up the root logger.")
 
 task = task_dict[args.task](config)
 

@@ -13,6 +13,7 @@ from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrateg
 from tkge.task.task import Task
 from tkge.task.train_task import TrainTask
 from tkge.common.config import Config
+from tkge.common.log import start_trial_logging, stop_trial_logging
 
 from typing import Dict, Tuple
 
@@ -73,15 +74,17 @@ class HPOTask(Task):
         evaluate a trial given parameters and return the metrics
         """
 
-        logger.info(f"Start trial {trial_id}")
-        logger.info(f"with parameters {parameters}")
-
         # overwrite the config
         trial_config: Config = copy.deepcopy(self.config)
         for k, v in parameters.items():
             trial_config.set(k, v)
 
         trial_config.create_trial(trial_id)
+
+        start_trial_logging(trial_config.log_folder)
+
+        logger.info(f"Start trial {trial_id}")
+        logger.info(f"with parameters {parameters}")
 
         # initialize a trainer
         trial_trainer: TrainTask = TrainTask(trial_config)
@@ -92,6 +95,8 @@ class HPOTask(Task):
 
         logger.info(f"End trial {trial_id}")
         logger.info(f"best metric achieved at {best_metric}")
+
+        stop_trial_logging()
 
         # evaluate
         return {"mrr": (best_metric, 0.0)}
