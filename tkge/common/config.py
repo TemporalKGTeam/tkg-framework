@@ -14,7 +14,6 @@ import yaml
 from tkge.common.error import ConfigurationError
 
 logger = logging.getLogger(__name__)
-
 T = TypeVar("T", bound="Config")
 
 
@@ -202,31 +201,6 @@ class Config:
             else:
                 result[fullkey] = value
 
-    # Logging and Tracing
-    def log(self, msg: str, level="info"):
-        """Add a message to the default log file.
-
-        Optionally also print on console. ``prefix`` is used to indent each
-        output line.
-
-        """
-        if not os.path.exists(self.log_file):
-            mode = "w"
-        else:
-            mode = "a"
-
-        with open(self.log_file, mode) as file:
-            for line in msg.splitlines():
-                levels = {"debug": 0,
-                          "info": 1,
-                          "warning": 2,
-                          "error": 3}
-                line = f"{level.upper()}: {line}"
-                if levels.get(level) >= levels.get(self.log_level):
-                    if self.echo:
-                        print(line)
-                    file.write(f"{str(datetime.datetime.now())} {line}\n")
-
     def trace(
             self, echo=False, echo_prefix="", echo_flow=False, log=False, **kwargs
     ) -> Dict[str, Any]:
@@ -257,7 +231,7 @@ class Config:
 
     def assert_true(self, condition: bool, message: str):
         if not condition:
-            logger.info(message)
+            logger.error(message)
             sys.exit()
 
     # -- FOLDERS AND CHECKPOINTS ----------------------------------------------
@@ -338,14 +312,6 @@ class Config:
                 )
             )
         return value
-
-    def logdir(self) -> str:
-        folder = self.log_folder if self.log_folder else self.ex_folder
-        return folder
-
-    def logfile(self) -> str:
-        folder = self.log_folder if self.log_folder else self.ex_folder
-        return os.path.join(folder, "kge.log")
 
     def tracefile(self) -> str:
         folder = self.log_folder if self.log_folder else self.ex_folder

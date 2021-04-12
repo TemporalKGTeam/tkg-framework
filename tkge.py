@@ -2,6 +2,7 @@ import argparse
 import os
 import tkge.common.log as log
 
+from pathlib import Path
 from tkge.task.train_task import TrainTask
 from tkge.task.test_task import TestTask
 from tkge.task.search_task import SearchTask
@@ -50,7 +51,13 @@ if args.task in ['search', 'train', 'hpo']:
 else:
     raise NotImplementedError
 
-logger = log.setup_logger(config.get("console.log_level"), config.get("console.echo"), config.log_folder)
+# Initialize logger
+logger = log.setup_logger(
+    Path(__file__).stem,
+    config.get("console.log_level"),
+    config.get("console.echo"),
+    config.log_folder,
+    config.get("console.log_format"))
 logger.info("Initialized configuration, created experiment and set up the logger.")
 
 task = task_dict[args.task](config)
