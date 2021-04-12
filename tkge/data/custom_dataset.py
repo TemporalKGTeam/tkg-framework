@@ -308,7 +308,7 @@ class TestICEWS14DatasetProcessor(DatasetProcessor):
 
     def process_time(self, origin: str):
         level = ['year', 'month', 'day', 'hour', 'minute', 'second']
-        assert self.level in level, f"Time granularity should be {level}"
+        self.config.assert_true(self.level in level, f"Time granularity should be {level}")
 
         ts = origin.split('-') + ['00', '00', '00']
         ts = ts[:level.index(self.level) + 1]

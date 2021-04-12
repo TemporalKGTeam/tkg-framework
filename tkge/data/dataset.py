@@ -146,10 +146,10 @@ class DatasetProcessor(ABC, Registrable, Configurable):
         Removes the specified target (either s, p or o) out of a copy of each triple respectively quadruple
         (if specified type is static respectively time-aware) and adds each answer as the last element.
         """
-        assert type in ["static",
+        self.config.assert_true(type in ["static",
                         "time-aware",
-                        "off"], f"{type} filtering is not implemented; use static/time-aware/off filtering."
-        assert target in ["s", "p", "o"], "Only support s(ubject)/p(redicate)/o(bject) prediction task"
+                        "off"], f"{type} filtering is not implemented; use static/time-aware/off filtering.")
+        self.config.assert_true(target in ["s", "p", "o"], "Only support s(ubject)/p(redicate)/o(bject) prediction task")
 
         filtered_data = defaultdict(list)
 
@@ -238,7 +238,7 @@ class GDELTDatasetProcessor(DatasetProcessor):
 
     def process_time(self, origin: str, resolution: str = 'day'):
         all_resolutions = ['year', 'month', 'day', 'hour', 'minute', 'second']
-        assert resolution in all_resolutions, f"Time granularity should be {all_resolutions}"
+        self.config.assert_true(resolution in all_resolutions, f"Time granularity should be {all_resolutions}")
 
         ts = origin.split('-') + ['00', '00', '00']
         ts = ts[:all_resolutions.index(resolution) + 1]
@@ -300,7 +300,7 @@ class ICEWS14DatasetProcessor(DatasetProcessor):
 
     def process_time(self, origin: str):
         all_resolutions = ['year', 'month', 'day', 'hour', 'minute', 'second']
-        assert self.resolution in all_resolutions, f"Time granularity should be {all_resolutions}"
+        self.config.assert_true(self.resolution in all_resolutions, f"Time granularity should be {all_resolutions}")
 
         ts = origin.split('-') + ['00', '00', '00']
         ts = ts[:all_resolutions.index(self.resolution) + 1]
@@ -375,6 +375,7 @@ class SplitDataset(torch.utils.data.Dataset):
         self.datatype = datatype
 
         # TODO(gengyuan) assert the lengths of all lists in self.dataset
+        # use self.config.assert_true(condition, message)
         # assert all( for i in dataset.items())
 
     def __len__(self):

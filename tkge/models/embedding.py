@@ -72,8 +72,8 @@ class EntityEmbedding(BaseEmbedding):
             embedding_dim = self.config.get(f"model.embedding.entity.keys.{k}.dim") if self.config.get(
                 f"model.embedding.global.dim") == -1 else self.config.get(f"model.embedding.global.dim")
             init_method = self.config.get(
-                self.config.get(f"model.embedding.entity.keys.{k}.init")) if not self.config.get(
-                f"model.embedding.global.init") else self.config.get(f"model.embedding.global.init")
+                self.config.get(f"model.embedding.entity.keys.{k}.init")) if isinstance(self.config.get(
+                f"model.embedding.global.init"), type(None)) else self.config.get(f"model.embedding.global.init")
 
             self._head[k] = nn.Embedding(num_embeddings=self.dataset.num_entities(),
                                          embedding_dim=embedding_dim)
@@ -88,7 +88,7 @@ class EntityEmbedding(BaseEmbedding):
         self._tail = nn.ModuleDict(self._tail)
 
     def __call__(self, index: torch.Tensor, pos: str):
-        assert pos in ['head', 'tail'], f"pos should be either head or tail"
+        self.config.assert_true(pos in ['head', 'tail'], f"pos should be either head or tail")
 
         if pos == 'head':
             return {k: v(index) for k, v in self._head.items()}
