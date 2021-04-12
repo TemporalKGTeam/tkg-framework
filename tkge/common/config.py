@@ -1,15 +1,14 @@
-import datetime
-import os
 import logging
+import os
 import re
 import sys
 import time
 import uuid
+import yaml
+
 from enum import Enum
 from functools import reduce
 from typing import Any, Dict, Optional, Union, TypeVar, Tuple
-
-import yaml
 
 from tkge.common.error import ConfigurationError
 
