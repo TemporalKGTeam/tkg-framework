@@ -320,8 +320,12 @@ class YAGO11KDatasetProcessor(DatasetProcessor):
         The specified granularity will be augmented to the first possible day and/or month respectively the last
         possible day and/or month for timestamps of the form XXXX-##-## and XXXX-XX-##.
         """
+        # TODO warnings after merge of master and logger_decoupling
         for data_split in self.data_splits:
+            i = 0
             for rd in self.data_raw_mappings[data_split]:
+                i += 1
+                print(f"{data_split}: Processing line {i}")
                 fact = rd.strip().split('\t')
 
                 head_id, rel_id, tail_id = self.index_triple(fact[:3])
@@ -330,13 +334,16 @@ class YAGO11KDatasetProcessor(DatasetProcessor):
 
                 for ts in time_interval:
                     ts_id = self.index_timestamps(ts)
-                    ts_float = list(map(int, ts.split('-')))
+                    ts_float = list(map(int, ts.split('-'))) if not isinstance(ts, int) else [ts]
+                    print(f"        Add quadruple to list: {[head_id, rel_id, tail_id, ts_id, ts_float]}")
                     self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str, start_ts=None, end_ts=None):
-        start = list(map(int, list(filter(lambda x: x != '##' and x != '####', start_ts.split('-')))))
-        end = list(map(int, list(filter(lambda x: x != '##' and x != '####', end_ts.split('-')))))
+        # process the different timestamp representations to logical units
+        start = self.__timestamp_as_list(start_ts)
+        end = self.__timestamp_as_list(end_ts)
 
+        # complete incomplete start timestamps
         if len(start) == 0:
             start = [self.config.get('dataset.args.year_min')]
         if len(start) == 1:
@@ -346,6 +353,7 @@ class YAGO11KDatasetProcessor(DatasetProcessor):
             # if year and month is available, start at first day of that month
             start.append(1)
 
+        # complete incomplete end timestamps
         if len(end) == 0:
             end = [self.config.get('dataset.args.year_max')]
         if len(end) == 1:
@@ -353,8 +361,31 @@ class YAGO11KDatasetProcessor(DatasetProcessor):
             end.extend([12, 31])
         if len(end) == 2:
             # if year and month is available, stop at last point of that month
-            end.append(calendar.monthrange(int(end[0]), int(end[1])))
+            end.append(calendar.monthrange(int(end[0]), int(end[1]))[1])
 
+        # there's at least one month greater than 12 (13047)
+        end[1] = end[1] % 12 + 1 if end[1] > 12 else end[1]
+
+        if self.resolution == "year":
+            return list(range(start[0], end[0]))
+
+        if self.resolution == "month":
+            all_ts = []
+            for year in range(start[0], end[0]+1):
+                start_month = 1
+                end_month = 12
+
+                if year == start[0]:
+                    start_month = start[1]
+                if year == end[0]:
+                    end_month = end[1]
+
+                for month in range(start_month, end_month+1):
+                    all_ts.append(f"{year}-{month}")
+
+            return all_ts
+
+        # for day resolution, calculate it via the datetime library (costs a lot of time)
         start_date = datetime.datetime(*start)
         end_date = datetime.datetime(*end)
         delta = datetime.timedelta(days=1)
@@ -364,12 +395,21 @@ class YAGO11KDatasetProcessor(DatasetProcessor):
             all_ts.append(start_date.strftime('%Y-%m-%d'))
             start_date += delta
 
-        if self.resolution == "day":
-            return all_ts
-        elif self.resolution == "month":
-            return list(dict.fromkeys([ts[:-3] for ts in all_ts]))
+        return all_ts
+
+    @staticmethod
+    def __timestamp_as_list(ts):
+        if ts[0] == '-':
+            ts_list = list(filter(lambda x: x != '##' and x != '####', ts.split('-')[1:]))
+            ts_list = [x.replace('#', '0') for x in ts_list]
+            ts_list = list(map(int, ts_list))
+            ts_list[0] = 1
         else:
-            return list(dict.fromkeys([ts[:-6] for ts in all_ts]))
+            ts_list = list(filter(lambda x: x != '##' and x != '####', ts.split('-')))
+            ts_list = [x.replace('#', '0') for x in ts_list]
+            ts_list = list(map(int, ts_list))
+
+        return ts_list
 
 
 @DatasetProcessor.register(name="yago15k")
