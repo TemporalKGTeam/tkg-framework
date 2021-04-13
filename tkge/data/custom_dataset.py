@@ -34,39 +34,6 @@ class ICEWS14AtiseDatasetProcessor(DatasetProcessor):
         return day
 
 
-@DatasetProcessor.register(name="yago11k")
-class Yago11kDatasetProcessor(DatasetProcessor):
-    def process(self):
-        year_list = []
-
-        for rd in self.train_raw:
-            head, rel, tail, ts_start, ts_end = rd.strip().split('\t')
-            head = self.index_entities(head)
-            rel = self.index_relations(rel)
-            tail = self.index_entities(tail)
-            ts_start = self.process_time(ts_start, True)
-            ts_end = self.process_time(ts_start, False)
-
-            if ts_start < ts_end:
-                ts_end = self.config.get("dataset.args.year_max")
-
-        for rd in self.valid_raw:
-            pass
-
-        for rd in self.test_raw:
-            pass
-
-    def process_time(self, origin: str, start: bool = True):
-        year = origin.split('-')[0]
-
-        if year.find('#') != -1 and len(year) == 4:
-            year = int(year)
-        else:
-            year = self.config.get("dataset.args.year_min") if start else self.config.get("dataset.args.year_max")
-
-        return year
-
-
 @DatasetProcessor.register(name="yago15k_TA")
 class YAGO15KTADatasetProcessor(DatasetProcessor):
     def process(self):
