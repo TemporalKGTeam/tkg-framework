@@ -300,7 +300,7 @@ class ICEWS0515DatasetProcessor(DatasetProcessor):
                 quadruple = rd.strip().split('\t')
 
                 head_id, rel_id, tail_id, ts_id = self.index_quadruple(quadruple)
-                ts_float = list(map(int, quadruple[3].split('-')))
+                ts_float = list(map(lambda x: int(x), quadruple[3].split('-')))
 
                 self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
