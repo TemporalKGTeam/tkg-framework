@@ -365,11 +365,11 @@ class YAGO11KDatasetProcessor(DatasetProcessor):
         end[1] = end[1] % 12 + 1 if end[1] > 12 else end[1]
 
         if self.resolution == "year":
-            return list(range(start[0], end[0]))
+            return list(range(start[0], end[0] + 1))
 
         if self.resolution == "month":
             all_ts = []
-            for year in range(start[0], end[0]+1):
+            for year in range(start[0], end[0] + 1):
                 start_month = 1
                 end_month = 12
 
@@ -378,7 +378,7 @@ class YAGO11KDatasetProcessor(DatasetProcessor):
                 if year == end[0]:
                     end_month = end[1]
 
-                for month in range(start_month, end_month+1):
+                for month in range(start_month, end_month + 1):
                     all_ts.append(f"{year}-{month}")
 
             return all_ts
