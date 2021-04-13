@@ -325,7 +325,6 @@ class YAGO11KDatasetProcessor(DatasetProcessor):
             i = 0
             for rd in self.data_raw_mappings[data_split]:
                 i += 1
-                print(f"{data_split}: Processing line {i}")
                 fact = rd.strip().split('\t')
 
                 head_id, rel_id, tail_id = self.index_triple(fact[:3])
@@ -335,7 +334,6 @@ class YAGO11KDatasetProcessor(DatasetProcessor):
                 for ts in time_interval:
                     ts_id = self.index_timestamps(ts)
                     ts_float = list(map(int, ts.split('-'))) if not isinstance(ts, int) else [ts]
-                    print(f"        Add quadruple to list: {[head_id, rel_id, tail_id, ts_id, ts_float]}")
                     self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str, start_ts=None, end_ts=None):
