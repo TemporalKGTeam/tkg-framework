@@ -377,8 +377,8 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
     def process(self):
         """
         Processes the raw data for each data type (i.e. train, valid and test) of the YAGO15k dataset.
-        If a fact has a temporal part (temporal modifier and timestamp), then the temporal modifier is used to
-        concatenate the relation, so a relation of a fact can be '<relation>occursSince', '<relation>occursUntil' or
+        If a fact has a temporal part (temporal modifier and timestamp), then the temporal modifier is concatenated to
+        the relation, so a relation of a fact can be '<relation>occursSince', '<relation>occursUntil' or
         '<relation>_no-time'.
         """
         for data_split in self.data_splits:
