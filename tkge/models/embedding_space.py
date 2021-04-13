@@ -12,6 +12,18 @@ from tkge.train.regularization import Regularizer
 from tkge.models.embedding import *
 
 
+class Embedder():
+    pass
+
+
+class LookUpEmbedder():
+    """
+    input: index
+    output: embedding
+    """
+    pass
+
+
 class EmbeddingSpace(nn.Module, Registrable, Configurable):
     r"""EmbeddingSpace retrieves embeddings by index from a bundle of heterogeneous embeddings.
 

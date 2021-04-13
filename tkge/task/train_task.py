@@ -105,7 +105,7 @@ class TrainTask(Task):
 
         self.config.log(f"Initializing negative sampling")
         self.sampler = NegativeSampler.create(config=self.config, dataset=self.dataset)
-        self.onevsall_sampler = NonNegativeSampler(config=self.config, dataset=self.dataset, as_matrix=True)
+        # self.onevsall_sampler = NonNegativeSampler(config=self.config, dataset=self.dataset, as_matrix=True)
 
         self.config.log(f"Creating model {self.config.get('model.type')}")
         self.model = BaseModel.create(config=self.config, dataset=self.dataset)
