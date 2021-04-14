@@ -324,7 +324,9 @@ class YAGO11KDatasetProcessor(DatasetProcessor):
         The specified granularity will be augmented to the first possible day and/or month respectively the last
         possible day and/or month for timestamps of the form XXXX-##-## and XXXX-XX-##.
         """
-        # TODO warnings after merge of master and logger_decoupling
+        if self.resolution == "day":
+            self.config.log(f"Processing facts with day resolution on dataset yago11k will consume a lot of time.", "warning")
+
         for data_split in self.data_splits:
             i = 0
             for rd in self.data_raw_mappings[data_split]:
