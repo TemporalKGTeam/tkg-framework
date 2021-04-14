@@ -290,7 +290,6 @@ class ICEWS14DatasetProcessor(DatasetProcessor):
         return ts
 
 
-# TODO test it
 @DatasetProcessor.register(name="icews05-15")
 class ICEWS0515DatasetProcessor(DatasetProcessor):
     def process(self):

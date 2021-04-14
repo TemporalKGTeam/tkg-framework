@@ -100,7 +100,6 @@ class ICEWS14TADatasetProcessor(DatasetProcessor):
         return 32
 
 
-# TODO test it, maybe reduce to one class called ICEWSTADatasetProcessor (since it does the exact same as icews14_TA)
 @DatasetProcessor.register(name="icews05-15_TA")
 class ICEWS0515TADatasetProcessor(DatasetProcessor):
     def process(self):
