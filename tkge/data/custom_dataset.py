@@ -129,7 +129,6 @@ class ICEWS0515TADatasetProcessor(DatasetProcessor):
         return ts
 
 
-# TODO test it, should work since the sequence is always of the same length
 @DatasetProcessor.register(name="wikidata_lse_TA")
 class WIKIDATALSETADatasetProcessor(DatasetProcessor):
     def process(self):
