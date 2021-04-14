@@ -354,6 +354,12 @@ class YAGO11KDatasetProcessor(DatasetProcessor):
                     self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str, start_ts=None, end_ts=None):
+        all_resolutions = ['year', 'month', 'day']
+        self.config.assert_true(self.resolution in all_resolutions, f"Time granularity should be {all_resolutions}"
+                                                                    f" (smaller resolutions consume too much time for"
+                                                                    f"processing and a lot of memory"
+                                                                    f" regarding yago11k).")
+
         # process the different timestamp representations to logical units
         start = self.__timestamp_as_list(start_ts)
         end = self.__timestamp_as_list(end_ts)
