@@ -300,15 +300,23 @@ class ICEWS0515DatasetProcessor(DatasetProcessor):
         """
         for data_split in self.data_splits:
             for rd in self.data_raw_mappings[data_split]:
-                quadruple = rd.strip().split('\t')
+                head, rel, tail, ts = rd.strip().split('\t')
+                ts = self.process_time(ts)
 
-                head_id, rel_id, tail_id, ts_id = self.index_quadruple(quadruple)
-                ts_float = list(map(lambda x: int(x), quadruple[3].split('-')))
+                head_id, rel_id, tail_id, ts_id = self.index_quadruple([head, rel, tail, ts])
+                ts_float = list(map(lambda x: int(x), ts.split('-')))
 
                 self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str):
-        raise NotImplementedError
+        all_resolutions = ['year', 'month', 'day', 'hour', 'minute', 'second']
+        self.config.assert_true(self.resolution in all_resolutions, f"Time granularity should be {all_resolutions}")
+
+        ts = origin.split('-') + ['00', '00', '00']
+        ts = ts[:all_resolutions.index(self.resolution) + 1]
+        ts = '-'.join(ts)
+
+        return ts
 
 
 # TODO test it with ATisE and HyTE when they work properly
