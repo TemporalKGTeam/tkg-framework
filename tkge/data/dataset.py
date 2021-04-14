@@ -480,6 +480,8 @@ class WIKIDATALSEDatasetProcessor(DatasetProcessor):
         see https://arxiv.org/abs/1809.03202.
         The temporal modifier is concatenated to the relation.
         """
+        self.config.assert_true(self.resolution == "year", f"Time granularity should be year for wikidata_lse.")
+
         for data_split in self.data_splits:
             for rd in self.data_raw_mappings[data_split]:
                 fact = rd.strip().split('\t')
