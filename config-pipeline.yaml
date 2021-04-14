@@ -1,6 +1,6 @@
 console:
   quiet: False
-  folder: ~/gengyuan/logging/pipeline
+  folder: /home/ubuntu/gengyuan/logging/pipeline
   format: {}
 
 #local
@@ -27,8 +27,8 @@ dataset:
   filter: False
   temporal:
     resolution: "day"
-    index: True
-    float: False
+    index: False
+    float: True
   args: ~
 
   name: 'icews14'
@@ -38,7 +38,7 @@ dataset:
 
 negative_sampling:
   type: 'time_agnostic'
-  num_samples: 50
+  num_samples: 500
   filter: False
   as_matrix: True
   target: both
@@ -52,49 +52,47 @@ model:
     entity:
       pos_aware: True
       keys:
-        real:
-          dim: 100
+#        real:
+#          dim: 100
+#          init: xavier_uniform
+#        imag:
+#          dim: 100
+#          init: xavier_uniform
+        ent_embs:
+          dim: 68
           init: xavier_uniform
-        imag:
-          dim: 100
+        amps_y:
+          dim: 32
           init: xavier_uniform
-#        ent_embs:
-#          dim: 32
-#          init: xavier_uniform
-#        amps_y:
-#          dim: 68
-#          init: xavier_uniform
-#        amps_m:
-#          dim: 68
-#          init: xavier_uniform
-#        amps_d:
-#          dim: 68
-#          init: xavier_uniform
-#        freq_y:
-#          dim: 68
-#          init: xavier_uniform
-#        freq_m:
-#          dim: 68
-#          init: xavier_uniform
-#        freq_d:
-#          dim: 68
-#          init: xavier_uniform
-#        phi_y:
-#          dim: 68
-#          init: xavier_uniform
-#        phi_m:
-#          dim: 68
-#          init: xavier_uniform
-#        phi_d:
-#          dim: 68
-#          init: xavier_uniform
-
-#        real: 100
+        amps_m:
+          dim: 32
+          init: xavier_uniform
+        amps_d:
+          dim: 32
+          init: xavier_uniform
+        freq_y:
+          dim: 32
+          init: xavier_uniform
+        freq_m:
+          dim: 32
+          init: xavier_uniform
+        freq_d:
+          dim: 32
+          init: xavier_uniform
+        phi_y:
+          dim: 32
+          init: xavier_uniform
+        phi_m:
+          dim: 32
+          init: xavier_uniform
+        phi_d:
+          dim: 32
+          init: xavier_uniform
 
     relation:
       keys:
         real:
-          dim: 68
+          dim: 100
           init: xavier_uniform
 #        imag:
 #          dim: 100
@@ -105,17 +103,17 @@ model:
         real:
           dim: 32
           init: xavier_uniform
-        imag:
-          dim: 100
-          init: xavier_uniform
+#        imag:
+#          dim: 100
+#          init: xavier_uniform
 
   fusion:
-    type: concatenate_fusion
+    type: diachronic_entity_fusion
     target:
-      - 'rel+temp'
+      - 'ent+temp'
     args: ~
   transformation:
-    type: rotation_tf
+    type: translation_tf
     gamma: 100
     p: 1
     range: 10

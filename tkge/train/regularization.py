@@ -125,6 +125,14 @@ class F2Reg(Regularizer):
         return norm / factors[0].shape[0]
 
 
+@Regularizer.register(name="none_regularize")
+class NoneReg(Regularizer):
+    def __init__(self, config: Config, name: str):
+        super().__init__(config, name)
+
+    def forward(self, factors: Tuple[torch.Tensor], **kwargs):
+        return 0.
+
 @Regularizer.register(name="lambda3_regularize")
 class Lambda3Reg(Regularizer):
     def __init__(self, config: Config, name: str):

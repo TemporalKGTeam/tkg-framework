@@ -1,9 +1,12 @@
 import argparse
+import os
 
 from tkge.task.task import Task
-from tkge.task.trainer import TrainTask
-from tkge.task.tester import TestTask
-from tkge.task.search import SearchTask
+from tkge.task.train_task import TrainTask
+from tkge.task.test_task import TestTask
+from tkge.task.search_task import SearchTask
+from tkge.task.resume_task import ResumeTask
+from tkge.task.hpo_task import HPOTask
 from tkge.common.config import Config
 
 desc = 'Temporal KG Completion methods'
@@ -14,7 +17,6 @@ parser.add_argument(
     action="version",
     version=f"work in progress"
 )
-
 
 # parser.add_argument('train', help='task type', type=bool)
 # parser.add_argument('--config', help='configuration file', type=str)
@@ -27,17 +29,33 @@ subparsers = parser.add_subparsers(title="task",
 # subparser train
 parser_train = TrainTask.parse_arguments(subparsers)
 parser_eval = TestTask.parse_arguments(subparsers)
+parser_hpo = HPOTask.parse_arguments(subparsers)
+parser_resume = ResumeTask.parse_arguments(subparsers)
 
 args = parser.parse_args()
 
 task_dict = {
     'train': TrainTask,
     'eval': TestTask,
-    'search': SearchTask
+    'search': SearchTask,
+    'resume': ResumeTask,
+    'hpo': HPOTask
 }
 
-config = Config.create_from_yaml(args.config)  # TODO load_default is false
-task = task_dict[args.task](config)
+config_path = args.config if args.task != 'resume' else os.path.join(args.experiment, 'config.yaml')
+config = Config.create_from_yaml(config_path)  # TODO load_default is false
+
+# Initialize working folder
+if args.task in ['search', 'train', 'hpo']:
+    config.create_experiment()
+else:
+    config.restore_experiment(args.experiment)
+
+kwargs = {}
+
+if args.task == 'resume':
+    kwargs.update({'ckpt_path': os.path.join(args.experiment, 'ckpt', args.ckpt_name)})
+task = task_dict[args.task](config, **kwargs)
 
 task.main()
 

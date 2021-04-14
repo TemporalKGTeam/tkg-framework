@@ -1,6 +1,6 @@
 import argparse
 
-from tkge.task.trainer import TrainTask
+from tkge.task.train_task import TrainTask
 from tkge.common.config import Config
 
 

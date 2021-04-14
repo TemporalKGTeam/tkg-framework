@@ -10,6 +10,7 @@ from tkge.common.registrable import Registrable
 from tkge.common.configurable import Configurable
 from tkge.common.config import Config
 from tkge.common.error import ConfigurationError
+from tkge.models.layers import LSTMModel
 from tkge.train.regularization import Regularizer
 
 
@@ -133,6 +134,55 @@ class ComplexElementwiseTemporalFusion(TemporalFusion):
 
         return in_constraints, out_constraints
 
+@TemporalFusion.register(name="complex_addition_fusion")
+class ComplexAdditionTemporalFusion(TemporalFusion):
+    def __init__(self, config: Config):
+        super(ComplexAdditionTemporalFusion, self).__init__(config=config)
+
+    def forward(self, operand1, operand2):
+        """
+        operand1 and operand2 should be complex embeddings
+        """
+        res = {'real': operand1['real'] + operand1['real'],
+               'imag': operand1['imag'] + operand1['imag']}
+
+        return res
+
+    @staticmethod
+    def embedding_constraint():
+        in_constraints = {'operand1': ['real', 'imag'],
+                          'operand2': ['real', 'imag']}
+
+        out_constraints = {'result': ['real', 'imag']}
+
+        return in_constraints, out_constraints
+
+@TemporalFusion.register(name="tnt_fusion")
+class TNTTemporalFusion(TemporalFusion):
+    def __init__(self, config: Config):
+        super(TNTTemporalFusion, self).__init__(config=config)
+
+    def forward(self, operand1, operand2):
+        p = operand1['real'] * operand2['real'], \
+            operand1['imag'] * operand2['real'], \
+            operand1['real'] * operand2['imag'], \
+            operand1['imag'] * operand2['imag']
+
+        res = {'real': p[0] - p[3] + operand2['static_real'],
+               'imag': p[1] + p[2] + operand2['static_imag']}
+
+        return res
+
+    @staticmethod
+    def embedding_constraint():
+        in_constraints = {'operand1': ['real', 'imag'],
+                          'operand2': ['real', 'imag', 'static_real', 'static_imag']}
+
+        out_constraints = {'result': ['real', 'imag']}
+
+        return in_constraints, out_constraints
+
+
 
 @TemporalFusion.register(name="reproject_fusion")
 class ReprojectTemporalFusion(TemporalFusion):
@@ -144,7 +194,7 @@ class ReprojectTemporalFusion(TemporalFusion):
         input should be [static embedding, temporal embedding]
         """
         inner = torch.sum(operand1['real'] * operand2['real'], dim=1, keepdim=True) / torch.sum(operand1['real'] ** 2,
-                                                                                                 dim=-1, keepdim=True)
+                                                                                                dim=-1, keepdim=True)
         res = {'real': operand1['real'] - inner * operand2['real']}
 
         return res
@@ -177,7 +227,6 @@ class DiachronicEntityFusion(HiddenRepresentationCombination):
 
         self.time_nl = torch.sin
 
-
     def forward(self, operand1, operand2):
         """
         operand1 are entity embedding
@@ -203,7 +252,7 @@ class DiachronicEntityFusion(HiddenRepresentationCombination):
         in_constraints = {
             'operand1': ['ent_embs', 'amps_y', 'amps_m', 'amps_d', 'freq_y', 'freq_m', 'freq_d', 'phi_y', 'phi_m',
                          'phi_d'],
-            'operand2': ['year', 'month', 'day']}
+            'operand2': ['level0', 'level1', 'level2']}
 
         out_constraints = {'result': ['real']}
 
@@ -212,9 +261,63 @@ class DiachronicEntityFusion(HiddenRepresentationCombination):
 
 @TemporalFusion.register(name="time_aware_fusion")
 class TimeAwareFusion(HiddenRepresentationCombination):
-    pass
+    def __init__(self, config: Config):
+        super(TimeAwareFusion, self).__init__(config=config)
+
+        self.emb_dim = self.config.get("model.fusion.emb_dim")
+        self.l1_flag = self.config.get("model.fusion.l1_flag")
+        self.p = self.config.get("model.fusion.p")
+
+        self.dropout = torch.nn.Dropout(p=self.p)
+        self.lstm = LSTMModel(self.emb_dim, n_layer=1)
+
+    def forward(self, operand1, operand2):
+        token_e = [operand2['level' + str(i) + '_real'] for i in
+                   range(len(operand2))]  # level0_real, ..., level7_real, bs*dim
+        token_e = reduce(lambda a, b: torch.cat((a, b), dim=1), token_e)
+        r_e = operand1['real'].unsqueeze(0).permute(1, 0, 2)
+        seq_e = torch.cat((r_e, token_e), dim=1)
+
+        hidden_tem = self.lstm(seq_e)
+        hidden_tem = hidden_tem[0, :, :]
+        rseq_e = hidden_tem
+
+        return {'real': rseq_e}
+
+    @staticmethod
+    def embedding_constraint():
+        in_constraints = {
+            'operand1': ['real'],
+            'operand2': ['real']}
+
+        out_constraints = {'result': ['real']}
+
+        return in_constraints, out_constraints
 
 
-@TemporalFusion.register(name="self_attention_fusion")
-class SelfAttentioFusion(HiddenRepresentationCombination):
-    pass
+
+@TemporalFusion.register(name="atise_fusion")
+class ATiSEFusion(HiddenRepresentationCombination):
+    def __init__(self, config: Config):
+        super(ATiSEFusion, self).__init__(config=config)
+
+    def forward(self, operand1, operand2):
+        pi = 3.14159265358979323846
+
+        mean = operand1['emb'] + operand2['level0'] * operand1['alpha'] * operand1['emb_T'] + operand1[
+            'beta'] * torch.sin(2 * pi * operand1['omega'] * operand2['level0'])
+        var = operand1['var']
+
+        res = {'real': mean, 'var': var}
+
+        return res
+
+    @staticmethod
+    def embedding_constraint():
+        in_constraints = {
+            'operand1': ['emb', 'emb_T', 'alpha', 'beta', 'omega', 'var'],
+            'operand2': ['level0']}
+
+        out_constraints = {'result': ['mean', 'var']}
+
+        return in_constraints, out_constraints

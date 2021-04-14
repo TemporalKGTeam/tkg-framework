@@ -3,6 +3,7 @@ from torch import nn
 from torch.nn import functional as F
 
 import numpy as np
+import math
 
 from collections import defaultdict
 from typing import Dict
@@ -53,6 +54,9 @@ class BaseModel(ABC, nn.Module, Registrable, Configurable):
 
     @abstractmethod
     def forward(self, samples, **kwargs):
+        """
+        return scores, factors
+        """
         raise NotImplementedError
 
     @abstractmethod
@@ -237,6 +241,7 @@ class DeSimplEModel(BaseModel):
 
         return h_emb1, r_emb1, t_emb1, h_emb2, r_emb2, t_emb2
 
+    @forward_checking
     def forward(self, samples, **kwargs):
         head = samples[:, 0].long()
         rel = samples[:, 1].long()
@@ -261,13 +266,13 @@ class DeSimplEModel(BaseModel):
 
         samples = samples.view(-1, dim)
 
-        scores, factor = self.forward(samples)
+        scores, factors = self.forward(samples)
         scores = scores.view(bs, -1)
 
-        return scores, factor
+        return scores, factors
 
     def predict(self, queries: torch.Tensor):
-        assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
+        self.config.assert_true(torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent.")
 
         bs = queries.size(0)
         dim = queries.size(0)
@@ -304,6 +309,7 @@ class TComplExModel(BaseModel):
         for emb in self.embeddings:
             emb.weight.data *= self.init_size
 
+    @forward_checking
     def forward(self, x):
         """
         x is spot
@@ -339,8 +345,20 @@ class TComplExModel(BaseModel):
 
         return scores, factors
 
+    def fit(self, samples: torch.Tensor):
+        self.config.assert_true(self.config.get("negative_sampling.type") == 'pseudo_sampling', "Use pseudo_sampling for tcomplex model.")
+
+        bs = samples.size(0)
+        dim = samples.size(1)
+
+        samples = samples.view(-1, dim)
+        scores, factors = self.forward(samples)
+        scores = scores.view(bs, -1)
+
+        return scores, factors
+
     def predict(self, x):
-        assert torch.isnan(x).sum(1).byte().all(), "Either head or tail should be absent."
+        self.config.assert_true(torch.isnan(x).sum(1).byte().all(), "Either head or tail should be absent.")
 
         missing_head_ind = torch.isnan(x)[:, 0].byte().unsqueeze(1)
         reversed_x = x.clone()
@@ -388,11 +406,120 @@ class TComplExModel(BaseModel):
         )
 
 
+@BaseModel.register(name="tntcomplex")
+class TNTComplExModel(BaseModel):
+    def __init__(self, config: Config, dataset: DatasetProcessor, **kwargs):
+        super().__init__(config, dataset)
+
+        self.rank = self.config.get("model.rank")
+        self.no_time_emb = self.config.get("model.no_time_emb")
+        self.init_size = self.config.get("model.init_size")
+
+        self.num_ent = self.dataset.num_entities()
+        self.num_rel = self.dataset.num_relations()
+        self.num_ts = self.dataset.num_timestamps()
+
+        self.prepare_embedding()
+
+    def prepare_embedding(self):
+        self.embeddings = nn.ModuleList([
+            nn.Embedding(s, 2 * self.rank, sparse=True)
+            for s in [self.num_ent, self.num_rel, self.num_ts, self.num_rel]
+        ])
+
+        for emb in self.embeddings:
+            emb.weight.data *= self.init_size
+
+    @forward_checking
+    def forward(self, x):
+
+        lhs = self.embeddings[0](x[:, 0].long())
+        rel = self.embeddings[1](x[:, 1].long())
+        rel_no_time = self.embeddings[3](x[:, 1].long())
+        rhs = self.embeddings[0](x[:, 2].long())
+        time = self.embeddings[2](x[:, 3].long())
+
+        lhs = lhs[:, :self.rank], lhs[:, self.rank:]
+        rel = rel[:, :self.rank], rel[:, self.rank:]
+        rhs = rhs[:, :self.rank], rhs[:, self.rank:]
+        time = time[:, :self.rank], time[:, self.rank:]
+
+        rnt = rel_no_time[:, :self.rank], rel_no_time[:, self.rank:]
+
+        right = self.embeddings[0].weight  # all ent tensor
+        right = right[:, :self.rank], right[:, self.rank:]
+
+        rt = rel[0] * time[0], rel[1] * time[0], rel[0] * time[1], rel[1] * time[1]
+        rrt = rt[0] - rt[3], rt[1] + rt[2]
+        full_rel = rrt[0] + rnt[0], rrt[1] + rnt[1]
+
+        scores = (lhs[0] * full_rel[0] - lhs[1] * full_rel[1]) @ right[0].t() + \
+                 (lhs[1] * full_rel[0] + lhs[0] * full_rel[1]) @ right[1].t()
+
+        factors = {
+            "n3": (math.pow(2, 1 / 3) * torch.sqrt(lhs[0] ** 2 + lhs[1] ** 2),
+                   torch.sqrt(rrt[0] ** 2 + rrt[1] ** 2),
+                   torch.sqrt(rnt[0] ** 2 + rrt[1] ** 2),
+                   math.pow(2, 1 / 3) * torch.sqrt(rhs[0] ** 2 + rhs[1] ** 2)),
+            "lambda3": (self.embeddings[2].weight[:-1] if self.no_time_emb else self.embeddings[2].weight)
+        }
+
+        return scores, factors
+
+    def fit(self, samples: torch.Tensor):
+        self.config.assert_true(self.config.get("negative_sampling.type") == 'pseudo_sampling', "Use pseudo_sampling for tntcomplex model.")
+
+        bs = samples.size(0)
+        dim = samples.size(1)
+
+        samples = samples.view(-1, dim)
+        scores, factors = self.forward(samples)
+        scores = scores.view(bs, -1)
+
+        return scores, factors
+
+    def predict(self, x):
+        self.config.assert_true(torch.isnan(x).sum(1).byte().all(), "Either head or tail should be absent.")
+
+        missing_head_ind = torch.isnan(x)[:, 0].byte().unsqueeze(1)
+        reversed_x = x.clone()
+        reversed_x[:, 1] += 10      # dangerous
+        reversed_x[:, (0, 2)] = reversed_x[:, (2, 0)]
+
+        x = torch.where(missing_head_ind,
+                        reversed_x,
+                        x)
+
+        lhs = self.embeddings[0](x[:, 0].long())
+        rel = self.embeddings[1](x[:, 1].long())
+        rel_no_time = self.embeddings[3](x[:, 1].long())
+        time = self.embeddings[2](x[:, 3].long())
+
+        lhs = lhs[:, :self.rank], lhs[:, self.rank:]
+        rel = rel[:, :self.rank], rel[:, self.rank:]
+        time = time[:, :self.rank], time[:, self.rank:]
+
+        rnt = rel_no_time[:, :self.rank], rel_no_time[:, self.rank:]
+
+        right = self.embeddings[0].weight
+        right = right[:, :self.rank], right[:, self.rank:]
+
+        rt = rel[0] * time[0], rel[1] * time[0], rel[0] * time[1], rel[1] * time[1]
+        rrt = rt[0] - rt[3], rt[1] + rt[2]
+        full_rel = rrt[0] + rnt[0], rrt[1] + rnt[1]
+
+        scores = (lhs[0] * full_rel[0] - lhs[1] * full_rel[1]) @ right[0].t() + \
+                 (lhs[1] * full_rel[0] + lhs[0] * full_rel[1]) @ right[1].t()
+
+        return scores
+
+
 @BaseModel.register(name="hyte")
 class HyTEModel(BaseModel):
     def __init__(self, config: Config, dataset: DatasetProcessor, **kwargs):
         super().__init__(config, dataset)
 
+    @forward_checking
     def forward(self, samples: torch.Tensor, **kwargs):
         # TODO remember to negate the scores with torch.neg(scores)
         raise NotImplementedError
@@ -454,6 +581,9 @@ class ATiSEModel(BaseModel):
         self.embedding['emb_TE'].weight.data.renorm_(p=2, dim=0, maxnorm=1)
         self.embedding['emb_TR'].weight.data.renorm_(p=2, dim=0, maxnorm=1)
 
+        print(sum(p.numel() for p in self.parameters() if p.requires_grad))
+
+    @forward_checking
     def forward(self, sample: torch.Tensor):
         bs = sample.size(0)
         # TODO(gengyuan)
@@ -614,6 +744,7 @@ class TATransEModel(BaseModel):
 
         return rseq_e
 
+    @forward_checking
     def forward(self, samples: torch.Tensor):
         h, r, t, tem = samples[:, 0].long(), samples[:, 1].long(), samples[:, 2].long(), samples[:, 3:].long()
 
@@ -650,7 +781,7 @@ class TATransEModel(BaseModel):
         return scores, factor
 
     def predict(self, queries: torch.Tensor):
-        assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
+        self.config.assert_true(torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent.")
 
         bs = queries.size(0)
         dim = queries.size(0)
@@ -696,6 +827,7 @@ class TADistmultModel(BaseModel):
             torch.nn.init.xavier_uniform_(emb.weight)
             emb.weight.data.renorm(p=2, dim=1, maxnorm=1)
 
+    @forward_checking
     def forward(self, samples: torch.Tensor):
         h, r, t, tem = samples[:, 0].long(), samples[:, 1].long(), samples[:, 2].long(), samples[:, 3:].long()
 
@@ -748,7 +880,7 @@ class TADistmultModel(BaseModel):
         return scores, factor
 
     def predict(self, queries: torch.Tensor):
-        assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
+        self.config.assert_true(torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent.")
 
         bs = queries.size(0)
         dim = queries.size(0)
@@ -788,6 +920,7 @@ class TTransEModel(BaseModel):
             torch.nn.init.xavier_uniform_(emb.weight)
             emb.weight.data.renorm(p=2, dim=1, maxnorm=1)
 
+    @forward_checking
     def forward(self, samples, **kwargs):
         h, r, t, tem = samples[:, 0].long(), samples[:, 1].long(), samples[:, 2].long(), samples[:, 3].long()
 
@@ -822,7 +955,7 @@ class TTransEModel(BaseModel):
         return scores, factor
 
     def predict(self, queries: torch.Tensor):
-        assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
+        self.config.assert_true(torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent.")
 
         bs = queries.size(0)
         dim = queries.size(0)

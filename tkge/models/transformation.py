@@ -37,7 +37,6 @@ class Transformation(ABC, nn.Module, Registrable, Configurable):
     def forward(self, *input):
         raise NotImplementedError
 
-
     @staticmethod
     @abstractmethod
     def embedding_constraint():
@@ -110,6 +109,39 @@ class RotationTransformation(Transformation):
                        'relation': ['real', 'imag']}
 
 
+@Transformation.register(name="chrono_rotation_tf")
+class ChronoRotationTransflormation(Transformation):
+    def __init__(self, config):
+        super(ChronoRotationTransflormation, self).__init__(config=config)
+
+    def forward(self, head: Dict[str, torch.Tensor], rel: Dict[str, torch.Tensor], tail: Dict[str, torch.Tensor]):
+        mat_head = torch.cat(head.values(), dim=2)
+        mat_rel = torch.cat(rel.values(), dim=2)
+        mat_tail = torch.cat(tail.values(), dim=2)
+
+        rotated_head = [mat_head[:, :, 0] * mat_rel[:, :, 0] - mat_head[:, :, 1] * mat_rel[:, :, 1],
+                        -mat_head[:, :, 1] * mat_rel[:, :, 0] - mat_head[:, :, 0] * mat_rel[:, :, 1]]  # complex product
+        rotated_head = torch.cat(rotated_head, dim=2)
+
+        ab = torch.matmul(rotated_head, mat_tail.permute((0, 2, 1)))
+        ab = torch.einsum('bii->b', ab)
+
+        aa = torch.matmul(rotated_head, rotated_head.permute((0, 2, 1)))
+        aa = torch.einsum('bii->b', aa)
+
+        bb = torch.matmul(mat_tail, mat_tail.permute((0, 2, 1)))
+        bb = torch.einsum('bii->b', bb)
+
+        scores = ab / torch.sqrt(aa * bb)
+
+        return scores
+
+    @staticmethod
+    def embedding_constraint():
+        constraints = {'entity': ['real', 'imag'],
+                       'relation': ['real', 'imag']}
+
+
 @Transformation.register(name="rigid_tf")
 class RigidTransformation(Transformation):
     pass
@@ -153,29 +185,32 @@ class ComplexFactorizationTransformation(Transformation):
         self.flatten = True
 
     def _forward(self, input: Dict):
-        assert 'head' in input
-        assert 'rel' in input
-        assert 'tail' in input
+        self.config.assert_true('head' in input, "Missing head entity")
+        self.config.assert_true('rel' in input, "Missing rel entity")
+        self.config.assert_true('tail' in input, "Missing tail entity")
 
     def forward(self, U: Dict, V: Dict, W: Dict):
         """
         U, V, W should be Dict[str, torch.Tensor], keys are 'real' and 'imag'
         """
-        assert isinstance(U, dict)
-        assert isinstance(V, dict)
-        assert isinstance(W, dict)
+        self.config.assert_true(isinstance(U, dict), "U should be of type dict.")
+        self.config.assert_true(isinstance(V, dict), "U should be of type dict.")
+        self.config.assert_true(isinstance(W, dict), "U should be of type dict.")
         #
         # assert ['real', 'imag'] in U.keys()
         # assert ['real', 'imag'] in V.keys()
         # assert ['real', 'imag'] in W.keys()
-
         if self.flatten:
             scores = (U['real'] * V['real'] - U['imag'] * V['imag']) * W['real'] + \
                      (U['imag'] * V['real'] + U['real'] * V['imag']) * W['imag']
 
+            scores = torch.sum(scores, dim=1)
         else:
+            raise NotImplementedError
             scores = (U['real'] * V['real'] - U['imag'] * V['imag']) @ W['real'].t() + \
                      (U['imag'] * V['real'] + U['real'] * V['imag']) @ W['imag'].t()
+
+            print(scores.size())
 
         return scores
 
