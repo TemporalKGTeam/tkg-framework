@@ -123,6 +123,9 @@ class ICEWS0515TADatasetProcessor(DatasetProcessor):
                 self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str):
+        all_resolutions = ['year', 'month', 'day']
+        self.config.assert_true(self.resolution in all_resolutions, f"Time granularity should be {all_resolutions}")
+
         ts = []
         year, month, day = origin.split('-')
 
