@@ -328,50 +328,12 @@ class YAGO1830DatasetProcessor(DatasetProcessor):
             self.test_size = len(self.test_raw)
 
     def process(self):
-        for rd in self.train_raw:
-            head, rel, tail, ts, _ = rd.strip().split('\t')
-            head = int(head)
-            rel = int(rel)
-            tail = int(tail)
-            ts = int(ts)
-            ts_id = ts
+        for data_split in self.data_splits:
+            for rd in self.data_raw_mappings[data_split]:
+                head, rel, tail, ts, _ = rd.strip().split('\t')
+                head_id, rel_id, tail_id, ts_id = self.index_quadruple([head, rel, tail, ts])
 
-            self.train_set['triple'].append([head, rel, tail])
-            self.train_set['timestamp_id'].append([ts_id])
-            self.train_set['timestamp_float'].append(ts)
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
-
-        for rd in self.valid_raw:
-            head, rel, tail, ts, _ = rd.strip().split('\t')
-            head = int(head)
-            rel = int(rel)
-            tail = int(tail)
-            ts = int(ts)
-            ts_id = ts
-
-            self.valid_set['triple'].append([head, rel, tail])
-            self.valid_set['timestamp_id'].append([ts_id])
-            self.valid_set['timestamp_float'].append(ts)
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
-
-        for rd in self.test_raw:
-            head, rel, tail, ts, _ = rd.strip().split('\t')
-            head = int(head)
-            rel = int(rel)
-            tail = int(tail)
-            ts = int(ts)
-            ts_id = ts
-
-            self.test_set['triple'].append([head, rel, tail])
-            self.test_set['timestamp_id'].append([ts_id])
-            self.test_set['timestamp_float'].append(ts)
-
-            self.all_triples.append([head, rel, tail])
-            self.all_quadruples.append([head, rel, tail, ts_id])
+                self.add(data_split, head_id, rel_id, tail_id, ts_id, ts)
 
     def process_time(self, origin: str):
         raise NotImplementedError
