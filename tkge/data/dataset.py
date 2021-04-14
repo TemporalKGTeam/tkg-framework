@@ -241,11 +241,13 @@ class GDELTDatasetProcessor(DatasetProcessor):
         for data_split in self.data_splits:
             for rd in self.data_raw_mappings[data_split]:
                 head, rel, tail, ts = rd.strip().split('\t')
+                ts = self.process_time(ts)
+
                 head_id = int(head)
                 rel_id = int(rel)
                 tail_id = int(tail)
                 ts_id = self.index_timestamps(ts)
-                ts_float = list(map(lambda x: int(x), self.process_time(ts).split('-')))
+                ts_float = list(map(lambda x: int(x), ts.split('-')))
 
                 self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
