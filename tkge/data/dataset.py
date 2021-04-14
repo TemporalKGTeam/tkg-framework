@@ -312,7 +312,7 @@ class ICEWS0515DatasetProcessor(DatasetProcessor):
         raise NotImplementedError
 
 
-# TODO test it
+# TODO test it with ATisE and HyTE when they work properly
 @DatasetProcessor.register(name="yago11k")
 class YAGO11KDatasetProcessor(DatasetProcessor):
     def process(self):
