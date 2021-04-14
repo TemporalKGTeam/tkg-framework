@@ -66,6 +66,8 @@ class YAGO15KTADatasetProcessor(DatasetProcessor):
                 self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str, mod: str = None):
+        self.config.assert_true(self.resolution == "year", f"Time granularity should be year for yago15k_TA.")
+
         ts = []
         if mod and origin != "no-time":
             ts.append(get_mod_dict()[mod])
