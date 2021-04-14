@@ -442,6 +442,8 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
         the relation, so a relation of a fact can be '<relation>occursSince', '<relation>occursUntil' or
         '<relation>_no-time'.
         """
+        self.config.assert_true(self.resolution == "year", f"Time granularity should be year for yago15k.")
+
         for data_split in self.data_splits:
             for rd in self.data_raw_mappings[data_split]:
                 fact = rd.strip().split('\t')
