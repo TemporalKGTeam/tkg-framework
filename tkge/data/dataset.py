@@ -273,9 +273,11 @@ class ICEWS14DatasetProcessor(DatasetProcessor):
 
         for data_split in self.data_splits:
             for rd in self.data_raw_mappings[data_split]:
-                quadruple = rd.strip().split('\t')
-                head_id, rel_id, tail_id, ts_id = self.index_quadruple(quadruple)
-                ts_float = list(map(lambda x: int(x), self.process_time(quadruple[3]).split('-')))
+                head, rel, tail, ts = rd.strip().split('\t')
+                ts = self.process_time(ts)
+
+                head_id, rel_id, tail_id, ts_id = self.index_quadruple([head, rel, tail, ts])
+                ts_float = list(map(lambda x: int(x), ts.split('-')))
 
                 self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
