@@ -42,6 +42,8 @@ class YAGO15KTADatasetProcessor(DatasetProcessor):
         If a fact has a temporal part (temporal modifier and timestamp), then the temporal modifier and the timestamp
         tokens are used to build a sequence of their ids.
         """
+        self.config.assert_true(not self.index, f"Index should be disabled for TA models.")
+
         for data_split in self.data_splits:
             for rd in self.data_raw_mappings[data_split]:
                 fact = rd.strip().split('\t')
@@ -50,7 +52,7 @@ class YAGO15KTADatasetProcessor(DatasetProcessor):
                 if len(fact) > 4:
                     head, rel, tail, mod, ts = fact
                     ts = ts.split('-')[0][1:]
-                    ts_id = self.index_timestamps(ts)  # TODO should not be possible for TA models
+                    ts_id = self.index_timestamps(ts)
                 elif len(fact) == 4:
                     # ignore the two tuples with temporal modifiers but without timestamp
                     continue
@@ -58,7 +60,7 @@ class YAGO15KTADatasetProcessor(DatasetProcessor):
                     head, rel, tail = fact
                     mod = None
                     ts = 'no-time'
-                    ts_id = self.index_timestamps(ts)  # TODO should not be possible for TA models
+                    ts_id = self.index_timestamps(ts)
 
                 head_id, rel_id, tail_id = self.index_triple([head, rel, tail])
                 ts_float = self.process_time(ts, mod)
@@ -73,7 +75,8 @@ class YAGO15KTADatasetProcessor(DatasetProcessor):
             ts.append(get_mod_dict()[mod])
             ts.extend([get_tem_dict()[f'{int(yi):01}y'] for yi in origin])
         else:
-            ts.extend([0, 0, 0, 0, 0])  # TODO how to model time-less facts?
+            # timeless facts are modeled to be true since year 0 without any upper bound
+            ts.extend([0, 0, 0, 0, 0])
         return ts
 
 
