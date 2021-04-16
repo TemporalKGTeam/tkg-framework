@@ -169,10 +169,6 @@ class TrainTask(Task):
         for epoch in range(1, self.config.get("train.max_epochs") + 1):
             self.model.train()
 
-            # TODO early stopping conditions
-            # 1. metrics 变化小
-            # 2. epoch
-            # 3. valid koss
             total_epoch_loss = 0.0
             train_size = self.dataset.train_size
 
@@ -264,13 +260,16 @@ class TrainTask(Task):
                     if self.config.get('train.valid.early_stopping.early_stop'):
                         patience = self.config.get('train.valid.early_stopping.patience')
                         if epoch - self.best_epoch >= patience:
-                            self.config.log(f"Early stopping: valid metrics not improved in {patience} epoch and training stopped at epoch {epoch}")
+                            self.config.log(
+                                f"Early stopping: valid metrics not improved in {patience} epoch and training stopped at epoch {epoch}")
                             break
 
                 if self.config.get('train.valid.early_stopping.early_stop'):
                     thresh_epoch = self.config.get('train.valid.early_stopping.epochs')
-                    if epoch > thresh_epoch and self.best_metric < self.config.get('train.valid.early_stopping.metric_thresh'):
-                        self.config.log(f"Early stopping: within {thresh_epoch} metrics doesn't exceed threshold and training stopped at epoch {epoch}")
+                    if epoch > thresh_epoch and self.best_metric < self.config.get(
+                            'train.valid.early_stopping.metric_thresh'):
+                        self.config.log(
+                            f"Early stopping: within {thresh_epoch} metrics doesn't exceed threshold and training stopped at epoch {epoch}")
                         break
             self.save_ckpt('latest', epoch=epoch)
 
