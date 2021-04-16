@@ -169,10 +169,6 @@ class TrainTask(Task):
         for epoch in range(1, self.config.get("train.max_epochs") + 1):
             self.model.train()
 
-            # TODO early stopping conditions
-            # 1. metrics 变化小
-            # 2. epoch
-            # 3. valid koss
             total_epoch_loss = 0.0
             train_size = self.dataset.train_size
 
