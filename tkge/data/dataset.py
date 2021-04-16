@@ -253,7 +253,7 @@ class GDELTDatasetProcessor(DatasetProcessor):
 
     def process_time(self, origin: str, resolution: str = 'day'):
         all_resolutions = ['year', 'month', 'day', 'hour', 'minute', 'second']
-        self.config.assert_true(resolution in all_resolutions, f"Time granularity should be {all_resolutions}")
+        self.config.assert_true(resolution in all_resolutions, f"Time resolution should be {all_resolutions}")
 
         ts = origin.split('-') + ['00', '00', '00']
         ts = ts[:all_resolutions.index(resolution) + 1]
@@ -285,7 +285,7 @@ class ICEWS14DatasetProcessor(DatasetProcessor):
 
     def process_time(self, origin: str):
         all_resolutions = ['year', 'month', 'day', 'hour', 'minute', 'second']
-        self.config.assert_true(self.resolution in all_resolutions, f"Time granularity should be {all_resolutions}")
+        self.config.assert_true(self.resolution in all_resolutions, f"Time resolution should be {all_resolutions}")
 
         ts = origin.split('-') + ['00', '00', '00']
         ts = ts[:all_resolutions.index(self.resolution) + 1]
@@ -314,7 +314,7 @@ class ICEWS0515DatasetProcessor(DatasetProcessor):
 
     def process_time(self, origin: str):
         all_resolutions = ['year', 'month', 'day', 'hour', 'minute', 'second']
-        self.config.assert_true(self.resolution in all_resolutions, f"Time granularity should be {all_resolutions}")
+        self.config.assert_true(self.resolution in all_resolutions, f"Time resolution should be {all_resolutions}")
 
         ts = origin.split('-') + ['00', '00', '00']
         ts = ts[:all_resolutions.index(self.resolution) + 1]
@@ -332,7 +332,7 @@ class YAGO11KDatasetProcessor(DatasetProcessor):
         Every fact is framed into its time interval through adding facts for each timestamp between the start timestamp
         and the end timestamp. Use the year_max and year_min parameters to set the year if the start timestamp or
         end timestamp have no time information (i.e. ####-##-##).
-        The specified granularity will be augmented to the first possible day and/or month respectively the last
+        The specified resolution will be augmented to the first possible day and/or month respectively the last
         possible day and/or month for timestamps of the form XXXX-##-## and XXXX-XX-##.
         """
         if self.resolution == "day":
@@ -355,7 +355,7 @@ class YAGO11KDatasetProcessor(DatasetProcessor):
 
     def process_time(self, origin: str, start_ts=None, end_ts=None):
         all_resolutions = ['year', 'month', 'day']
-        self.config.assert_true(self.resolution in all_resolutions, f"Time granularity should be {all_resolutions}"
+        self.config.assert_true(self.resolution in all_resolutions, f"Time resolution should be {all_resolutions}"
                                                                     f" (smaller resolutions consume too much time for"
                                                                     f"processing and a lot of memory"
                                                                     f" regarding yago11k).")
@@ -442,7 +442,7 @@ class YAGO15KDatasetProcessor(DatasetProcessor):
         the relation, so a relation of a fact can be '<relation>occursSince', '<relation>occursUntil' or
         '<relation>_no-time'.
         """
-        self.config.assert_true(self.resolution == "year", f"Time granularity should be year for yago15k.")
+        self.config.assert_true(self.resolution == "year", f"Time resolution should be year for yago15k.")
 
         for data_split in self.data_splits:
             for rd in self.data_raw_mappings[data_split]:
@@ -480,7 +480,7 @@ class WIKIDATALSEDatasetProcessor(DatasetProcessor):
         see https://arxiv.org/abs/1809.03202.
         The temporal modifier is concatenated to the relation.
         """
-        self.config.assert_true(self.resolution == "year", f"Time granularity should be year for wikidata_lse.")
+        self.config.assert_true(self.resolution == "year", f"Time resolution should be year for wikidata_lse.")
 
         for data_split in self.data_splits:
             for rd in self.data_raw_mappings[data_split]:

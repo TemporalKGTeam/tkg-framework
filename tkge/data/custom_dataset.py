@@ -66,7 +66,7 @@ class YAGO15KTADatasetProcessor(DatasetProcessor):
                 self.add(data_split, head_id, rel_id, tail_id, ts_id, ts_float)
 
     def process_time(self, origin: str, mod: str = None):
-        self.config.assert_true(self.resolution == "year", f"Time granularity should be year for yago15k_TA.")
+        self.config.assert_true(self.resolution == "year", f"Time resolution should be year for yago15k_TA.")
 
         ts = []
         if mod and origin != "no-time":
@@ -90,7 +90,7 @@ class ICEWS14TADatasetProcessor(DatasetProcessor):
 
     def process_time(self, origin: str):
         all_resolutions = ['year', 'month', 'day']
-        self.config.assert_true(self.resolution in all_resolutions, f"Time granularity should be {all_resolutions}")
+        self.config.assert_true(self.resolution in all_resolutions, f"Time resolution should be {all_resolutions}")
 
         ts = []
         year, month, day = origin.split('-')
@@ -124,7 +124,7 @@ class ICEWS0515TADatasetProcessor(DatasetProcessor):
 
     def process_time(self, origin: str):
         all_resolutions = ['year', 'month', 'day']
-        self.config.assert_true(self.resolution in all_resolutions, f"Time granularity should be {all_resolutions}")
+        self.config.assert_true(self.resolution in all_resolutions, f"Time resolution should be {all_resolutions}")
 
         ts = []
         year, month, day = origin.split('-')
