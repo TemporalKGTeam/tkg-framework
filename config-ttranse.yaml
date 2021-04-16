@@ -255,6 +255,11 @@ train:
     filter: time-aware  # in [off, static, time-aware]
     ordering: optimistic    # in [optimistic, peesimistic]
     k: [1, 3, 10]
+    early_stopping:
+      early_stop: True
+      patience: 10
+      epochs: 0
+      metric_thresh: 0.0
 
   regularizer: ~
 

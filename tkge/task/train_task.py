@@ -260,7 +260,18 @@ class TrainTask(Task):
                     self.best_epoch = epoch
 
                     self.save_ckpt('best', epoch=epoch)
+                else:
+                    if self.config.get('train.valid.early_stopping.early_stop'):
+                        patience = self.config.get('train.valid.early_stopping.patience')
+                        if epoch - self.best_epoch >= patience:
+                            self.config.log(f"Early stopping: valid metrics not improved in {patience} epoch and training stopped at epoch {epoch}")
+                            break
 
+                if self.config.get('train.valid.early_stopping.early_stop'):
+                    thresh_epoch = self.config.get('train.valid.early_stopping.epochs')
+                    if epoch > thresh_epoch and self.best_metric < self.config.get('train.valid.early_stopping.metric_thresh'):
+                        self.config.log(f"Early stopping: within {thresh_epoch} metrics doesn't exceed threshold and training stopped at epoch {epoch}")
+                        break
             self.save_ckpt('latest', epoch=epoch)
 
         self.config.log(f"TRAINING FINISHED: Best model achieved at epoch {self.best_epoch}")
