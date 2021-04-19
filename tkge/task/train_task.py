@@ -243,6 +243,7 @@ class TrainTask(Task):
             self.config.log(f"Loss in iteration {epoch} : {avg_loss} consuming {stop_time - start_time}s")
 
             if epoch % save_freq == 0:
+                self.config.log(f"Save the model checkpoint to {self.config.checkpoint_folder} as file epoch_{epoch}.ckpt")
                 self.save_ckpt(f"epoch_{epoch}", epoch=epoch)
 
             if epoch % eval_freq == 0:
@@ -256,6 +257,7 @@ class TrainTask(Task):
                     self.best_metric = metrics['avg']['mean_reciprocal_ranking']
                     self.best_epoch = epoch
 
+                    self.config.log(f"Save the model checkpoint to {self.config.checkpoint_folder} as file best.ckpt")
                     self.save_ckpt('best', epoch=epoch)
                 else:
                     if self.config.get('train.valid.early_stopping.early_stop'):
@@ -414,8 +416,6 @@ class TrainTask(Task):
 
     def save_ckpt(self, ckpt_name, epoch):
         filename = f"{ckpt_name}.ckpt"
-
-        self.config.log(f"Save the model checkpoint to {self.config.checkpoint_folder} as file {filename}")
 
         checkpoint = {
             'last_epoch': epoch,
