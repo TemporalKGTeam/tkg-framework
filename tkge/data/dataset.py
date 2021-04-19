@@ -55,11 +55,11 @@ class DatasetProcessor(ABC, Registrable, Configurable):
     def create(cls, config: Config):
         """Factory method for data creation"""
 
-        ds_type = config.get("dataset.name")
+        ds_type: str = config.get("dataset.name")
 
         if ds_type in DatasetProcessor.list_available():
             kwargs = config.get("dataset.args")  # TODO: 需要改成key的格式
-            return DatasetProcessor.by_name(ds_type)(config)
+            return DatasetProcessor.by_name(ds_type)(config) # return an instance
         else:
             raise ConfigurationError(
                 f"{ds_type} specified in configuration file is not supported"
@@ -372,7 +372,7 @@ class SplitDataset(torch.utils.data.Dataset):
         super().__init__()
 
         self.dataset = dataset
-        self.datatype = datatype
+        self.datatype: List = datatype
 
         # TODO(gengyuan) assert the lengths of all lists in self.dataset
         # use self.config.assert_true(condition, message)

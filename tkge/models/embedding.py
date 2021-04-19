@@ -201,9 +201,32 @@ class FunctionalTemporalEmbedding(BaseEmbedding):
 
         return {'real': feat}
 
+class ExtendedBochnerTemporalEmbedding(BaseEmbedding):
+    def __init__(self, config: Config, dataset: DatasetProcessor):
+        super(ExtendedBochnerTemporalEmbedding, self).__init__(config=config, dataset=dataset)
 
+        dim = self.config.get("model.embedding.global.dim")
+        init_type = self.config.get("model.embedding.global.init")
+        t_min = self.config.get("model.embedding.global.t_min")
+        t_max = self.config.get("model.embedding.global.t_max")
 
+        self.freq = nn.Parameter(data=torch.zeros([1, dim]), requires_grad=True)
+        self.amps = nn.Parameter(data=torch.zeros([1, dim]), requires_grad=True)
+        self.phas = nn.Parameter(data=torch.zeros([1, dim]), requires_grad=True)
+        torch.nn.init.uniform_(self.freq.data, a=t_min, b=t_max)
+        torch.nn.init.xavier_uniform_(self.amps.data)
+        torch.nn.init.uniform_(self.phas.data, a=0, b=t_max)
 
+    def __call__(self, timestamps: torch.Tensor):
+        timestamps = timestamps.squeeze().unsqueeze(-1)
+        assert timestamps.dim() == 2 and timestamps.size(1) == 1, f"timestamp {timestamps.size()}"
+
+        omega = 1 / self.freq
+        feat = self.amps * torch.sin(timestamps * omega + self.phas)
+        # cos_feat = self.amps * torch.cos(timestamps * omega + self.phas)
+        # feat = torch.cat((sin_feat, cos_feat), dim=1)
+
+        return {'real': feat}
 # class EntityEmbedding(BaseEmbedding):
 #     def __init__(self, num: int, dim: int, pos_aware: bool = False, interleave: bool = False,
 #                  expanded_dim_ratio: int = 1):

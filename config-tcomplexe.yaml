@@ -192,7 +192,7 @@ train:
   # If set and a batch runs out of memory, repeatedly half the subbatch size
   # until the batch succeeds. The reduced subbatch size will be used for all
   # future batches.
-  subbatch_auto_tune: False
+  subbatch_adaptive: True
 
   # Number of workers used to construct batches. Leave at 0 for default (no
   # separate workers). On Windows, only 0 is supported.
@@ -227,6 +227,12 @@ train:
     filter: time-aware  # in [off, static, time-aware]
     ordering: optimistic    # in [optimistic, peesimistic]
     k: [1, 3, 10]
+
+    early_stopping:
+      early_stop: true
+      patience: 30
+      epochs: 50
+      metric_thresh: 0.1
 
   regularizer:
     n3:

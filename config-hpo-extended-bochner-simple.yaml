@@ -6,7 +6,7 @@ console:
 
 #local
 task:
-  folder: /home/ubuntu/gengyuan/experiments
+  folder: /home/ubuntu/gengyuan/search_experiments
   type: train
   device: 'cuda'
   reciprocal_training: True
@@ -48,7 +48,7 @@ negative_sampling:
 
 
 model:
-  type: basis_bochner_pipeline_model
+  type: extended_bochner_pipeline_model
 
   p: 0.4
 
@@ -102,7 +102,7 @@ train:
     type: binary_cross_entropy_loss
     args: ~
 
-  max_epochs: 500
+  max_epochs: 100
 
 
   loader:
@@ -128,7 +128,7 @@ train:
 
   batch_size: 512
   subbatch_size: 64
-  subbatch_adaptive: False
+  subbatch_adaptive: True
   optimizer:
     type: Adam
     args:
@@ -169,3 +169,20 @@ eval:
   k: [1,3,10]
 
 
+hpo:
+  num_workers: -1
+  num_trials: 30
+  num_random_trials: 12
+  hyperparam:
+    - name: model.embedding.global.dim
+      type: choice
+      values: [1024, 512, 256, 128, 64]
+      value_type: int
+    - name: train.regularizer.relation_reg.weight
+      type: range
+      bounds: [0.0, 0.1]
+      value_type: float
+    - name: train.regularizer.entity_reg.weight
+      type: range
+      bounds: [0.0, 0.1]
+      value_type: float

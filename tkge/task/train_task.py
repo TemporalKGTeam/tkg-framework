@@ -32,12 +32,12 @@ class TrainTask(Task):
             help="specify configuration file path"
         )
 
-        subparser.add_argument(
-            "--resume",
-            action="store_true",
-            default=False,
-            help="resume training from checkpoint in config file"
-        )
+        # subparser.add_argument(
+        #     "--resume",
+        #     action="store_true",
+        #     default=False,
+        #     help="resume training from checkpoint in config file"
+        # )
 
         subparser.add_argument(
             "--overrides",
@@ -69,6 +69,7 @@ class TrainTask(Task):
         self.valid_sub_bs = self.config.get("train.valid.subbatch_size") if self.config.get(
             "train.valid.subbatch_size") else self.valid_bs
 
+        # [optional(id), optional(float)]
         self.datatype = (['timestamp_id'] if self.config.get("dataset.temporal.index") else []) + (
             ['timestamp_float'] if self.config.get("dataset.temporal.float") else [])
 

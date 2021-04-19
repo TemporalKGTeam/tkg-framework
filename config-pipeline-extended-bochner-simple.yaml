@@ -48,14 +48,14 @@ negative_sampling:
 
 
 model:
-  type: basis_bochner_pipeline_model
+  type: extended_bochner_pipeline_model
 
   p: 0.4
 
 
   embedding:
     global:
-      dim: 128
+      dim: 256
       init: xavier_uniform
       t_min: 1
       t_max: 365

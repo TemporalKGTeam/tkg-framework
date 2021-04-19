@@ -67,6 +67,12 @@ To get a local copy up and running follow these simple example steps.
 
  # eval a model
  python tkge.py eval --config config-default.yaml
+
+ # hyper-parameter optimization
+ python tkge.py hpo --config config-default.yaml
+
+ # resume training
+ python tkge.py resume --ex /path/to/folder
  ```
 
 

@@ -6,10 +6,10 @@ console:
 
 #local
 task:
-  folder: /home/ubuntu/gengyuan/search_experiments
+  folder: /home/ubuntu/gengyuan/experiments
   type: train
   device: 'cuda'
-  reciprocal_training: True
+  reciprocal_training: true
 
 random_seed:
   default: -1
@@ -29,8 +29,8 @@ dataset:
   filter: False
   temporal:
     resolution: "day"
-    index: True
-    float: False
+    index: False
+    float: True
   args: ~
 
   name: 'icews14'
@@ -48,41 +48,67 @@ negative_sampling:
 
 
 model:
-  type: basis_bochner_pipeline_model
+  type: de_pipeline_dropout_model
 
   p: 0.4
 
-
   embedding:
     global:
-      dim: 128
+      dim: 100
       init: xavier_uniform
-      t_min: 1
-      t_max: 365
+
     entity:
       pos_aware: True
       keys:
         real:
-          dim: 128
+          dim: 100
           init: xavier_uniform
 
     relation:
       keys:
-        real:
-          dim: 128
+        ent_embs:
+          dim: 108
           init: xavier_uniform
-    temporal:
-      keys:
-        real:
-          dim: 1600 # should have no effect
+        amps_y:
+          dim: 52
           init: xavier_uniform
+        amps_m:
+          dim: 52
+          init: xavier_uniform
+        amps_d:
+          dim: 52
+          init: xavier_uniform
+        freq_y:
+          dim: 52
+          init: xavier_uniform
+        freq_m:
+          dim: 52
+          init: xavier_uniform
+        freq_d:
+          dim: 52
+          init: xavier_uniform
+        phi_y:
+          dim: 52
+          init: xavier_uniform
+        phi_m:
+          dim: 52
+          init: xavier_uniform
+        phi_d:
+          dim: 52
+          init: xavier_uniform
+
+    temporal: ~
   fusion:
-    type: addition_fusion
+    type: diachronic_entity_fusion
     target:
-      - 'rel+temp'
+      - 'ent+temp'
+    l1_flag: True
+    p: 0.4
+    emb_dim: 160
+    se: 0.32
     args: ~
   transformation:
-    type: translation_tf
+    type: distmult_tf
     gamma: 100
     p: 1
     range: 10
@@ -91,6 +117,7 @@ model:
     inverse: True
 
   args: ~
+
 
 
 train:
@@ -102,7 +129,7 @@ train:
     type: binary_cross_entropy_loss
     args: ~
 
-  max_epochs: 100
+  max_epochs: 500
 
 
   loader:
@@ -113,8 +140,8 @@ train:
 
   valid:
     split: test # in [test or valid]
-    every: 10
-    batch_size: 100
+    every: 5
+    batch_size: 8
     subbatch_size: -1
     filter: time-aware  # in [off, static, time-aware]
     ordering: optimistic    # in [optimistic, peesimistic]
@@ -128,21 +155,30 @@ train:
 
   batch_size: 512
   subbatch_size: 64
-  subbatch_adaptive: True
+  subbatch_adaptive: true
   optimizer:
     type: Adam
     args:
       lr: 0.001
 
+    default:
+      type: Adam           # sgd, adagrad, adam
+
+      args:
+        +++: +++
 
   regularizer:
     entity_reg:
-      type: lambda3_regularize
-      weight: 0.01
+      type: none_regularize
+      weight: 0.0
       args: ~
     relation_reg:
-      type: lambda3_regularize
-      weight: 0.01
+      type: none_regularize
+      weight: 0.0
+      args: ~
+    temporal_reg:
+      type: none_regularize
+      weight: 0.0
       args: ~
   inplace_regularizer: ~
 
@@ -154,8 +190,7 @@ train:
   trace_level: epoch           # batch, epoch
 
   checkpoint:
-    folder: /home/ubuntu/gengyuan/ckpt/
-    every: 100
+    every: 5
     keep: 3
 
   auto_correct: False
@@ -172,17 +207,47 @@ eval:
 hpo:
   num_workers: -1
   num_trials: 30
-  num_random_trials: 16
   hyperparam:
     - name: model.embedding.global.dim
       type: choice
-      values: [1024, 512, 256, 128, 64]
+      values: [2048, 1024, 512, 256, 128]
       value_type: int
-    - name: train.regularizer.relation_reg.weight
-      type: range
-      bounds: [0.0, 0.1]
-      value_type: float
+    - name: model.embedding.global.init
+      type: choice
+      values: ['xavier_uniform', 'xavier_normal']
+      value_type: str
+    - name: train.regularizer.entity_reg.type
+      type: choice
+      values: ['none_regularize', 'f2_regularize']
+      value_type: str
     - name: train.regularizer.entity_reg.weight
       type: range
       bounds: [0.0, 0.1]
       value_type: float
+    - name: train.regularizer.relation_reg.type
+      type: choice
+      values: ['none_regularize', 'f2_regularize']
+      value_type: str
+    - name: train.regularizer.relation_reg.weight
+      type: range
+      bounds: [0.0, 0.1]
+      value_type: float
+    - name: train.regularizer.temporal_reg.weight
+      type: range
+      bounds: [0.0, 0.1]
+      value_type: float
+    - name: train.batch_size
+      type: choice
+      values: [256, 512, 1024]
+      value_type: int
+    - name: train.optimizer.args.lr
+      type: range
+      bounds: [0.0000001, 0.01]
+      value_type: float
+    - name: model.fusion.se
+      type: range
+      bounds: [0.0, 1.0]
+      value_type: float
+
+
+
