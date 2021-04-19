@@ -1,5 +1,6 @@
 from torch import nn
 import torch
+from torch.nn import functional as F
 
 from abc import ABC, abstractmethod
 from typing import Dict
@@ -51,12 +52,15 @@ class TranslationTransformation(Transformation):
     def __init__(self, config):
         super(TranslationTransformation, self).__init__(config=config)
 
-        self.p = self.config.get('model.transformation.p')
         self.gamma = self.config.get('model.transformation.gamma')
+        self.p = self.config.get('model.transformation.p')
 
-    def forward(self, head, rel, tail):
+    def forward(self, head, rel, tail, summation=True):
         scores = head['real'] + rel['real'] - tail['real']
-        scores = self.gamma - torch.norm(scores, p=self.p, dim=1)
+        if summation:
+            scores = self.gamma - torch.norm(scores, p=self.p, dim=1)
+        else:
+            scores = self.gamma / scores.size(1) - scores
 
         return scores
 
@@ -80,8 +84,12 @@ class RotationTransformation(Transformation):
 
         self.gamma = self.config.get('model.transformation.gamma')
         self.range = self.config.get('model.transformation.range')
+        self.dropout_p = self.config.get('model.transformation.dropout_p')
 
-    def forward(self, head: Dict[str, torch.Tensor], rel: Dict[str, torch.Tensor], tail: Dict[str, torch.Tensor]):
+        self.dropout_layer = nn.Dropout(p=self.dropout_p)
+
+    def forward(self, head: Dict[str, torch.Tensor], rel: Dict[str, torch.Tensor], tail: Dict[str, torch.Tensor],
+                summation=True):
         """
         head and tail should be Dict[str, torch.Tensor]
         """
@@ -98,9 +106,12 @@ class RotationTransformation(Transformation):
         im_score = im_score - head['imag']
 
         scores = torch.stack([re_score, im_score], dim=0)
-        scores = scores.norm(dim=0)
 
-        scores = self.gamma - scores.sum(dim=-1)
+        if summation:
+            scores = self.gamma - scores.sum(dim=-1)
+        else:
+            scores = self.gamma / scores.size(1) - scores
+
         return scores
 
     @staticmethod
@@ -114,7 +125,15 @@ class ChronoRotationTransflormation(Transformation):
     def __init__(self, config):
         super(ChronoRotationTransflormation, self).__init__(config=config)
 
-    def forward(self, head: Dict[str, torch.Tensor], rel: Dict[str, torch.Tensor], tail: Dict[str, torch.Tensor]):
+        self.dropout_p = self.config.get('model.transformation.dropout_p')
+
+        self.dropout_layer = nn.Dropout(p=self.dropout_p)
+
+    def forward(self, head: Dict[str, torch.Tensor], rel: Dict[str, torch.Tensor], tail: Dict[str, torch.Tensor],
+                summation=True):
+        if not summation:
+            raise NotImplementedError
+
         mat_head = torch.cat(head.values(), dim=2)
         mat_rel = torch.cat(rel.values(), dim=2)
         mat_tail = torch.cat(tail.values(), dim=2)
@@ -159,9 +178,11 @@ class DistMult(Transformation):
     def __init__(self, config):
         super(DistMult, self).__init__(config=config)
 
-        # self.dropout = config.get('dropout')
+        self.dropout_p = self.config.get('model.transformation.dropout_p')
 
-    def forward(self, head, rel, tail, summation='True'):
+        self.dropout_layer = nn.Dropout(p=self.dropout_p)
+
+    def forward(self, head, rel, tail, summation=True):
         scores = head['real'] * rel['real'] * tail['real']
 
         if summation:
@@ -189,7 +210,7 @@ class ComplexFactorizationTransformation(Transformation):
         self.config.assert_true('rel' in input, "Missing rel entity")
         self.config.assert_true('tail' in input, "Missing tail entity")
 
-    def forward(self, U: Dict, V: Dict, W: Dict):
+    def forward(self, U: Dict, V: Dict, W: Dict, summation=True):
         """
         U, V, W should be Dict[str, torch.Tensor], keys are 'real' and 'imag'
         """
@@ -204,7 +225,9 @@ class ComplexFactorizationTransformation(Transformation):
             scores = (U['real'] * V['real'] - U['imag'] * V['imag']) * W['real'] + \
                      (U['imag'] * V['real'] + U['real'] * V['imag']) * W['imag']
 
-            scores = torch.sum(scores, dim=1)
+            if summation:
+                scores = torch.sum(scores, dim=1)
+
         else:
             raise NotImplementedError
             scores = (U['real'] * V['real'] - U['imag'] * V['imag']) @ W['real'].t() + \
