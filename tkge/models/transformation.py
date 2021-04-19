@@ -84,9 +84,6 @@ class RotationTransformation(Transformation):
 
         self.gamma = self.config.get('model.transformation.gamma')
         self.range = self.config.get('model.transformation.range')
-        self.dropout_p = self.config.get('model.transformation.dropout_p')
-
-        self.dropout_layer = nn.Dropout(p=self.dropout_p)
 
     def forward(self, head: Dict[str, torch.Tensor], rel: Dict[str, torch.Tensor], tail: Dict[str, torch.Tensor],
                 summation=True):
@@ -124,10 +121,6 @@ class RotationTransformation(Transformation):
 class ChronoRotationTransflormation(Transformation):
     def __init__(self, config):
         super(ChronoRotationTransflormation, self).__init__(config=config)
-
-        self.dropout_p = self.config.get('model.transformation.dropout_p')
-
-        self.dropout_layer = nn.Dropout(p=self.dropout_p)
 
     def forward(self, head: Dict[str, torch.Tensor], rel: Dict[str, torch.Tensor], tail: Dict[str, torch.Tensor],
                 summation=True):
@@ -177,10 +170,6 @@ class DistMult(Transformation):
 
     def __init__(self, config):
         super(DistMult, self).__init__(config=config)
-
-        self.dropout_p = self.config.get('model.transformation.dropout_p')
-
-        self.dropout_layer = nn.Dropout(p=self.dropout_p)
 
     def forward(self, head, rel, tail, summation=True):
         scores = head['real'] * rel['real'] * tail['real']
