@@ -105,9 +105,9 @@ class N3Reg(Regularizer):
     def forward(self, factors: Tuple[torch.Tensor], **kwargs):
         norm = 0.
         for f in factors:
-            norm += self.weight * torch.sum(torch.abs(f) ** 3)
+            norm += self.weight * torch.sum(torch.abs(f) ** 3) / f.shape[0]
 
-        return norm / factors[0].shape[0]
+        return norm
 
 
 # reference: https://github.com/facebookresearch/kbc/blob/master/kbc/regularizers.py
@@ -121,8 +121,8 @@ class F2Reg(Regularizer):
     def forward(self, factors: Tuple[torch.Tensor], **kwargs):
         norm = 0
         for f in factors:
-            norm += self.weight * torch.sum(f ** 2)
-        return norm / factors[0].shape[0]
+            norm += self.weight * torch.sum(f ** 2) / f.shape[0]
+        return norm
 
 
 @Regularizer.register(name="none_regularize")
