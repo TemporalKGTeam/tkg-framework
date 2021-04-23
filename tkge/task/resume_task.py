@@ -298,6 +298,7 @@ class ResumeTask(Task):
             0), f"Score's size {scores.shape} should match label's size {labels.shape}")
         loss = self.loss(scores, labels)
 
+        factors = {} if factors==None else factors
         self.config.assert_true(not (factors and set(factors.keys()) - (set(self.regularizer) | set(
             self.inplace_regularizer))),
                                 f"Regularizer name defined in model {set(factors.keys())} should correspond to that in config file")
