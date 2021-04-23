@@ -78,7 +78,7 @@ model:
     p: 0.4
     args: ~
   transformation:
-    type: translation_tf
+    type: distmult_tf
     gamma: 100
     p: 1
     range: 10
@@ -180,15 +180,15 @@ hpo:
   hyperparam:
     - name: model.embedding.global.dim
       type: choice
-      values: [512, 256, 128, 100, 64]
+      values: [512, 256, 128, 64]
       value_type: int
-#    - name: model.embedding.global.init
-#      type: choice
-#      values: ['xavier_uniform', 'xavier_normal']
-#      value_type: str
+    - name: model.embedding.global.init
+      type: choice
+      values: ['xavier_uniform', 'xavier_normal']
+      value_type: str
     - name: train.regularizer.entity_reg.type
       type: choice
-      values: ['f2_regularize', 'lambda3_regularize']
+      values: ['none_regularize', 'f2_regularize', 'lambda3_regularize']
       value_type: str
     - name: train.regularizer.entity_reg.weight
       type: range
@@ -196,7 +196,7 @@ hpo:
       value_type: float
     - name: train.regularizer.relation_reg.type
       type: choice
-      values: ['f2_regularize', 'lambda3_regularize']
+      values: ['none_regularize', 'f2_regularize', 'lambda3_regularize']
       value_type: str
     - name: train.regularizer.relation_reg.weight
       type: range
@@ -211,8 +211,8 @@ hpo:
       bounds: [0.0000001, 0.01]
       value_type: float
     - name: model.fusion.p
-      type: choice
-      values: [0.0, 0.2, 0.4, 0.5, 0.6]
+      type: range
+      bounds: [0.0, 0.6]
       value_type: float
 
 

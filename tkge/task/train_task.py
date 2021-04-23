@@ -287,6 +287,7 @@ class TrainTask(Task):
 
         scores, factors = self.model.fit(samples)
 
+        factors = {} if factors is None
         self.config.assert_true(scores.size(0) == labels.size(
             0), f"Score's size {scores.shape} should match label's size {labels.shape}")
         loss = self.loss(scores, labels)

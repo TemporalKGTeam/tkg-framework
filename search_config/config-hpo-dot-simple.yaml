@@ -72,13 +72,13 @@ model:
           dim: 160
           init: xavier_uniform
   fusion:
-    type: addition_fusion
+    type: elementwise_product_fusion
     target:
       - 'rel+temp'
     p: 0.4
     args: ~
   transformation:
-    type: translation_tf
+    type: distmult_tf
     gamma: 100
     p: 1
     range: 10
@@ -138,12 +138,12 @@ train:
 
   regularizer:
     entity_reg:
-      type: lambda3_regularize
-      weight: 0.01
+      type: none_regularize
+      weight: 0.0
       args: ~
     relation_reg:
-      type: lambda3_regularize
-      weight: 0.01
+      type: none_regularize
+      weight: 0.0
       args: ~
     temporal_reg:
       type: n3_regularize
@@ -180,28 +180,28 @@ hpo:
   hyperparam:
     - name: model.embedding.global.dim
       type: choice
-      values: [512, 256, 128, 100, 64]
+      values: [1024, 512, 256, 128, 64]
       value_type: int
-#    - name: model.embedding.global.init
+    - name: model.embedding.global.init
+      type: choice
+      values: ['xavier_uniform', 'xavier_normal']
+      value_type: str
+#    - name: train.regularizer.entity_reg.type
 #      type: choice
-#      values: ['xavier_uniform', 'xavier_normal']
+#      values: ['none_regularize', 'f2_regularize', 'lambda3_regularize']
 #      value_type: str
-    - name: train.regularizer.entity_reg.type
-      type: choice
-      values: ['f2_regularize', 'lambda3_regularize']
-      value_type: str
-    - name: train.regularizer.entity_reg.weight
-      type: range
-      bounds: [0.0, 0.1]
-      value_type: float
-    - name: train.regularizer.relation_reg.type
-      type: choice
-      values: ['f2_regularize', 'lambda3_regularize']
-      value_type: str
-    - name: train.regularizer.relation_reg.weight
-      type: range
-      bounds: [0.0, 0.1]
-      value_type: float
+#    - name: train.regularizer.entity_reg.weight
+#      type: range
+#      bounds: [0.0, 0.1]
+#      value_type: float
+#    - name: train.regularizer.relation_reg.type
+#      type: choice
+#      values: ['none_regularize', 'f2_regularize', 'lambda3_regularize']
+#      value_type: str
+#    - name: train.regularizer.relation_reg.weight
+#      type: range
+#      bounds: [0.0, 0.1]
+#      value_type: float
     - name: train.regularizer.temporal_reg.weight
       type: range
       bounds: [0.0, 0.1]
