@@ -77,9 +77,10 @@ model:
     type: elementwise_product_fusion
     target:
       - 'rel+temp'
+    p: 0.0
     args: ~
   transformation:
-    type: translation_tf
+    type: distmult_tf
     gamma: 100
     p: 1
     range: 10

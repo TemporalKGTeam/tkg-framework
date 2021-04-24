@@ -59,8 +59,6 @@ class TranslationTransformation(Transformation):
         scores = head['real'] + rel['real'] - tail['real']
         if summation:
             scores = self.gamma - torch.norm(scores, p=self.p, dim=1)
-        else:
-            scores = self.gamma / scores.size(1) - scores
 
         return scores
 

@@ -120,12 +120,21 @@ class PipelineModel(BaseModel):
         scores = self._transformation(fused_spo_emb['s'], fused_spo_emb['p'], fused_spo_emb['o'], summation=False)
 
         if self._inverse_scorer:
-            scores_inv = self._transformation(fused_spo_emb_inv['s'], fused_spo_emb_inv['p'], fused_spo_emb_inv['o'], summation=False)
+            scores_inv = self._transformation(fused_spo_emb_inv['s'], fused_spo_emb_inv['p'], fused_spo_emb_inv['o'],
+                                              summation=False)
 
             scores = (scores + scores_inv) / 2
 
         scores = F.dropout(scores, p=self.config.get("model.fusion.p"), training=self.training)
-        scores = torch.sum(scores, dim=1)
+        if self.config.get('model.transformation.type') == 'translation_tf':
+            scores = self.config.get('model.transformation.gamma') - torch.norm(scores, p=self.config.get(
+                'model.transformation.p'), dim=1)
+        else:
+            scores = torch.sum(scores, dim=1)
+
+
+        if self.config.get('model.transformation.type') == 'translation_tf':
+            scores = self.config.get('model.transformation.gamma') - scores
 
         factors = {"entity_reg": list(self._entity_embeddings.parameters()),
                    "relation_reg": list(self._relation_embeddings.parameters())
@@ -270,12 +279,18 @@ class TransSimpleModel(BaseModel):
             # fused_spo_emb_inv['s']['real'] = self.dropout(fused_spo_emb_inv['s']['real'])
             # fused_spo_emb_inv['p']['real'] = self.dropout(fused_spo_emb_inv['p']['real'])
             # fused_spo_emb_inv['o']['real'] = self.dropout(fused_spo_emb_inv['o']['real'])
-            scores_inv = self._transformation(fused_spo_emb_inv['s'], fused_spo_emb_inv['p'], fused_spo_emb_inv['o'], summation=False)
+            scores_inv = self._transformation(fused_spo_emb_inv['s'], fused_spo_emb_inv['p'], fused_spo_emb_inv['o'],
+                                              summation=False)
 
             scores = (scores + scores_inv) / 2
 
+
         scores = F.dropout(scores, p=self.config.get("model.fusion.p"), training=self.training)
-        scores = torch.sum(scores, dim=1)
+        if self.config.get('model.transformation.type') == 'translation_tf':
+            scores = self.config.get('model.transformation.gamma') - torch.norm(scores, p=self.config.get(
+                'model.transformation.p'), dim=1)
+        else:
+            scores = torch.sum(scores, dim=1)
 
         factors = {
             "n3": (torch.sqrt(self._entity_embeddings._head['real'].weight ** 2),
@@ -301,7 +316,7 @@ class TransSimpleModel(BaseModel):
         return fused_spo_emb
 
     def predict(self, queries: torch.Tensor):
-        self.training=False
+        self.training = False
         self.config.assert_true(torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent.")
 
         bs = queries.size(0)
@@ -635,6 +650,7 @@ class DePipelineModel(BaseModel):
 
         return scores, factors
 
+
 @BaseModel.register(name='de_pipeline_dropout_model')
 class DePipelineDropoutModel(BaseModel):
     def __init__(self, config: Config, dataset: DatasetProcessor):
@@ -679,7 +695,6 @@ class DePipelineDropoutModel(BaseModel):
         self._fusion_operand: List = []
 
         self._inverse_scorer = self.config.get("model.scorer.inverse")
-
 
     @forward_checking
     def forward(self, samples: torch.Tensor):
@@ -737,12 +752,17 @@ class DePipelineDropoutModel(BaseModel):
         scores = self._transformation(fused_spo_emb['s'], fused_spo_emb['p'], fused_spo_emb['o'], summation=False)
 
         if self._inverse_scorer:
-            scores_inv = self._transformation(fused_spo_emb_inv['s'], fused_spo_emb_inv['p'], fused_spo_emb_inv['o'], summation=False)
+            scores_inv = self._transformation(fused_spo_emb_inv['s'], fused_spo_emb_inv['p'], fused_spo_emb_inv['o'],
+                                              summation=False)
 
             scores = (scores + scores_inv) / 2
 
         scores = F.dropout(scores, p=self.config.get("model.fusion.p"), training=self.training)
-        scores = torch.sum(scores, dim=1)
+        if self.config.get('model.transformation.type') == 'translation_tf':
+            scores = self.config.get('model.transformation.gamma') - torch.norm(scores, p=self.config.get(
+                'model.transformation.p'), dim=1)
+        else:
+            scores = torch.sum(scores, dim=1)
 
         factors = {"entity_reg": list(self._entity_embeddings.parameters()),
                    "relation_reg": list(self._relation_embeddings.parameters())
@@ -1214,6 +1234,7 @@ class BasisBochnerPipelineModel(BaseModel):
 
         return scores, factors
 
+
 @BaseModel.register(name='basis_bochner_pipeline_dropout_model')
 class BasisBochnerPipelineDropoutModel(BaseModel):
     def __init__(self, config: Config, dataset: DatasetProcessor):
@@ -1287,12 +1308,17 @@ class BasisBochnerPipelineDropoutModel(BaseModel):
         scores = self._transformation(fused_spo_emb['s'], fused_spo_emb['p'], fused_spo_emb['o'], summation=False)
 
         if self._inverse_scorer:
-            scores_inv = self._transformation(fused_spo_emb_inv['s'], fused_spo_emb_inv['p'], fused_spo_emb_inv['o'], summation=False)
+            scores_inv = self._transformation(fused_spo_emb_inv['s'], fused_spo_emb_inv['p'], fused_spo_emb_inv['o'],
+                                              summation=False)
 
             scores = (scores + scores_inv) / 2
 
         scores = F.dropout(scores, p=self.config.get("model.fusion.p"), training=self.training)
-        scores = torch.sum(scores, dim=1)
+        if self.config.get('model.transformation.type') == 'translation_tf':
+            scores = self.config.get('model.transformation.gamma') - torch.norm(scores, p=self.config.get(
+                'model.transformation.p'), dim=1)
+        else:
+            scores = torch.sum(scores, dim=1)
 
         factors = {"entity_reg": list(self._entity_embeddings.parameters()),
                    "relation_reg": list(self._relation_embeddings.parameters())
@@ -1329,7 +1355,7 @@ class BasisBochnerPipelineDropoutModel(BaseModel):
         return scores
 
     def fit(self, samples: torch.Tensor):
-        self.training=True
+        self.training = True
         bs = samples.size(0)
         dim = samples.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
 
@@ -1339,6 +1365,7 @@ class BasisBochnerPipelineDropoutModel(BaseModel):
         scores = scores.view(bs, -1)
 
         return scores, factors
+
 
 @BaseModel.register(name='extended_bochner_pipeline_model')
 class ExtendedBochnerPipelineModel(BaseModel):
@@ -1535,12 +1562,17 @@ class ExtendedBochnerPipelineDropoutModel(BaseModel):
         scores = self._transformation(fused_spo_emb['s'], fused_spo_emb['p'], fused_spo_emb['o'], summation=False)
 
         if self._inverse_scorer:
-            scores_inv = self._transformation(fused_spo_emb_inv['s'], fused_spo_emb_inv['p'], fused_spo_emb_inv['o'], summation=False)
+            scores_inv = self._transformation(fused_spo_emb_inv['s'], fused_spo_emb_inv['p'], fused_spo_emb_inv['o'],
+                                              summation=False)
 
             scores = (scores + scores_inv) / 2
 
         scores = F.dropout(scores, p=self.config.get("model.fusion.p"), training=self.training)
-        scores = torch.sum(scores, dim=1)
+        if self.config.get('model.transformation.type') == 'translation_tf':
+            scores = self.config.get('model.transformation.gamma') - torch.norm(scores, p=self.config.get(
+                'model.transformation.p'), dim=1)
+        else:
+            scores = torch.sum(scores, dim=1)
 
         factors = {"entity_reg": list(self._entity_embeddings.parameters()),
                    "relation_reg": list(self._relation_embeddings.parameters())
@@ -1563,7 +1595,7 @@ class ExtendedBochnerPipelineDropoutModel(BaseModel):
         return fused_spo_emb
 
     def predict(self, queries: torch.Tensor):
-        self.training=False
+        self.training = False
         assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
 
         bs = queries.size(0)
@@ -1577,7 +1609,7 @@ class ExtendedBochnerPipelineDropoutModel(BaseModel):
         return scores
 
     def fit(self, samples: torch.Tensor):
-        self.training=True
+        self.training = True
         bs = samples.size(0)
         dim = samples.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
 
@@ -1587,6 +1619,7 @@ class ExtendedBochnerPipelineDropoutModel(BaseModel):
         scores = scores.view(bs, -1)
 
         return scores, factors
+
 
 if __name__ == '__main__':
     print(BaseModel.list_available())
