@@ -138,12 +138,12 @@ train:
 
   regularizer:
     entity_reg:
-      type: lambda3_regularize
-      weight: 0.01
+      type: none_regularize
+      weight: 0.0
       args: ~
     relation_reg:
-      type: lambda3_regularize
-      weight: 0.01
+      type: none_regularize
+      weight: 0.0
       args: ~
     temporal_reg:
       type: n3_regularize
@@ -186,22 +186,22 @@ hpo:
 #      type: choice
 #      values: ['xavier_uniform', 'xavier_normal']
 #      value_type: str
-    - name: train.regularizer.entity_reg.type
-      type: choice
-      values: ['f2_regularize', 'lambda3_regularize']
-      value_type: str
-    - name: train.regularizer.entity_reg.weight
-      type: range
-      bounds: [0.0, 0.1]
-      value_type: float
-    - name: train.regularizer.relation_reg.type
-      type: choice
-      values: ['f2_regularize', 'lambda3_regularize']
-      value_type: str
-    - name: train.regularizer.relation_reg.weight
-      type: range
-      bounds: [0.0, 0.1]
-      value_type: float
+#    - name: train.regularizer.entity_reg.type
+#      type: choice
+#      values: ['f2_regularize', 'lambda3_regularize']
+#      value_type: str
+#    - name: train.regularizer.entity_reg.weight
+#      type: range
+#      bounds: [0.0, 0.1]
+#      value_type: float
+#    - name: train.regularizer.relation_reg.type
+#      type: choice
+#      values: ['f2_regularize', 'lambda3_regularize']
+#      value_type: str
+#    - name: train.regularizer.relation_reg.weight
+#      type: range
+#      bounds: [0.0, 0.1]
+#      value_type: float
     - name: train.regularizer.temporal_reg.weight
       type: range
       bounds: [0.0, 0.1]
@@ -214,6 +214,13 @@ hpo:
       type: choice
       values: [0.0, 0.2, 0.4, 0.5, 0.6]
       value_type: float
-
+    - name: task.reciprocal_training
+      type: choice
+      values: [true, false]
+      value_type: bool
+    - name: train.loss.type
+      type: choice
+      values: ['binary_cross_entropy_loss', 'cross_entropy_loss']
+      value_type: str
 
 

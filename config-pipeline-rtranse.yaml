@@ -55,7 +55,7 @@ model:
 
   embedding:
     global:
-      dim: -1
+      dim: 160
       init: xavier_uniform
     entity:
       pos_aware: True
@@ -126,7 +126,7 @@ train:
 
   batch_size: 512
   subbatch_size: 64
-  subbatch_auto_tune: False
+  subbatch_adaptive: False
   optimizer:
     type: Adam
     args:
@@ -153,7 +153,7 @@ train:
 
   checkpoint:
     folder: /home/ubuntu/gengyuan/ckpt/
-    every: 10
+    every: 100
     keep: 3
 
   auto_correct: False

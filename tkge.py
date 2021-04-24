@@ -3,7 +3,7 @@ import os
 
 from tkge.task.task import Task
 from tkge.task.train_task import TrainTask
-from tkge.task.test_task import TestTask
+from tkge.task.eval_task import EvaluateTask
 from tkge.task.search_task import SearchTask
 from tkge.task.resume_task import ResumeTask
 from tkge.task.hpo_task import HPOTask
@@ -28,7 +28,7 @@ subparsers = parser.add_subparsers(title="task",
 
 # subparser train
 parser_train = TrainTask.parse_arguments(subparsers)
-parser_eval = TestTask.parse_arguments(subparsers)
+parser_eval = EvaluateTask.parse_arguments(subparsers)
 parser_hpo = HPOTask.parse_arguments(subparsers)
 parser_resume = ResumeTask.parse_arguments(subparsers)
 
@@ -36,13 +36,13 @@ args = parser.parse_args()
 
 task_dict = {
     'train': TrainTask,
-    'eval': TestTask,
+    'eval': EvaluateTask,
     'search': SearchTask,
     'resume': ResumeTask,
     'hpo': HPOTask
 }
 
-config_path = args.config if args.task != 'resume' else os.path.join(args.experiment, 'config.yaml')
+config_path = args.config if args.task not in  ['resume', 'eval'] else os.path.join(args.experiment, 'config.yaml')
 config = Config.create_from_yaml(config_path)  # TODO load_default is false
 
 # Initialize working folder
@@ -53,7 +53,7 @@ else:
 
 kwargs = {}
 
-if args.task == 'resume':
+if args.task in ['resume', 'eval']:
     kwargs.update({'ckpt_path': os.path.join(args.experiment, 'ckpt', args.ckpt_name)})
 task = task_dict[args.task](config, **kwargs)
 
