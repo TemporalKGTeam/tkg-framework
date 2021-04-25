@@ -61,3 +61,55 @@
   organization={JMLR. org}
 }
 ```
+
+## YAGO15k
+---
+
+**Source Description:** 
+**Reference:**
+```
+TODO https://www.mpi-inf.mpg.de/de/departments/databases-and-information-systems/research/yago-naga/yago/downloads
+```
+
+**Dataset Description:**<br>
+The YAGO15k dataset is a subset of the YAGO dataset that was created by
+
+1. selecting the subset of entities that are also present in the Wikilinks database
+2. that have at least 100 mentions in Freebase (for both entities and relations)
+3. where reverse relations are removed.
+
+The datasets have a public GitHub repository: [mmkb](https://github.com/nle-ml/mmkb)
+
+**Dataset reference:**
+```
+@article{garcia2018learning,
+  title={Learning sequence encoders for temporal knowledge graph completion},
+  author={Garc{\'\i}a-Dur{\'a}n, Alberto and Duman{\v{c}}i{\'c}, Sebastijan and Niepert, Mathias},
+  journal={arXiv preprint arXiv:1809.03202},
+  year={2018}
+}
+```
+
+
+## Wikidata
+---
+
+**Source Description:** 
+**Reference:**
+```
+TODO
+```
+
+**Dataset Description:**<br>
+TODO<br>
+The datasets have a public GitHub repository: [mmkb](https://github.com/nle-ml/mmkb)
+
+**Dataset reference:**
+```
+@article{garcia2018learning,
+  title={Learning sequence encoders for temporal knowledge graph completion},
+  author={Garc{\'\i}a-Dur{\'a}n, Alberto and Duman{\v{c}}i{\'c}, Sebastijan and Niepert, Mathias},
+  journal={arXiv preprint arXiv:1809.03202},
+  year={2018}
+}
+```
