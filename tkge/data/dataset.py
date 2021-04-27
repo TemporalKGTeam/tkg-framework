@@ -98,7 +98,7 @@ class DatasetProcessor(ABC, Registrable, Configurable):
                 for line in f.readlines():
                     self.train_raw.append(line)
 
-                    insert_line = line.split('\t')
+                    insert_line = line.strip().split('\t')
                     insert_line[1] += '(RECIPROCAL)'
                     insert_line[0], insert_line[2] = insert_line[2], insert_line[0]
                     insert_line = '\t'.join(insert_line)

@@ -52,7 +52,7 @@ model:
 
   embedding:
     global:
-      dim: 160
+      dim: 256
       init: xavier_uniform
 
     entity:
@@ -75,7 +75,7 @@ model:
     type: elementwise_product_fusion
     target:
       - 'rel+temp'
-    p: 0.4
+    p: 0.6
     args: ~
   transformation:
     type: distmult_tf
@@ -128,7 +128,7 @@ train:
   optimizer:
     type: Adam
     args:
-      lr: 0.001
+      lr: 0.008239056902672114
 
     default:
       type: Adam           # sgd, adagrad, adam
@@ -147,7 +147,7 @@ train:
       args: ~
     temporal_reg:
       type: n3_regularize
-      weight: 0.01
+      weight: 8.809280640010382e-05
       args: ~
   inplace_regularizer: ~
 
@@ -175,45 +175,56 @@ eval:
 
 hpo:
   num_workers: -1
-  num_trials: 60
-  num_random_trials: 20
+  num_trials: 40
+  num_random_trials: 18
   hyperparam:
-    - name: model.embedding.global.dim
+#    - name: model.embedding.global.dim
+#      type: choice
+#      values: [1024, 512, 256, 128, 64]
+#      value_type: int
+#    - name: model.embedding.global.init
+#      type: choice
+#      values: ['xavier_uniform', 'xavier_normal']
+#      value_type: str
+#    - name: train.regularizer.temporal_reg.weight
+#      type: range
+#      bounds: [0.0, 0.1]
+#      value_type: float
+#    - name: train.optimizer.args.lr
+#      type: range
+#      bounds: [0.0000001, 0.01]
+#      value_type: float
+#    - name: model.fusion.p
+#      type: choice
+#      values: [0.0, 0.2, 0.4, 0.5, 0.6]
+#      value_type: float
+
+    # phase 2
+
+    - name: train.regularizer.entity_reg.type
       type: choice
-      values: [1024, 512, 256, 128, 64]
-      value_type: int
-    - name: model.embedding.global.init
-      type: choice
-      values: ['xavier_uniform', 'xavier_normal']
+      values: ['f2_regularize', 'lambda3_regularize']
       value_type: str
-#    - name: train.regularizer.entity_reg.type
-#      type: choice
-#      values: ['none_regularize', 'f2_regularize', 'lambda3_regularize']
-#      value_type: str
-#    - name: train.regularizer.entity_reg.weight
-#      type: range
-#      bounds: [0.0, 0.1]
-#      value_type: float
-#    - name: train.regularizer.relation_reg.type
-#      type: choice
-#      values: ['none_regularize', 'f2_regularize', 'lambda3_regularize']
-#      value_type: str
-#    - name: train.regularizer.relation_reg.weight
-#      type: range
-#      bounds: [0.0, 0.1]
-#      value_type: float
-    - name: train.regularizer.temporal_reg.weight
+    - name: train.regularizer.entity_reg.weight
       type: range
       bounds: [0.0, 0.1]
       value_type: float
-    - name: train.optimizer.args.lr
-      type: range
-      bounds: [0.0000001, 0.01]
-      value_type: float
-    - name: model.fusion.p
+    - name: train.regularizer.relation_reg.type
       type: choice
-      values: [0.0, 0.2, 0.4, 0.5, 0.6]
+      values: ['f2_regularize', 'lambda3_regularize']
+      value_type: str
+    - name: train.regularizer.relation_reg.weight
+      type: range
+      bounds: [0.0, 0.1]
       value_type: float
+    - name: task.reciprocal_training
+      type: choice
+      values: [true, false]
+      value_type: bool
+    - name: train.loss.type
+      type: choice
+      values: ['binary_cross_entropy_loss', 'cross_entropy_loss']
+      value_type: str
 
 
 

@@ -324,7 +324,7 @@ class TestICEWS14DatasetProcessor(DatasetProcessor):
     #         return self.rel2id[rel]
 
 
-@DatasetProcessor.register(name="yago1830_tntcomplex")
+@DatasetProcessor.register(name="yago189")
 class YAGO1830DatasetProcessor(DatasetProcessor):
     def __init__(self, config: Config):
         super().__init__(config)
@@ -440,10 +440,10 @@ class YAGO1830DatasetProcessor(DatasetProcessor):
 
 
     def num_entities(self):
-        return 23033
+        return 23033 #10623
 
     def num_relations(self):
-        return 20
+        return 256
 
     def num_timestamps(self):
-        return 1015
+        return 7273 #189
