@@ -34,3 +34,15 @@ def get_all_days_of_year(years: int, format: str = "YYYY-MM-DD") -> List[str]:
         all_date_list.append(b)
 
     return all_date_list
+
+
+def get_all_ts_of_GDELTsubset(start_date: str = "2014-01-01 00", format: str = "YYYY-MM-DD HH") -> List[str]:
+    a = 0
+    all_timestamp_list = []
+    hours_sum = 32
+    while a < hours_sum:
+        b = arrow.get(start_date).shift(hours=a*3).format(format)
+        a += 1
+        all_timestamp_list.append(b)
+
+    return all_timestamp_list
