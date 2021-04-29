@@ -132,7 +132,6 @@ class PipelineModel(BaseModel):
         else:
             scores = torch.sum(scores, dim=1)
 
-
         if self.config.get('model.transformation.type') == 'translation_tf':
             scores = self.config.get('model.transformation.gamma') - scores
 
@@ -284,7 +283,6 @@ class TransSimpleModel(BaseModel):
 
             scores = (scores + scores_inv) / 2
 
-
         scores = F.dropout(scores, p=self.config.get("model.fusion.p"), training=self.training)
         if self.config.get('model.transformation.type') == 'translation_tf':
             scores = self.config.get('model.transformation.gamma') - torch.norm(scores, p=self.config.get(
@@ -298,6 +296,172 @@ class TransSimpleModel(BaseModel):
                    torch.sqrt(self._relation_embeddings._relation['real'].weight ** 2)),
             "lambda3": self._temporal_embeddings.get_weight('real')
         }
+
+        return scores, factors
+
+    def _fuse(self, spot_emb: Dict[str, Any], fuse_target: str):
+        fused_spo_emb = dict()
+        if 'ent+temp' in fuse_target:
+            fused_spo_emb['s'] = self._fusion(spot_emb['s'], spot_emb['t'])
+            fused_spo_emb['o'] = self._fusion(spot_emb['o'], spot_emb['t'])
+        else:
+            fused_spo_emb['s'] = spot_emb['s']
+            fused_spo_emb['o'] = spot_emb['o']
+        if 'rel+temp' in fuse_target:
+            fused_spo_emb['p'] = self._fusion(spot_emb['p'], spot_emb['t'])
+        else:
+            fused_spo_emb['p'] = spot_emb['p']
+        return fused_spo_emb
+
+    def predict(self, queries: torch.Tensor):
+        self.training = False
+        self.config.assert_true(torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent.")
+
+        bs = queries.size(0)
+        dim = queries.size(0)
+
+        candidates = all_candidates_of_ent_queries(queries, self.dataset.num_entities())
+
+        scores, _ = self.forward(candidates)
+        scores = scores.view(bs, -1)
+
+        return scores
+
+    def fit(self, samples: torch.Tensor):
+        self.training = True
+
+        bs = samples.size(0)
+        dim = samples.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
+
+        samples = samples.view(-1, dim)
+
+        scores, factor = self.forward(samples)
+        scores = scores.view(bs, -1)
+
+        return scores, factor
+
+
+@BaseModel.register(name='translation_transe_model')
+class TransSimpleModel(BaseModel):
+    def __init__(self, config: Config, dataset: DatasetProcessor):
+        super(TransSimpleModel, self).__init__(config=config, dataset=dataset)
+
+        # self._embedding_space: EmbeddingSpace = EmbeddingSpace.from_config(config)
+        self._entity_embeddings = EntityEmbedding(config=config, dataset=dataset)
+        self._relation_embeddings = RelationEmbedding(config=config, dataset=dataset)
+
+        if self.config.get('dataset.temporal.index'):
+            self._temporal_embeddings = TemporalEmbedding(config=config, dataset=dataset)
+
+        self._fusion: TemporalFusion = TemporalFusion.create_from_name(config)
+        self._transformation: Transformation = Transformation.create_from_name(config)
+
+        self._fusion_operand: List = []
+
+        self._inverse_scorer = self.config.get("model.scorer.inverse")
+
+
+        # import pprint
+        #
+        # pprint.pprint({n: p.size() for n, p in self.named_parameters()})
+        # assert False
+
+    @forward_checking
+    def forward(self, samples: torch.Tensor):
+        # check the shape of input samples
+
+        # get embeddings from embedding_space
+        # {'s': embeddings of head embeddings,
+        #  'p': embeddings of relation embeddings,
+        #  'o': embeddings of tail embeddings,
+        #  't': embeddings of temporal information}
+
+        # spot_emb: Dict[torch.Tensor] = self._embedding_space(samples)
+        head = samples[:, 0].long()
+        rel = samples[:, 1].long()
+        tail = samples[:, 2].long()
+
+        temp = {}
+
+        if self.config.get('dataset.temporal.index'):
+            temp_index = samples[:, -1]
+            temp.update(self._temporal_embeddings(temp_index.long()))
+
+        if self.config.get('dataset.temporal.float'):
+            temp_float = samples[:, 3:-1] if self.config.get('dataset.temporal.index') else samples[:, 3:]
+            for i in range(temp_float.size(1)):
+                temp.update({f"level{i}": temp_float[:, i:i + 1]})
+
+        spot_emb = {'s': self._entity_embeddings(head, 'head'),
+                    'p': self._relation_embeddings(rel, inverse_relation=False),
+                    'o': self._entity_embeddings(tail, 'tail'),
+                    't': temp}
+
+        if self._inverse_scorer:
+            spot_emb_inv = {'s': self._entity_embeddings(tail, 'head'),
+                            'p': self._relation_embeddings(rel, inverse_relation=True),
+                            'o': self._entity_embeddings(head, 'tail'),
+                            't': temp}
+
+        # fusion
+
+        # get encoded embeddings
+        # {'s': embeddings of head embeddings,
+        #  'p': embeddings of relation embeddings,
+        #  'o': embeddings of tail embeddings}
+
+        fuse_target: List = self.config.get('model.fusion.target')
+
+        fused_spo_emb = self._fuse(spot_emb, fuse_target)
+
+        if self._inverse_scorer:
+            fused_spo_emb_inv = self._fuse(spot_emb_inv, fuse_target)
+
+        # transformation
+        # scores are vectors of input sample size
+
+        # dropot
+        # fused_spo_emb['s']['real'] = self.dropout(fused_spo_emb['s']['real'])
+        # fused_spo_emb['p']['real'] = self.dropout(fused_spo_emb['p']['real'])
+        # fused_spo_emb['o']['real'] = self.dropout(fused_spo_emb['o']['real'])
+
+        scores = self._transformation(fused_spo_emb['s'], fused_spo_emb['p'], fused_spo_emb['o'], summation=False)
+
+        if self.training:
+            mask = torch.rand_like(scores) < (1 - self.config.get("model.fusion.p"))
+        else:
+            mask = torch.ones_like(scores)
+
+        scores = self.config.get('model.transformation.gamma') - torch.norm(scores * mask, p=self.config.get(
+            'model.transformation.p'), dim=1)
+
+        if self._inverse_scorer:
+            # fused_spo_emb_inv['s']['real'] = self.dropout(fused_spo_emb_inv['s']['real'])
+            # fused_spo_emb_inv['p']['real'] = self.dropout(fused_spo_emb_inv['p']['real'])
+            # fused_spo_emb_inv['o']['real'] = self.dropout(fused_spo_emb_inv['o']['real'])
+            scores_inv = self._transformation(fused_spo_emb_inv['s'], fused_spo_emb_inv['p'], fused_spo_emb_inv['o'],
+                                              summation=False)
+
+            scores_inv = self.config.get('model.transformation.gamma') - torch.norm(scores_inv * mask,
+                                                                                    p=self.config.get(
+                                                                                        'model.transformation.p'),
+                                                                                    dim=1)
+
+            scores = (scores + scores_inv) / 2
+
+        # scores = F.dropout(scores, p=self.config.get("model.fusion.p"), training=self.training)
+        # if self.config.get('model.transformation.type') == 'translation_tf':
+        #     scores = self.config.get('model.transformation.gamma') - torch.norm(scores, p=self.config.get(
+        #         'model.transformation.p'), dim=1)
+        # else:
+        #     scores = torch.sum(scores, dim=1)
+
+        factors = {"entity_reg": list(self._entity_embeddings.parameters()),
+                   "relation_reg": list(self._relation_embeddings.parameters())
+                   }
+
+        if hasattr(self, '_temporal_embeddings'):
+            factors.update({'temporal_reg': list(getattr(self, '_temporal_embeddings').parameters())})
 
         return scores, factors
 
