@@ -63,11 +63,12 @@ class Config:
 
         for f in os.listdir(self.log_folder):
             if re.match(r"\d{4}-\d{1,2}-\d{1,2}-\d{1,2}-\d{1,2}-\d{1,2}.log", f):
-                self.log_file = f
+                self.log_file = os.path.join(self.log_folder, f)
                 break
         else:
             self.start_time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
             self.log_file = os.path.join(self.log_folder, f"{self.start_time}.log")
+
         self.log_level = self.get("console.log_level")
         self.echo = self.get("console.echo")
 
