@@ -20,7 +20,7 @@ random_seed:
 
 dataset:
   # data folder includes train, val, test files
-  folder: /home/ubuntu/gengyuan/tkg-framework/data/icews18fore
+  folder: /home/ubuntu/gengyuan/tkg-framework/data/yago189
 
   # indexes mapping [false, true]
   # TODO 可以保存到cache

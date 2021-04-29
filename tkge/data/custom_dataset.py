@@ -440,10 +440,10 @@ class YAGO1830DatasetProcessor(DatasetProcessor):
 
 
     def num_entities(self):
-        return 23033 #10623
+        return 10623
 
     def num_relations(self):
-        return 256
+        return 10
 
     def num_timestamps(self):
-        return 7273 #189
+        return 189
