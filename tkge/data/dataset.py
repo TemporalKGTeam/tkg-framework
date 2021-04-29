@@ -10,6 +10,7 @@ from tkge.common.configurable import Configurable
 from tkge.common.config import Config
 from tkge.common.error import ConfigurationError
 from tkge.data.utils import get_all_days_of_year
+from tkge.data.utils import get_all_ts_of_GDELTsubset
 
 import enum
 import arrow
@@ -245,6 +246,100 @@ class GDELTDatasetProcessor(DatasetProcessor):
         ts = '-'.join(ts)
 
         return ts
+
+                        
+@DatasetProcessor.register(name="GDELT_subset")
+class GDELTmsDatasetProcessor(DatasetProcessor):
+    def __init__(self, config: Config):
+        super().__init__(config)
+
+    def process(self):
+        start_date = "2014-01-01 00"  # set the beginning timestamp of the GDELT dataset
+        all_timestamp = get_all_ts_of_GDELTsubset(start_date)
+        self.ts2id = {ts: ((arrow.get(ts) - arrow.get(start_date)).seconds // 10800 +
+                           (arrow.get(ts) - arrow.get(start_date)).days * 8) for ts in all_timestamp}
+        GDELT_subset = []
+        for rd in self.train_raw:
+            head, rel, tail, ts_id_15min, give_away = rd.strip().split('\t')
+            ts_id_15min = int(ts_id_15min)
+            id_in_all_timestamp = ts_id_15min // 180
+            if id_in_all_timestamp < 32:
+                ts_3h = all_timestamp[id_in_all_timestamp]
+                quadruples = '\t'.join([head, rel, tail, ts_3h])
+                GDELT_subset.append(quadruples)
+        random.shuffle(GDELT_subset)
+        len_subset = len(GDELT_subset) // 10
+        valid_subset = GDELT_subset[0:len_subset - 1]
+        train_subset = GDELT_subset[len_subset:9*len_subset - 1]
+        test_subset = GDELT_subset[9*len_subset:]
+
+        for rd in GDELT_subset:
+            head, rel, tail, ts = rd.strip().split('\t')
+            if head not in self.ent2id:
+                self.ent2id.update({head: self.num_entities()})
+            if tail not in self.ent2id:
+                self.ent2id.update({tail: self.num_entities()})
+            if rel not in self.rel2id:
+                self.rel2id.update({rel: self.num_relations()})
+
+        self.train_size = len(train_subset)
+        self.valid_size = len(valid_subset)
+        self.test_size = len(test_subset)
+        for rd in train_subset:
+            head, rel, tail, ts = rd.strip().split('\t')
+            head = int(head)
+            rel = int(rel)
+            tail = int(tail)
+            ts_id = self.index_timestamps(ts)
+            ts = self.process_time(ts)
+
+            self.train_set['triple'].append([head, rel, tail])
+            self.train_set['timestamp_id'].append([ts_id])
+            self.train_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+            self.all_triples.append([head, rel, tail])
+            self.all_quadruples.append([head, rel, tail, ts_id])
+
+        for rd in valid_subset:
+            head, rel, tail, ts = rd.strip().split('\t')
+            head = int(head)
+            rel = int(rel)
+            tail = int(tail)
+            ts_id = self.index_timestamps(ts)
+            ts = self.process_time(ts)
+
+            self.valid_set['triple'].append([head, rel, tail])
+            self.valid_set['timestamp_id'].append([ts_id])
+            self.valid_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+
+            self.all_triples.append([head, rel, tail])
+            self.all_quadruples.append([head, rel, tail, ts_id])
+
+        for rd in test_subset:
+            head, rel, tail, ts = rd.strip().split('\t')
+            head = int(head)
+            rel = int(rel)
+            tail = int(tail)
+            ts_id = self.index_timestamps(ts)
+            ts = self.process_time(ts)
+
+            self.test_set['triple'].append([head, rel, tail])
+            self.test_set['timestamp_id'].append([ts_id])
+            self.test_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+
+            self.all_triples.append([head, rel, tail])
+            self.all_quadruples.append([head, rel, tail, ts_id])
+
+    def process_time(self, origin: str):
+        all_resolutions = ['year', 'month', 'day', 'hour', 'minute', 'second']
+        self.config.assert_true(self.resolution in all_resolutions, f"Time granularity should be {all_resolutions}")
+
+        ts = origin.split('-') + ['00', '00', '00']
+        ts[2:4] = ts[2].split(' ')
+        ts = ts[:all_resolutions.index(self.resolution) + 1]
+        ts = '-'.join(ts)
+
+        return ts
+
 
 
 @DatasetProcessor.register(name="icews14")
