@@ -49,9 +49,7 @@ negative_sampling:
 
 
 model:
-  type: atise_pipeline_model
-
-  p: 0.4
+  type: atise_pipeline_dropout_model
 
   embedding:
     global:
@@ -79,34 +77,32 @@ model:
         var:
           dim: 160
           init: xavier_uniform
-
     relation:
       keys:
         emb:
           dim: 160
           init: xavier_uniform
-        emb_T:
-          dim: 160
-          init: xavier_uniform
-        alpha:
-          dim: 1
-          init: xavier_uniform
-        beta:
-          dim: 160
-          init: xavier_uniform
-        omega:
-          dim: 160
-          init: xavier_uniform
-        var:
-          dim: 160
-          init: xavier_uniform
+          emb_T:
+            dim: 160
+            init: xavier_uniform
+          alpha:
+            dim: 1
+            init: xavier_uniform
+          beta:
+            dim: 160
+            init: xavier_uniform
+          omega:
+            dim: 160
+            init: xavier_uniform
+          var:
+            dim: 160
+            init: xavier_uniform
     temporal: ~
   fusion:
     type: atise_fusion
     target:
       - 'ent+temp'
       - 'rel+temp'
-    l1_flag: True
     p: 0.4
     args: ~
   transformation:
@@ -131,8 +127,7 @@ train:
     type: binary_cross_entropy_loss
     args: ~
 
-  max_epochs: 15
-
+  max_epochs: 100
 
   loader:
     num_workers: 0
@@ -143,15 +138,21 @@ train:
   valid:
     split: test # in [test or valid]
     every: 5
-    batch_size: 8
+    batch_size: 512
     subbatch_size: -1
     filter: time-aware  # in [off, static, time-aware]
     ordering: optimistic    # in [optimistic, peesimistic]
     k: [1, 3, 10]
 
+    early_stopping:
+      early_stop: True
+      patience: 30
+      epochs: 50
+      metric_thresh: 0.2
+
   batch_size: 512
-  subbatch_size: 64
-  subbatch_auto_tune: False
+  subbatch_size: -1
+  subbatch_adaptive: True
   optimizer:
     type: Adam
     args:
@@ -165,16 +166,12 @@ train:
 
   regularizer:
     entity_reg:
-      type: f2_regularize
-      weight: 0.01
+      type: none_regularize
+      weight: 0.0
       args: ~
     relation_reg:
-      type: f2_regularize
-      weight: 0.01
-      args: ~
-    temporal_reg:
-      type: n3_regularize
-      weight: 0.01
+      type: none_regularize
+      weight: 0.0
       args: ~
   inplace_regularizer: ~
 
@@ -186,7 +183,7 @@ train:
   trace_level: epoch           # batch, epoch
 
   checkpoint:
-    every: 5
+    every: 100
     keep: 3
 
   auto_correct: False
@@ -202,19 +199,32 @@ eval:
 
 hpo:
   num_workers: -1
-  num_trials: 30
+  num_trials: 80
+  num_random_trials: 30
   hyperparam:
     - name: model.embedding.global.dim
       type: choice
-      values: [2048, 1024, 512, 256, 128]
+      values: [1024, 512, 256, 128, 100, 64]
       value_type: int
-    - name: model.embedding.global.init
+    - name: train.optimizer.args.lr
+      type: range
+      bounds: [0.0000001, 0.01]
+      value_type: float
+    - name: model.fusion.p
       type: choice
-      values: ['xavier_uniform', 'xavier_normal']
+      values: [0.0, 0.2, 0.4, 0.5, 0.6]
+      value_type: float
+    - name: task.reciprocal_training
+      type: choice
+      values: [true, false]
+      value_type: bool
+    - name: train.loss.type
+      type: choice
+      values: ['binary_cross_entropy_loss', 'cross_entropy_loss']
       value_type: str
     - name: train.regularizer.entity_reg.type
       type: choice
-      values: ['none_regularize', 'f2_regularize']
+      values: ['n3_regularize', 'f2_regularize']
       value_type: str
     - name: train.regularizer.entity_reg.weight
       type: range
@@ -222,27 +232,11 @@ hpo:
       value_type: float
     - name: train.regularizer.relation_reg.type
       type: choice
-      values: ['none_regularize', 'f2_regularize']
+      values: ['n3_regularize', 'f2_regularize']
       value_type: str
     - name: train.regularizer.relation_reg.weight
       type: range
       bounds: [0.0, 0.1]
-      value_type: float
-    - name: train.regularizer.temporal_reg.weight
-      type: range
-      bounds: [0.0, 0.1]
-      value_type: float
-    - name: train.batch_size
-      type: choice
-      values: [256, 512, 1024]
-      value_type: int
-    - name: train.optimizer.args.lr
-      type: range
-      bounds: [0.0000001, 0.01]
-      value_type: float
-    - name: model.fusion.se
-      type: range
-      bounds: [0.0, 1.0]
       value_type: float
 
 
