@@ -21,7 +21,7 @@ random_seed:
 
 # local
 dataset:
-  folder: /home/ubuntu/gengyuan/tkg-framework/data/icews14
+  folder: /home/ubuntu/gengyuan/tkg-framework/data/icews11-14
 
   # indexes mapping [false, true]
   # TODO 可以保存到cache
@@ -29,12 +29,11 @@ dataset:
   filter: False
   temporal:
     resolution: "day"
-    index: False
-    float: True
-    gran: 3
+    index: True
+    float: False
   args: ~
 
-  name: 'icews14_atise'
+  name: 'icews11-14'
   num_entities: -1
   num_relations: -1
   pickle: True
@@ -49,59 +48,32 @@ negative_sampling:
 
 
 model:
-  type: atise_pipeline_dropout_model
+  type: translation_transe_model
 
   embedding:
     global:
-      dim: 160
+      dim: 128
       init: xavier_uniform
 
     entity:
       pos_aware: True
       keys:
-        emb:
-          dim: 160
-          init: xavier_uniform
-        emb_T:
-          dim: 160
-          init: xavier_uniform
-        alpha:
-          dim: 1
-          init: xavier_uniform
-        beta:
-          dim: 160
-          init: xavier_uniform
-        omega:
-          dim: 160
-          init: xavier_uniform
-        var:
+        real:
           dim: 160
           init: xavier_uniform
     relation:
       keys:
-        emb:
+        real:
           dim: 160
           init: xavier_uniform
-          emb_T:
-            dim: 160
-            init: xavier_uniform
-          alpha:
-            dim: 1
-            init: xavier_uniform
-          beta:
-            dim: 160
-            init: xavier_uniform
-          omega:
-            dim: 160
-            init: xavier_uniform
-          var:
-            dim: 160
-            init: xavier_uniform
-    temporal: ~
+    temporal:
+      keys:
+        real:
+          dim: 160
+          init: xavier_uniform
   fusion:
-    type: atise_fusion
+    type: addition_fusion
     target:
-      - 'ent+temp'
       - 'rel+temp'
     p: 0.4
     args: ~
@@ -124,7 +96,7 @@ train:
   type: negative_sampling
 
   loss:
-    type: binary_cross_entropy_loss
+    type: cross_entropy_loss
     args: ~
 
   max_epochs: 100
@@ -156,7 +128,7 @@ train:
   optimizer:
     type: Adam
     args:
-      lr: 0.001
+      lr: 0.00113831256758030
 
     default:
       type: Adam           # sgd, adagrad, adam
@@ -172,6 +144,10 @@ train:
     relation_reg:
       type: none_regularize
       weight: 0.0
+      args: ~
+    temporal_reg:
+      type: n3_regularize
+      weight: 0.08560389643535019
       args: ~
   inplace_regularizer: ~
 
@@ -199,13 +175,17 @@ eval:
 
 hpo:
   num_workers: -1
-  num_trials: 80
-  num_random_trials: 30
+  num_trials: 40
+  num_random_trials: 20
   hyperparam:
     - name: model.embedding.global.dim
       type: choice
-      values: [1024, 512, 256, 128, 100, 64]
+      values: [512, 256, 128, 100, 64]
       value_type: int
+    - name: train.regularizer.temporal_reg.weight
+      type: range
+      bounds: [0.0, 0.1]
+      value_type: float
     - name: train.optimizer.args.lr
       type: range
       bounds: [0.0000001, 0.01]
@@ -222,9 +202,15 @@ hpo:
       type: choice
       values: ['binary_cross_entropy_loss', 'cross_entropy_loss']
       value_type: str
+
+    # phase2
+#    - name: model.embedding.global.init
+#      type: choice
+#      values: ['xavier_uniform', 'xavier_normal']
+#      value_type: str
 #    - name: train.regularizer.entity_reg.type
 #      type: choice
-#      values: ['n3_regularize', 'f2_regularize']
+#      values: ['f2_regularize', 'lambda3_regularize']
 #      value_type: str
 #    - name: train.regularizer.entity_reg.weight
 #      type: range
@@ -232,12 +218,11 @@ hpo:
 #      value_type: float
 #    - name: train.regularizer.relation_reg.type
 #      type: choice
-#      values: ['n3_regularize', 'f2_regularize']
+#      values: ['f2_regularize', 'lambda3_regularize']
 #      value_type: str
 #    - name: train.regularizer.relation_reg.weight
 #      type: range
 #      bounds: [0.0, 0.1]
 #      value_type: float
-
 
 

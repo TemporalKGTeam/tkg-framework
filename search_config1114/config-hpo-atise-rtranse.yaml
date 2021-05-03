@@ -222,22 +222,22 @@ hpo:
       type: choice
       values: ['binary_cross_entropy_loss', 'cross_entropy_loss']
       value_type: str
-#    - name: train.regularizer.entity_reg.type
-#      type: choice
-#      values: ['n3_regularize', 'f2_regularize']
-#      value_type: str
-#    - name: train.regularizer.entity_reg.weight
-#      type: range
-#      bounds: [0.0, 0.1]
-#      value_type: float
-#    - name: train.regularizer.relation_reg.type
-#      type: choice
-#      values: ['n3_regularize', 'f2_regularize']
-#      value_type: str
-#    - name: train.regularizer.relation_reg.weight
-#      type: range
-#      bounds: [0.0, 0.1]
-#      value_type: float
+    - name: train.regularizer.entity_reg.type
+      type: choice
+      values: ['n3_regularize', 'f2_regularize']
+      value_type: str
+    - name: train.regularizer.entity_reg.weight
+      type: range
+      bounds: [0.0, 0.1]
+      value_type: float
+    - name: train.regularizer.relation_reg.type
+      type: choice
+      values: ['n3_regularize', 'f2_regularize']
+      value_type: str
+    - name: train.regularizer.relation_reg.weight
+      type: range
+      bounds: [0.0, 0.1]
+      value_type: float
 
 
 

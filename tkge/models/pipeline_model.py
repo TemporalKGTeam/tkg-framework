@@ -1238,7 +1238,7 @@ class ATiSEPipelineDropoutModel(BaseModel):
         else:
             mask = torch.ones_like(scores)
 
-        if self.config.get('model.fusion.type') == 'translation_tf':
+        if self.config.get('model.transformation.type') == 'translation_tf':
             scores = self.config.get('model.transformation.gamma') - torch.norm(scores * mask, p=self.config.get(
                 'model.transformation.p'), dim=1)
 
@@ -1283,6 +1283,7 @@ class ATiSEPipelineDropoutModel(BaseModel):
         return fused_spo_emb
 
     def predict(self, queries: torch.Tensor):
+        self.training = False
         assert torch.isnan(queries).sum(1).byte().all(), "Either head or tail should be absent."
 
         bs = queries.size(0)
@@ -1296,6 +1297,7 @@ class ATiSEPipelineDropoutModel(BaseModel):
         return scores
 
     def fit(self, samples: torch.Tensor):
+        self.training = True
         bs = samples.size(0)
         dim = samples.size(1) // (1 + self.config.get("negative_sampling.num_samples"))
 

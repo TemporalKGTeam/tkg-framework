@@ -59,7 +59,7 @@ class DatasetProcessor(ABC, Registrable, Configurable):
 
         if ds_type in DatasetProcessor.list_available():
             kwargs = config.get("dataset.args")  # TODO: 需要改成key的格式
-            return DatasetProcessor.by_name(ds_type)(config) # return an instance
+            return DatasetProcessor.by_name(ds_type)(config)  # return an instance
         else:
             raise ConfigurationError(
                 f"{ds_type} specified in configuration file is not supported"
@@ -147,9 +147,11 @@ class DatasetProcessor(ABC, Registrable, Configurable):
         (if specified type is static respectively time-aware) and adds each answer as the last element.
         """
         self.config.assert_true(type in ["static",
-                        "time-aware",
-                        "off"], f"{type} filtering is not implemented; use static/time-aware/off filtering.")
-        self.config.assert_true(target in ["s", "p", "o"], "Only support s(ubject)/p(redicate)/o(bject) prediction task")
+                                         "time-aware",
+                                         "off"],
+                                f"{type} filtering is not implemented; use static/time-aware/off filtering.")
+        self.config.assert_true(target in ["s", "p", "o"],
+                                "Only support s(ubject)/p(redicate)/o(bject) prediction task")
 
         filtered_data = defaultdict(list)
 
@@ -252,6 +254,71 @@ class ICEWS14DatasetProcessor(DatasetProcessor):
     def process(self):
         all_timestamp = get_all_days_of_year(2014)
         self.ts2id = {ts: (arrow.get(ts) - arrow.get('2014-01-01')).days for ts in all_timestamp}
+
+        for rd in self.train_raw:
+            head, rel, tail, ts = rd.strip().split('\t')
+            head = self.index_entities(head)
+            rel = self.index_relations(rel)
+            tail = self.index_entities(tail)
+            ts = self.process_time(ts)
+            ts_id = self.index_timestamps(ts)
+
+            self.train_set['triple'].append([head, rel, tail])
+            self.train_set['timestamp_id'].append([ts_id])
+            self.train_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+
+            self.all_triples.append([head, rel, tail])
+            self.all_quadruples.append([head, rel, tail, ts_id])
+
+        for rd in self.valid_raw:
+            head, rel, tail, ts = rd.strip().split('\t')
+            head = self.index_entities(head)
+            rel = self.index_relations(rel)
+            tail = self.index_entities(tail)
+            ts = self.process_time(ts)
+            ts_id = self.index_timestamps(ts)
+
+            self.valid_set['triple'].append([head, rel, tail])
+            self.valid_set['timestamp_id'].append([ts_id])
+            self.valid_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+
+            self.all_triples.append([head, rel, tail])
+            self.all_quadruples.append([head, rel, tail, ts_id])
+
+        for rd in self.test_raw:
+            head, rel, tail, ts = rd.strip().split('\t')
+            head = self.index_entities(head)
+            rel = self.index_relations(rel)
+            tail = self.index_entities(tail)
+            ts = self.process_time(ts)
+            ts_id = self.index_timestamps(ts)
+
+            self.test_set['triple'].append([head, rel, tail])
+            self.test_set['timestamp_id'].append([ts_id])
+            self.test_set['timestamp_float'].append(list(map(lambda x: int(x), ts.split('-'))))
+
+            self.all_triples.append([head, rel, tail])
+            self.all_quadruples.append([head, rel, tail, ts_id])
+
+    def process_time(self, origin: str):
+        all_resolutions = ['year', 'month', 'day', 'hour', 'minute', 'second']
+        self.config.assert_true(self.resolution in all_resolutions, f"Time granularity should be {all_resolutions}")
+
+        ts = origin.split('-') + ['00', '00', '00']
+        ts = ts[:all_resolutions.index(self.resolution) + 1]
+        ts = '-'.join(ts)
+
+        return ts
+
+
+@DatasetProcessor.register(name="icews11-14")
+class ICEWS1114DatasetProcessor(DatasetProcessor):
+    def process(self):
+        all_timestamp = get_all_days_of_year(2011) + \
+                        get_all_days_of_year(2012) + \
+                        get_all_days_of_year(2013) + \
+                        get_all_days_of_year(2014)
+        self.ts2id = {ts: (arrow.get(ts) - arrow.get('2011-01-01')).days for ts in all_timestamp}
 
         for rd in self.train_raw:
             head, rel, tail, ts = rd.strip().split('\t')

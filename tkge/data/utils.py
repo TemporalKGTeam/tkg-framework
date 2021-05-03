@@ -34,3 +34,6 @@ def get_all_days_of_year(years: int, format: str = "YYYY-MM-DD") -> List[str]:
         all_date_list.append(b)
 
     return all_date_list
+
+if __name__ == '__main__':
+    print(get_all_days_of_year(2011))
