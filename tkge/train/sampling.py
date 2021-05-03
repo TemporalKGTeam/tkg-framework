@@ -94,7 +94,10 @@ class PseudoNegativeSampling(NegativeSampler):
         self.num_samples = 0
 
     def _sample(self, pos_batch: torch.Tensor, as_matrix: bool, sample_target: str):
-        return pos_batch.repeat(2, 1)
+        if sample_target == "head" or sample_target == "tail":
+            return pos_batch
+        else:
+            return pos_batch.repeat(2, 1)
 
     def _label(self, pos_batch: torch.Tensor, as_matrix: bool, sample_target: str):
         if sample_target == "head":
